@@ -1,8 +1,8 @@
 <?php
 /**
- * Admin UI functionality for Monthly Booking plugin
+ * Admin UI functionality for Monthly Room Booking plugin
  * 
- * @package MonthlyBooking
+ * @package MonthlyRoomBooking
  */
 
 if (!defined('ABSPATH')) {
@@ -22,49 +22,67 @@ class MonthlyBooking_Admin_UI {
      */
     public function add_admin_menu() {
         add_menu_page(
-            __('Monthly Booking', 'monthly-booking'),           // Page title
-            __('Monthly Booking', 'monthly-booking'),           // Menu title
+            __('Monthly Room Booking', 'monthly-booking'),      // Page title
+            __('Monthly Room Booking', 'monthly-booking'),      // Menu title
             'manage_options',                                   // Capability
-            'monthly-booking',                                  // Menu slug
-            array($this, 'admin_page_bookings'),               // Callback function
-            'dashicons-calendar-alt',                           // Icon
+            'monthly-room-booking',                             // Menu slug
+            array($this, 'admin_page_property_management'),     // Callback function
+            'dashicons-building',                               // Icon
             30                                                  // Position
         );
         
         add_submenu_page(
-            'monthly-booking',                                  // Parent slug
-            __('All Bookings', 'monthly-booking'),             // Page title
-            __('All Bookings', 'monthly-booking'),             // Menu title
+            'monthly-room-booking',                             // Parent slug
+            __('物件管理', 'monthly-booking'),                   // Page title
+            __('物件管理', 'monthly-booking'),                   // Menu title
             'manage_options',                                   // Capability
-            'monthly-booking',                                  // Menu slug (same as parent for first submenu)
-            array($this, 'admin_page_bookings')                // Callback function
+            'monthly-room-booking',                             // Menu slug (same as parent for first submenu)
+            array($this, 'admin_page_property_management')      // Callback function
         );
         
         add_submenu_page(
-            'monthly-booking',
-            __('Calendar View', 'monthly-booking'),
-            __('Calendar View', 'monthly-booking'),
+            'monthly-room-booking',
+            __('予約カレンダー', 'monthly-booking'),
+            __('予約カレンダー', 'monthly-booking'),
             'manage_options',
-            'monthly-booking-calendar',
-            array($this, 'admin_page_calendar')
+            'monthly-room-booking-calendar',
+            array($this, 'admin_page_booking_calendar')
         );
         
         add_submenu_page(
-            'monthly-booking',
-            __('Campaigns', 'monthly-booking'),
-            __('Campaigns', 'monthly-booking'),
+            'monthly-room-booking',
+            __('予約登録', 'monthly-booking'),
+            __('予約登録', 'monthly-booking'),
             'manage_options',
-            'monthly-booking-campaigns',
-            array($this, 'admin_page_campaigns')
+            'monthly-room-booking-registration',
+            array($this, 'admin_page_booking_registration')
         );
         
         add_submenu_page(
-            'monthly-booking',
-            __('Settings', 'monthly-booking'),
-            __('Settings', 'monthly-booking'),
+            'monthly-room-booking',
+            __('売上サマリー', 'monthly-booking'),
+            __('売上サマリー', 'monthly-booking'),
             'manage_options',
-            'monthly-booking-settings',
-            array($this, 'admin_page_settings')
+            'monthly-room-booking-sales',
+            array($this, 'admin_page_sales_summary')
+        );
+        
+        add_submenu_page(
+            'monthly-room-booking',
+            __('キャンペーン設定', 'monthly-booking'),
+            __('キャンペーン設定', 'monthly-booking'),
+            'manage_options',
+            'monthly-room-booking-campaigns',
+            array($this, 'admin_page_campaign_settings')
+        );
+        
+        add_submenu_page(
+            'monthly-room-booking',
+            __('プラグイン設定', 'monthly-booking'),
+            __('プラグイン設定', 'monthly-booking'),
+            'manage_options',
+            'monthly-room-booking-settings',
+            array($this, 'admin_page_plugin_settings')
         );
     }
     
@@ -123,9 +141,9 @@ class MonthlyBooking_Admin_UI {
     }
     
     /**
-     * Admin page: All Bookings
+     * Admin page: 物件管理 (Property Management)
      */
-    public function admin_page_bookings() {
+    public function admin_page_property_management() {
         if (!current_user_can('manage_options')) {
             wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }
@@ -135,34 +153,21 @@ class MonthlyBooking_Admin_UI {
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
             
             <div class="monthly-booking-admin-content">
-                <h2><?php _e('Recent Bookings', 'monthly-booking'); ?></h2>
+                <h2><?php _e('物件管理', 'monthly-booking'); ?></h2>
+                <p><?php _e('物件の登録・編集・削除機能をここに実装します。', 'monthly-booking'); ?></p>
                 
-                <table class="wp-list-table widefat fixed striped">
-                    <thead>
-                        <tr>
-                            <th><?php _e('ID', 'monthly-booking'); ?></th>
-                            <th><?php _e('Guest Name', 'monthly-booking'); ?></th>
-                            <th><?php _e('Email', 'monthly-booking'); ?></th>
-                            <th><?php _e('Start Date', 'monthly-booking'); ?></th>
-                            <th><?php _e('End Date', 'monthly-booking'); ?></th>
-                            <th><?php _e('Total Price', 'monthly-booking'); ?></th>
-                            <th><?php _e('Status', 'monthly-booking'); ?></th>
-                            <th><?php _e('Actions', 'monthly-booking'); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php $this->display_bookings_table(); ?>
-                    </tbody>
-                </table>
+                <div class="notice notice-info">
+                    <p><?php _e('機能実装予定: 物件一覧表示、物件詳細編集、新規物件登録', 'monthly-booking'); ?></p>
+                </div>
             </div>
         </div>
         <?php
     }
     
     /**
-     * Admin page: Calendar View
+     * Admin page: 予約カレンダー (Booking Calendar)
      */
-    public function admin_page_calendar() {
+    public function admin_page_booking_calendar() {
         if (!current_user_can('manage_options')) {
             wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }
@@ -172,17 +177,21 @@ class MonthlyBooking_Admin_UI {
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
             
             <div class="monthly-booking-admin-content">
-                <h2><?php _e('Booking Calendar', 'monthly-booking'); ?></h2>
-                <p><?php _e('Calendar view will be implemented here.', 'monthly-booking'); ?></p>
+                <h2><?php _e('予約カレンダー', 'monthly-booking'); ?></h2>
+                <p><?php _e('月別予約状況をカレンダー形式で表示します。', 'monthly-booking'); ?></p>
+                
+                <div class="notice notice-info">
+                    <p><?php _e('機能実装予定: 月別カレンダー表示、予約状況確認、空室状況表示', 'monthly-booking'); ?></p>
+                </div>
             </div>
         </div>
         <?php
     }
     
     /**
-     * Admin page: Campaigns
+     * Admin page: 予約登録 (Booking Registration)
      */
-    public function admin_page_campaigns() {
+    public function admin_page_booking_registration() {
         if (!current_user_can('manage_options')) {
             wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }
@@ -192,17 +201,69 @@ class MonthlyBooking_Admin_UI {
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
             
             <div class="monthly-booking-admin-content">
-                <h2><?php _e('Campaign Management', 'monthly-booking'); ?></h2>
-                <p><?php _e('Campaign management interface will be implemented here.', 'monthly-booking'); ?></p>
+                <h2><?php _e('予約登録', 'monthly-booking'); ?></h2>
+                <p><?php _e('新規予約の登録・既存予約の編集を行います。', 'monthly-booking'); ?></p>
+                
+                <div class="notice notice-info">
+                    <p><?php _e('機能実装予定: 予約フォーム、ゲスト情報入力、料金計算、予約確認', 'monthly-booking'); ?></p>
+                </div>
             </div>
         </div>
         <?php
     }
     
     /**
-     * Admin page: Settings
+     * Admin page: 売上サマリー (Sales Summary)
      */
-    public function admin_page_settings() {
+    public function admin_page_sales_summary() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
+        }
+        
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+            
+            <div class="monthly-booking-admin-content">
+                <h2><?php _e('売上サマリー', 'monthly-booking'); ?></h2>
+                <p><?php _e('月別・年別の売上統計とレポートを表示します。', 'monthly-booking'); ?></p>
+                
+                <div class="notice notice-info">
+                    <p><?php _e('機能実装予定: 売上グラフ、月別統計、年別比較、収益分析', 'monthly-booking'); ?></p>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Admin page: キャンペーン設定 (Campaign Settings)
+     */
+    public function admin_page_campaign_settings() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
+        }
+        
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+            
+            <div class="monthly-booking-admin-content">
+                <h2><?php _e('キャンペーン設定', 'monthly-booking'); ?></h2>
+                <p><?php _e('割引キャンペーンの作成・管理を行います。', 'monthly-booking'); ?></p>
+                
+                <div class="notice notice-info">
+                    <p><?php _e('機能実装予定: キャンペーン一覧、新規作成、期間設定、割引率設定', 'monthly-booking'); ?></p>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Admin page: プラグイン設定 (Plugin Settings)
+     */
+    public function admin_page_plugin_settings() {
         if (!current_user_can('manage_options')) {
             wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }

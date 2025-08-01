@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: Monthly Booking
+ * Plugin Name: Monthly Room Booking
  * Plugin URI: https://github.com/yoshaaa888/monthly-booking
- * Description: A WordPress plugin for managing monthly property bookings with calendar display, pricing logic, and campaign management.
+ * Description: A WordPress plugin for managing monthly room bookings with property management, calendar display, pricing logic, and campaign management.
  * Version: 1.0.0
  * Author: Yoshi
  * License: GPL v2 or later
