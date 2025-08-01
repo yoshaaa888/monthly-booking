@@ -14,6 +14,8 @@ class MonthlyBooking_Booking_Logic {
     public function __construct() {
         add_action('wp_ajax_calculate_booking_price', array($this, 'ajax_calculate_price'));
         add_action('wp_ajax_nopriv_calculate_booking_price', array($this, 'ajax_calculate_price'));
+        add_action('wp_ajax_calculate_estimate', array($this, 'ajax_calculate_estimate'));
+        add_action('wp_ajax_nopriv_calculate_estimate', array($this, 'ajax_calculate_estimate'));
         add_action('wp_ajax_submit_booking', array($this, 'ajax_submit_booking'));
         add_action('wp_ajax_nopriv_submit_booking', array($this, 'ajax_submit_booking'));
     }
@@ -216,5 +218,202 @@ class MonthlyBooking_Booking_Logic {
         );
         
         return $result ? $wpdb->insert_id : false;
+    }
+    
+    /**
+     * Calculate estimate via AJAX
+     */
+    public function ajax_calculate_estimate() {
+        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        
+        $plan = sanitize_text_field($_POST['plan']);
+        $move_in_date = sanitize_text_field($_POST['move_in_date']);
+        $stay_months = intval($_POST['stay_months']);
+        $guest_name = sanitize_text_field($_POST['guest_name']);
+        $company_name = sanitize_text_field($_POST['company_name']);
+        $guest_email = sanitize_email($_POST['guest_email']);
+        
+        if (empty($plan) || empty($move_in_date) || empty($stay_months)) {
+            wp_send_json_error(__('Please fill in all required fields.', 'monthly-booking'));
+        }
+        
+        if (empty($guest_name) || empty($guest_email)) {
+            wp_send_json_error(__('Name and email are required.', 'monthly-booking'));
+        }
+        
+        if (!is_email($guest_email)) {
+            wp_send_json_error(__('Please enter a valid email address.', 'monthly-booking'));
+        }
+        
+        $estimate_data = $this->calculate_plan_estimate($plan, $move_in_date, $stay_months);
+        
+        $estimate_data['guest_info'] = array(
+            'name' => $guest_name,
+            'company' => $company_name,
+            'email' => $guest_email
+        );
+        
+        wp_send_json_success($estimate_data);
+    }
+    
+    /**
+     * Calculate estimate based on plan and duration
+     */
+    public function calculate_plan_estimate($plan, $move_in_date, $stay_months) {
+        global $wpdb;
+        
+        $plan_prices = $this->get_plan_pricing($plan);
+        
+        $start_date = new DateTime($move_in_date);
+        $end_date = clone $start_date;
+        $end_date->modify("+{$stay_months} months");
+        
+        $daily_rent = $plan_prices['base_price'];
+        $daily_utilities = $plan_prices['service_fee'];
+        $cleaning_fee = $plan_prices['cleaning_fee'];
+        $key_fee = $plan_prices['key_fee'];
+        $bedding_fee = $plan_prices['bedding_fee'];
+        $tax_rate = $plan_prices['tax_rate'];
+        
+        $stay_days = $stay_months * 30;
+        
+        $total_rent = $daily_rent * $stay_days;
+        $total_utilities = $daily_utilities * $stay_days;
+        $initial_costs = $cleaning_fee + $key_fee + $bedding_fee;
+        
+        $subtotal = $total_rent + $total_utilities + $initial_costs;
+        $tax_amount = $subtotal * ($tax_rate / 100);
+        $subtotal_with_tax = $subtotal + $tax_amount;
+        
+        $campaign_data = $this->calculate_estimate_campaign_discount($move_in_date, $end_date->format('Y-m-d'), $subtotal_with_tax);
+        
+        $final_total = $subtotal_with_tax - $campaign_data['discount_amount'];
+        
+        return array(
+            'plan' => $plan,
+            'plan_name' => $this->get_plan_name($plan),
+            'move_in_date' => $move_in_date,
+            'stay_months' => $stay_months,
+            'stay_days' => $stay_days,
+            'end_date' => $end_date->format('Y-m-d'),
+            'daily_rent' => $daily_rent,
+            'total_rent' => $total_rent,
+            'daily_utilities' => $daily_utilities,
+            'total_utilities' => $total_utilities,
+            'cleaning_fee' => $cleaning_fee,
+            'key_fee' => $key_fee,
+            'bedding_fee' => $bedding_fee,
+            'initial_costs' => $initial_costs,
+            'subtotal' => $subtotal,
+            'tax_rate' => $tax_rate,
+            'tax_amount' => $tax_amount,
+            'subtotal_with_tax' => $subtotal_with_tax,
+            'campaign_discount' => $campaign_data['discount_amount'],
+            'campaign_details' => $campaign_data['campaigns'],
+            'final_total' => $final_total,
+            'currency' => '¥'
+        );
+    }
+    
+    /**
+     * Get pricing for specific plan
+     */
+    private function get_plan_pricing($plan) {
+        global $wpdb;
+        
+        $default_prices = array(
+            'SS' => array('base_price' => 2500, 'service_fee' => 2500, 'cleaning_fee' => 38500, 'key_fee' => 11000, 'bedding_fee' => 11000, 'tax_rate' => 10),
+            'S'  => array('base_price' => 2000, 'service_fee' => 2000, 'cleaning_fee' => 38500, 'key_fee' => 11000, 'bedding_fee' => 11000, 'tax_rate' => 10),
+            'M'  => array('base_price' => 1900, 'service_fee' => 2000, 'cleaning_fee' => 38500, 'key_fee' => 11000, 'bedding_fee' => 11000, 'tax_rate' => 10),
+            'L'  => array('base_price' => 1800, 'service_fee' => 2000, 'cleaning_fee' => 38500, 'key_fee' => 11000, 'bedding_fee' => 11000, 'tax_rate' => 10)
+        );
+        
+        $table_name = $wpdb->prefix . 'monthly_rates';
+        $rate = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table_name 
+             WHERE rate_type = %s 
+             AND is_active = 1 
+             AND (valid_to IS NULL OR valid_to >= CURDATE())
+             ORDER BY valid_from DESC 
+             LIMIT 1",
+            $plan
+        ));
+        
+        if ($rate) {
+            return array(
+                'base_price' => floatval($rate->base_price),
+                'service_fee' => floatval($rate->service_fee),
+                'cleaning_fee' => floatval($rate->cleaning_fee),
+                'key_fee' => isset($rate->key_fee) ? floatval($rate->key_fee) : 11000,
+                'bedding_fee' => isset($rate->bedding_fee) ? floatval($rate->bedding_fee) : 11000,
+                'tax_rate' => floatval($rate->tax_rate)
+            );
+        }
+        
+        return isset($default_prices[$plan]) ? $default_prices[$plan] : $default_prices['M'];
+    }
+    
+    /**
+     * Get plan display name
+     */
+    private function get_plan_name($plan) {
+        $plan_names = array(
+            'SS' => __('SS Plan - Compact Studio (15-20㎡)', 'monthly-booking'),
+            'S'  => __('S Plan - Standard Studio (20-25㎡)', 'monthly-booking'),
+            'M'  => __('M Plan - Medium Room (25-35㎡)', 'monthly-booking'),
+            'L'  => __('L Plan - Large Room (35㎡+)', 'monthly-booking')
+        );
+        
+        return isset($plan_names[$plan]) ? $plan_names[$plan] : $plan_names['M'];
+    }
+    
+    /**
+     * Calculate campaign discounts for estimate
+     */
+    private function calculate_estimate_campaign_discount($start_date, $end_date, $base_total) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'monthly_campaigns';
+        
+        $campaigns = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM $table_name 
+             WHERE is_active = 1 
+             AND start_date <= %s 
+             AND end_date >= %s
+             ORDER BY discount_value DESC",
+            $start_date,
+            $end_date
+        ));
+        
+        $total_discount = 0;
+        $applied_campaigns = array();
+        
+        foreach ($campaigns as $campaign) {
+            if ($campaign->discount_type === 'percentage') {
+                $discount = ($base_total * $campaign->discount_value) / 100;
+                if (isset($campaign->max_discount_amount) && $discount > $campaign->max_discount_amount) {
+                    $discount = $campaign->max_discount_amount;
+                }
+            } else {
+                $discount = $campaign->discount_value;
+            }
+            
+            $total_discount += $discount;
+            
+            $applied_campaigns[] = array(
+                'name' => $campaign->campaign_name,
+                'description' => $campaign->campaign_description,
+                'discount_type' => $campaign->discount_type,
+                'discount_value' => $campaign->discount_value,
+                'discount_amount' => $discount
+            );
+        }
+        
+        $total_discount = min($total_discount, $base_total * 0.5);
+        
+        return array(
+            'discount_amount' => $total_discount,
+            'campaigns' => $applied_campaigns
+        );
     }
 }
