@@ -10,6 +10,8 @@ jQuery(document).ready(function($) {
     
     let availableOptions = [];
     
+    loadSearchFilters();
+    
     function loadOptions() {
         if (typeof monthlyBookingAjax === 'undefined') {
             $('.options-loading').text('オプションの読み込みに失敗しました');
@@ -322,5 +324,118 @@ jQuery(document).ready(function($) {
         }
     });
     
+    function loadSearchFilters() {
+        $.ajax({
+            url: monthlyBookingAjax.ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'get_search_filters',
+                nonce: monthlyBookingAjax.nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    const filters = response.data;
+                    
+                    const stationSelect = $('#station_filter');
+                    stationSelect.empty().append('<option value="">' + monthlyBookingAjax.selectStation + '</option>');
+                    filters.stations.forEach(function(station) {
+                        stationSelect.append('<option value="' + station + '">' + station + '</option>');
+                    });
+                    
+                    const structureSelect = $('#structure_filter');
+                    structureSelect.empty().append('<option value="">' + monthlyBookingAjax.selectStructure + '</option>');
+                    filters.structures.forEach(function(structure) {
+                        structureSelect.append('<option value="' + structure + '">' + structure + '</option>');
+                    });
+                    
+                    const occupancySelect = $('#occupancy_filter');
+                    occupancySelect.empty().append('<option value="">' + monthlyBookingAjax.maxOccupants + '</option>');
+                    filters.occupancy_options.forEach(function(num) {
+                        occupancySelect.append('<option value="' + num + '">' + num + '人</option>');
+                    });
+                }
+            },
+            error: function() {
+                console.error('Failed to load search filters');
+            }
+        });
+    }
+    
+    function searchProperties() {
+        const moveInDate = $('#move_in_date').val();
+        const stayMonths = $('#stay_months').val();
+        
+        if (!moveInDate || !stayMonths) {
+            alert(monthlyBookingAjax.selectDatesFirst);
+            return;
+        }
+        
+        const endDate = new Date(moveInDate);
+        endDate.setMonth(endDate.getMonth() + parseInt(stayMonths));
+        
+        $.ajax({
+            url: monthlyBookingAjax.ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'search_properties',
+                nonce: monthlyBookingAjax.nonce,
+                start_date: moveInDate,
+                end_date: endDate.toISOString().split('T')[0],
+                station: $('#station_filter').val(),
+                max_occupants: $('#occupancy_filter').val(),
+                structure: $('#structure_filter').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    displayPropertyResults(response.data);
+                } else {
+                    $('#property_results').html('<p class="error">' + response.data + '</p>');
+                }
+            },
+            error: function() {
+                $('#property_results').html('<p class="error">' + monthlyBookingAjax.searchError + '</p>');
+            }
+        });
+    }
+    
+    function displayPropertyResults(properties) {
+        const resultsDiv = $('#property_results');
+        
+        if (properties.length === 0) {
+            resultsDiv.html('<p>' + monthlyBookingAjax.noPropertiesFound + '</p>');
+            return;
+        }
+        
+        let html = '<div class="property-list"><h4>' + monthlyBookingAjax.availableProperties + '</h4>';
+        
+        properties.forEach(function(property) {
+            html += '<div class="property-item">';
+            html += '<h5>' + property.display_name + '</h5>';
+            html += '<p><strong>' + monthlyBookingAjax.room + ':</strong> ' + property.room_name + '</p>';
+            html += '<p><strong>' + monthlyBookingAjax.dailyRent + ':</strong> ¥' + parseInt(property.daily_rent).toLocaleString() + '</p>';
+            html += '<p><strong>' + monthlyBookingAjax.maxOccupants + ':</strong> ' + property.max_occupants + '人</p>';
+            
+            if (property.access_info1) {
+                html += '<p><strong>' + monthlyBookingAjax.access + ':</strong> ' + property.access_info1;
+                if (property.access_info2) html += ', ' + property.access_info2;
+                if (property.access_info3) html += ', ' + property.access_info3;
+                html += '</p>';
+            }
+            
+            if (property.room_amenities) {
+                html += '<p><strong>' + monthlyBookingAjax.amenities + ':</strong> ' + property.room_amenities + '</p>';
+            }
+            
+            html += '</div>';
+        });
+        
+        html += '</div>';
+        resultsDiv.html(html);
+    }
+    
+    $('#search_properties').on('click', function() {
+        searchProperties();
+    });
+
     loadOptions();
 });

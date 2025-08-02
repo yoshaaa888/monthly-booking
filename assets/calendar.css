@@ -13,6 +13,50 @@
     overflow: hidden;
 }
 
+.property-search-filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.property-search-filters select {
+    min-width: 150px;
+    padding: 5px;
+}
+
+.property-results {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.property-list h4 {
+    margin-top: 0;
+    color: #0073aa;
+}
+
+.property-item {
+    background: #fff;
+    padding: 15px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.property-item h5 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.property-item p {
+    margin: 5px 0;
+    font-size: 14px;
+}
+
 .calendar-header {
     background: #0073aa;
     color: #fff;

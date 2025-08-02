@@ -46,7 +46,20 @@ class MonthlyBooking_Calendar_Render {
         
         wp_localize_script('monthly-booking-estimate', 'monthlyBookingAjax', array(
             'ajaxurl' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('monthly_booking_nonce')
+            'nonce' => wp_create_nonce('monthly_booking_nonce'),
+            'calculating' => __('Calculating...', 'monthly-booking'),
+            'error' => __('An error occurred. Please try again.', 'monthly-booking'),
+            'selectStation' => __('Select Station...', 'monthly-booking'),
+            'selectStructure' => __('Select Structure...', 'monthly-booking'),
+            'maxOccupants' => __('Max Occupants...', 'monthly-booking'),
+            'selectDatesFirst' => __('Please select move-in date and stay duration first.', 'monthly-booking'),
+            'searchError' => __('Error searching properties. Please try again.', 'monthly-booking'),
+            'noPropertiesFound' => __('No properties found matching your criteria.', 'monthly-booking'),
+            'availableProperties' => __('Available Properties', 'monthly-booking'),
+            'room' => __('Room', 'monthly-booking'),
+            'dailyRent' => __('Daily Rent', 'monthly-booking'),
+            'access' => __('Access', 'monthly-booking'),
+            'amenities' => __('Amenities', 'monthly-booking')
         ));
     }
     
@@ -258,6 +271,23 @@ class MonthlyBooking_Calendar_Render {
                 
                 <div class="form-section">
                     <h4><?php _e('Contact Information', 'monthly-booking'); ?></h4>
+                    <div class="form-row">
+                        <label for="property_search"><?php _e('Property Search', 'monthly-booking'); ?></label>
+                        <div class="property-search-filters">
+                            <select id="station_filter" name="station_filter">
+                                <option value=""><?php _e('Select Station...', 'monthly-booking'); ?></option>
+                            </select>
+                            <select id="structure_filter" name="structure_filter">
+                                <option value=""><?php _e('Select Structure...', 'monthly-booking'); ?></option>
+                            </select>
+                            <select id="occupancy_filter" name="occupancy_filter">
+                                <option value=""><?php _e('Max Occupants...', 'monthly-booking'); ?></option>
+                            </select>
+                            <button type="button" id="search_properties" class="button"><?php _e('Search Properties', 'monthly-booking'); ?></button>
+                        </div>
+                        <div id="property_results" class="property-results"></div>
+                    </div>
+                    
                     <div class="form-row">
                         <label for="guest_name"><?php _e('Name', 'monthly-booking'); ?> <span class="required">*</span></label>
                         <input type="text" id="guest_name" name="guest_name" required>

@@ -3,7 +3,7 @@
  * Plugin Name: Monthly Room Booking
  * Plugin URI: https://github.com/yoshaaa888/monthly-booking
  * Description: A WordPress plugin for managing monthly room bookings with property management, calendar display, pricing logic, and campaign management.
- * Version: 1.0.0
+ * Version: 1.2.0
  * Author: Yoshi
  * License: GPL v2 or later
  * Text Domain: monthly-booking
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('MONTHLY_BOOKING_VERSION', '1.1.0');
+define('MONTHLY_BOOKING_VERSION', '1.2.0');
 define('MONTHLY_BOOKING_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MONTHLY_BOOKING_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -58,6 +58,7 @@ class MonthlyBooking {
     public function activate() {
         $this->create_tables();
         $this->insert_default_options();
+        $this->insert_sample_properties();
         
         add_option('monthly_booking_version', MONTHLY_BOOKING_VERSION);
         
@@ -93,6 +94,57 @@ class MonthlyBooking {
         }
     }
     
+    private function insert_sample_properties() {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'monthly_rooms';
+        
+        $sample_properties = array(
+            array(
+                'room_id' => 633,
+                'property_id' => 126,
+                'mor_g' => 'M',
+                'property_name' => 'アバクス立川（A棟）',
+                'display_name' => '東都マンスリー立川『ＷｉＦｉ対応・宅配ＢＯＸ有』',
+                'room_name' => '1003',
+                'min_stay_days' => 1,
+                'min_stay_unit' => '日',
+                'max_occupants' => 2,
+                'address' => '東京都立川市曙町1丁目22-25',
+                'layout' => 'マンスリー',
+                'floor_area' => 20.0,
+                'structure' => '鉄骨鉄筋コンクリート造',
+                'built_year' => '3月-90',
+                'daily_rent' => 2400,
+                'line1' => 'JR中央線',
+                'station1' => '立川',
+                'access1_type' => '徒歩',
+                'access1_time' => 8,
+                'line2' => 'JR南武線',
+                'station2' => '立川',
+                'access2_type' => '徒歩',
+                'access2_time' => 8,
+                'line3' => '多摩都市モノレール',
+                'station3' => '立川北',
+                'access3_type' => '徒歩',
+                'access3_time' => 6,
+                'room_amenities' => 'WiFi対応、宅配BOX有',
+                'is_active' => 1
+            )
+        );
+        
+        foreach ($sample_properties as $property) {
+            $existing = $wpdb->get_row($wpdb->prepare(
+                "SELECT id FROM $table_name WHERE room_id = %d",
+                $property['room_id']
+            ));
+            
+            if (!$existing) {
+                $wpdb->insert($table_name, $property);
+            }
+        }
+    }
+    
     public function deactivate() {
         flush_rewrite_rules();
     }
@@ -107,17 +159,49 @@ class MonthlyBooking {
         $table_name = $wpdb->prefix . 'monthly_rooms';
         $sql = "CREATE TABLE $table_name (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
+            room_id int(11) UNIQUE,
+            property_id int(11),
+            mor_g char(1) DEFAULT 'M',
+            property_name text,
+            display_name text,
             room_name varchar(100) NOT NULL,
             room_description text,
-            room_address varchar(255),
-            room_capacity int(3) DEFAULT 1,
+            min_stay_days int(11) DEFAULT 1,
+            min_stay_unit enum('日', '月') DEFAULT '日',
+            max_occupants int(3) DEFAULT 1,
+            address text,
+            layout varchar(50),
+            floor_area decimal(5,1),
+            structure varchar(100),
+            built_year varchar(20),
+            daily_rent int(11),
+            line1 varchar(50),
+            station1 varchar(50),
+            access1_type varchar(10),
+            access1_time int(3),
+            line2 varchar(50),
+            station2 varchar(50),
+            access2_type varchar(10),
+            access2_time int(3),
+            line3 varchar(50),
+            station3 varchar(50),
+            access3_type varchar(10),
+            access3_time int(3),
             room_size decimal(6,2),
             room_amenities text,
             room_images text,
             is_active tinyint(1) DEFAULT 1,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id)
+            PRIMARY KEY (id),
+            KEY room_id (room_id),
+            KEY property_id (property_id),
+            KEY mor_g (mor_g),
+            KEY station1 (station1),
+            KEY station2 (station2),
+            KEY station3 (station3),
+            KEY daily_rent (daily_rent),
+            KEY is_active (is_active)
         ) $charset_collate;";
         dbDelta($sql);
         

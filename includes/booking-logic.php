@@ -20,6 +20,10 @@ class MonthlyBooking_Booking_Logic {
         add_action('wp_ajax_nopriv_submit_booking', array($this, 'ajax_submit_booking'));
         add_action('wp_ajax_get_booking_options', array($this, 'ajax_get_options'));
         add_action('wp_ajax_nopriv_get_booking_options', array($this, 'ajax_get_options'));
+        add_action('wp_ajax_search_properties', array($this, 'ajax_search_properties'));
+        add_action('wp_ajax_nopriv_search_properties', array($this, 'ajax_search_properties'));
+        add_action('wp_ajax_get_search_filters', array($this, 'ajax_get_search_filters'));
+        add_action('wp_ajax_nopriv_get_search_filters', array($this, 'ajax_get_search_filters'));
     }
     
     /**
@@ -548,5 +552,151 @@ class MonthlyBooking_Booking_Logic {
         $options = $this->get_available_options();
         
         wp_send_json_success($options);
+    }
+    
+    /**
+     * AJAX handler for property search
+     */
+    public function ajax_search_properties() {
+        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        
+        $start_date = sanitize_text_field($_POST['start_date']);
+        $end_date = sanitize_text_field($_POST['end_date']);
+        
+        $filters = array();
+        if (!empty($_POST['station'])) {
+            $filters['station'] = sanitize_text_field($_POST['station']);
+        }
+        if (!empty($_POST['max_occupants'])) {
+            $filters['max_occupants'] = intval($_POST['max_occupants']);
+        }
+        if (!empty($_POST['max_rent'])) {
+            $filters['max_rent'] = intval($_POST['max_rent']);
+        }
+        if (!empty($_POST['structure'])) {
+            $filters['structure'] = sanitize_text_field($_POST['structure']);
+        }
+        
+        $properties = $this->get_available_rooms($start_date, $end_date, $filters);
+        
+        wp_send_json_success($properties);
+    }
+    
+    /**
+     * Get available rooms for booking with enhanced property information
+     */
+    public function get_available_rooms($start_date, $end_date, $filters = array()) {
+        global $wpdb;
+        
+        $rooms_table = $wpdb->prefix . 'monthly_rooms';
+        $bookings_table = $wpdb->prefix . 'monthly_bookings';
+        
+        $where_conditions = array('r.is_active = 1');
+        $where_values = array();
+        
+        if (!empty($filters['station'])) {
+            $where_conditions[] = "(r.station1 LIKE %s OR r.station2 LIKE %s OR r.station3 LIKE %s)";
+            $station_filter = '%' . $filters['station'] . '%';
+            $where_values[] = $station_filter;
+            $where_values[] = $station_filter;
+            $where_values[] = $station_filter;
+        }
+        
+        if (!empty($filters['max_occupants'])) {
+            $where_conditions[] = "r.max_occupants >= %d";
+            $where_values[] = intval($filters['max_occupants']);
+        }
+        
+        if (!empty($filters['max_rent'])) {
+            $where_conditions[] = "r.daily_rent <= %d";
+            $where_values[] = intval($filters['max_rent']);
+        }
+        
+        if (!empty($filters['structure'])) {
+            $where_conditions[] = "r.structure LIKE %s";
+            $where_values[] = '%' . $filters['structure'] . '%';
+        }
+        
+        $where_clause = implode(' AND ', $where_conditions);
+        
+        $sql = "SELECT r.*, 
+                CASE 
+                    WHEN r.station1 IS NOT NULL THEN CONCAT(r.line1, ' ', r.station1, ' ', r.access1_type, r.access1_time, '分')
+                    ELSE ''
+                END as access_info1,
+                CASE 
+                    WHEN r.station2 IS NOT NULL THEN CONCAT(r.line2, ' ', r.station2, ' ', r.access2_type, r.access2_time, '分')
+                    ELSE ''
+                END as access_info2,
+                CASE 
+                    WHEN r.station3 IS NOT NULL THEN CONCAT(r.line3, ' ', r.station3, ' ', r.access3_type, r.access3_time, '分')
+                    ELSE ''
+                END as access_info3
+                FROM $rooms_table r 
+                WHERE $where_clause
+                AND r.id NOT IN (
+                    SELECT DISTINCT b.room_id 
+                    FROM $bookings_table b 
+                    WHERE b.status != 'cancelled' 
+                    AND (
+                        (b.start_date <= %s AND b.end_date >= %s) OR
+                        (b.start_date <= %s AND b.end_date >= %s) OR
+                        (b.start_date >= %s AND b.end_date <= %s)
+                    )
+                )
+                ORDER BY r.property_id, r.room_name";
+        
+        $all_values = array_merge($where_values, array($start_date, $start_date, $end_date, $end_date, $start_date, $end_date));
+        
+        return $wpdb->get_results($wpdb->prepare($sql, ...$all_values));
+    }
+    
+    /**
+     * Get property search filters for frontend
+     */
+    public function get_property_search_filters() {
+        global $wpdb;
+        
+        $rooms_table = $wpdb->prefix . 'monthly_rooms';
+        
+        $stations = $wpdb->get_col("
+            SELECT DISTINCT station1 FROM $rooms_table WHERE station1 IS NOT NULL AND station1 != ''
+            UNION
+            SELECT DISTINCT station2 FROM $rooms_table WHERE station2 IS NOT NULL AND station2 != ''
+            UNION
+            SELECT DISTINCT station3 FROM $rooms_table WHERE station3 IS NOT NULL AND station3 != ''
+            ORDER BY station1
+        ");
+        
+        $structures = $wpdb->get_col("
+            SELECT DISTINCT structure FROM $rooms_table 
+            WHERE structure IS NOT NULL AND structure != '' AND is_active = 1
+            ORDER BY structure
+        ");
+        
+        $rent_ranges = array(
+            array('label' => '¥2,000以下', 'max' => 2000),
+            array('label' => '¥2,001-¥3,000', 'min' => 2001, 'max' => 3000),
+            array('label' => '¥3,001-¥4,000', 'min' => 3001, 'max' => 4000),
+            array('label' => '¥4,001以上', 'min' => 4001)
+        );
+        
+        return array(
+            'stations' => $stations,
+            'structures' => $structures,
+            'rent_ranges' => $rent_ranges,
+            'occupancy_options' => range(1, 10)
+        );
+    }
+    
+    /**
+     * AJAX handler for getting search filters
+     */
+    public function ajax_get_search_filters() {
+        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        
+        $filters = $this->get_property_search_filters();
+        
+        wp_send_json_success($filters);
     }
 }
