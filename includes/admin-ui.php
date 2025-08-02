@@ -570,56 +570,50 @@ class MonthlyBooking_Admin_UI {
             wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }
         
-        $current_year = isset($_GET['year']) ? intval($_GET['year']) : date('Y');
-        $current_month = isset($_GET['month']) ? intval($_GET['month']) : date('n');
-        
-        if ($current_month < 1) {
-            $current_month = 12;
-            $current_year--;
-        } elseif ($current_month > 12) {
-            $current_month = 1;
-            $current_year++;
-        }
+        $selected_room_id = isset($_GET['room_id']) ? intval($_GET['room_id']) : 0;
+        $rooms = $this->get_all_rooms();
         
         ?>
         <div class="wrap">
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
             
             <div class="monthly-booking-admin-content">
-                <div class="calendar-header">
-                    <div class="calendar-navigation">
-                        <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-calendar&year=' . ($current_month == 1 ? $current_year - 1 : $current_year) . '&month=' . ($current_month == 1 ? 12 : $current_month - 1)); ?>" class="button">
-                            ← <?php _e('Previous Month', 'monthly-booking'); ?>
-                        </a>
-                        <h2 class="calendar-title">
-                            <?php echo sprintf(__('%s年 %s月', 'monthly-booking'), $current_year, $current_month); ?>
-                        </h2>
-                        <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-calendar&year=' . ($current_month == 12 ? $current_year + 1 : $current_year) . '&month=' . ($current_month == 12 ? 1 : $current_month + 1)); ?>" class="button">
-                            <?php _e('Next Month', 'monthly-booking'); ?> →
-                        </a>
+                <div class="calendar-controls">
+                    <div class="room-selector">
+                        <label for="room_select"><?php _e('部屋選択', 'monthly-booking'); ?>:</label>
+                        <select id="room_select" name="room_id" onchange="window.location.href='<?php echo admin_url('admin.php?page=monthly-room-booking-calendar&room_id='); ?>' + this.value;">
+                            <option value="0"><?php _e('部屋を選択してください', 'monthly-booking'); ?></option>
+                            <?php foreach ($rooms as $room): ?>
+                                <option value="<?php echo esc_attr($room->id); ?>" <?php selected($selected_room_id, $room->id); ?>>
+                                    <?php echo esc_html($room->display_name . ' (' . $room->room_name . ')'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                 </div>
                 
-                <?php $this->render_booking_calendar($current_year, $current_month); ?>
+                <?php if ($selected_room_id > 0): ?>
+                    <?php $this->render_plan_availability_calendar($selected_room_id); ?>
+                <?php else: ?>
+                    <div class="notice notice-info">
+                        <p><?php _e('部屋を選択すると、180日間の予約可能状況がプラン別に表示されます。', 'monthly-booking'); ?></p>
+                    </div>
+                <?php endif; ?>
                 
                 <div class="calendar-legend">
                     <h3><?php _e('Legend', 'monthly-booking'); ?></h3>
                     <div class="legend-items">
                         <div class="legend-item">
-                            <span class="legend-color available"></span>
-                            <span><?php _e('Available', 'monthly-booking'); ?></span>
+                            <span class="legend-symbol available">〇</span>
+                            <span><?php _e('予約可', 'monthly-booking'); ?></span>
                         </div>
                         <div class="legend-item">
-                            <span class="legend-color booked"></span>
-                            <span><?php _e('Booked', 'monthly-booking'); ?></span>
+                            <span class="legend-symbol unavailable">×</span>
+                            <span><?php _e('予約不可', 'monthly-booking'); ?></span>
                         </div>
                         <div class="legend-item">
-                            <span class="legend-color cleaning"></span>
-                            <span><?php _e('Cleaning Period', 'monthly-booking'); ?></span>
-                        </div>
-                        <div class="legend-item">
-                            <span class="legend-color today"></span>
-                            <span><?php _e('Today', 'monthly-booking'); ?></span>
+                            <span class="legend-symbol campaign">△</span>
+                            <span><?php _e('キャンペーン適用あり', 'monthly-booking'); ?></span>
                         </div>
                     </div>
                 </div>
@@ -628,92 +622,98 @@ class MonthlyBooking_Admin_UI {
         
         <style>
         .monthly-booking-admin-content {
-            max-width: 1200px;
+            max-width: 100%;
+            overflow-x: auto;
         }
-        .calendar-header {
+        .calendar-controls {
             margin-bottom: 20px;
             padding: 20px;
             background: #f8f9fa;
             border: 1px solid #ddd;
             border-radius: 4px;
         }
-        .calendar-navigation {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .room-selector label {
+            font-weight: 600;
+            margin-right: 10px;
         }
-        .calendar-title {
-            margin: 0;
-            font-size: 24px;
-            color: #0073aa;
+        .room-selector select {
+            min-width: 300px;
+            padding: 5px;
         }
-        .booking-calendar {
+        .plan-availability-calendar {
             background: #fff;
             border: 1px solid #ddd;
             border-radius: 4px;
-            overflow: hidden;
+            overflow-x: auto;
             margin-bottom: 20px;
         }
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 1px;
-            background: #ddd;
+        .availability-table {
+            width: 100%;
+            min-width: 2000px;
+            border-collapse: collapse;
+            font-size: 12px;
         }
-        .calendar-day-header {
-            background: #0073aa;
-            color: #fff;
-            padding: 12px 8px;
-            text-align: center;
-            font-weight: 600;
-            font-size: 14px;
-        }
-        .calendar-day {
-            background: #fff;
-            min-height: 100px;
+        .availability-table th,
+        .availability-table td {
+            border: 1px solid #ddd;
             padding: 8px;
-            position: relative;
-            border: 1px solid transparent;
-        }
-        .calendar-day.other-month {
-            background: #f5f5f5;
-            color: #999;
-        }
-        .calendar-day.today {
-            background: #e3f2fd;
-            border-color: #2196f3;
-        }
-        .calendar-day.available {
-            background: #e8f5e8;
-        }
-        .calendar-day.booked {
-            background: #ffebee;
-        }
-        .calendar-day.cleaning {
-            background: #fff3e0;
-        }
-        .day-number {
-            font-weight: 600;
-            font-size: 16px;
-            margin-bottom: 4px;
-        }
-        .day-bookings {
-            font-size: 11px;
-            margin-top: 4px;
-        }
-        .booking-item {
-            background: #0073aa;
-            color: #fff;
-            padding: 2px 4px;
-            border-radius: 2px;
-            margin-bottom: 2px;
-            font-size: 10px;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            text-align: center;
             white-space: nowrap;
         }
-        .booking-item.cleaning {
-            background: #ff9800;
+        .availability-table th {
+            background: #0073aa;
+            color: #fff;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .availability-table th.plan-header {
+            background: #005a87;
+            left: 0;
+            z-index: 11;
+            min-width: 80px;
+        }
+        .availability-table td.plan-cell {
+            background: #f8f9fa;
+            font-weight: 600;
+            position: sticky;
+            left: 0;
+            z-index: 9;
+            min-width: 80px;
+        }
+        .availability-table .date-header {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            min-width: 30px;
+            max-width: 30px;
+        }
+        .availability-table .date-header.today {
+            background: #2196f3;
+        }
+        .availability-table .date-header.weekend {
+            background: #ff5722;
+        }
+        .availability-cell {
+            font-size: 16px;
+            font-weight: bold;
+            min-width: 30px;
+            max-width: 30px;
+        }
+        .availability-cell.available {
+            color: #4caf50;
+            background: #e8f5e8;
+        }
+        .availability-cell.unavailable {
+            color: #f44336;
+            background: #ffebee;
+        }
+        .availability-cell.campaign {
+            color: #ff9800;
+            background: #fff3e0;
+        }
+        .availability-cell.today {
+            border: 2px solid #2196f3;
         }
         .calendar-legend {
             padding: 20px;
@@ -727,7 +727,7 @@ class MonthlyBooking_Admin_UI {
         }
         .legend-items {
             display: flex;
-            gap: 20px;
+            gap: 30px;
             flex-wrap: wrap;
         }
         .legend-item {
@@ -735,159 +735,177 @@ class MonthlyBooking_Admin_UI {
             align-items: center;
             gap: 8px;
         }
-        .legend-color {
-            width: 20px;
-            height: 20px;
+        .legend-symbol {
+            width: 24px;
+            height: 24px;
             border-radius: 4px;
             border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
         }
-        .legend-color.available { background: #e8f5e8; }
-        .legend-color.booked { background: #ffebee; }
-        .legend-color.cleaning { background: #fff3e0; }
-        .legend-color.today { background: #e3f2fd; border-color: #2196f3; }
+        .legend-symbol.available {
+            color: #4caf50;
+            background: #e8f5e8;
+        }
+        .legend-symbol.unavailable {
+            color: #f44336;
+            background: #ffebee;
+        }
+        .legend-symbol.campaign {
+            color: #ff9800;
+            background: #fff3e0;
+        }
         </style>
         <?php
     }
     
     /**
-     * Render the booking calendar for a specific month
+     * Get all active rooms for dropdown selection
      */
-    private function render_booking_calendar($year, $month) {
-        $bookings = $this->get_month_bookings($year, $month);
-        $cleaning_days = get_option('monthly_booking_options')['cleaning_days'] ?? 3;
+    private function get_all_rooms() {
+        global $wpdb;
         
-        $first_day = mktime(0, 0, 0, $month, 1, $year);
-        $days_in_month = date('t', $first_day);
-        $start_day_of_week = date('w', $first_day);
+        $rooms_table = $wpdb->prefix . 'monthly_rooms';
+        
+        $sql = "SELECT id, room_id, display_name, room_name, property_name 
+                FROM $rooms_table 
+                WHERE is_active = 1 
+                ORDER BY property_name, room_name";
+        
+        return $wpdb->get_results($sql);
+    }
+    
+    /**
+     * Render the 180-day plan availability calendar for a specific room
+     */
+    private function render_plan_availability_calendar($room_id) {
+        $room_bookings = $this->get_room_bookings_180_days($room_id);
+        $campaigns = $this->get_active_campaigns();
+        $plans = array('SS', 'S', 'M', 'L');
         $today = date('Y-m-d');
         
         ?>
-        <div class="booking-calendar">
-            <div class="calendar-grid">
-                <div class="calendar-day-header"><?php _e('Sun', 'monthly-booking'); ?></div>
-                <div class="calendar-day-header"><?php _e('Mon', 'monthly-booking'); ?></div>
-                <div class="calendar-day-header"><?php _e('Tue', 'monthly-booking'); ?></div>
-                <div class="calendar-day-header"><?php _e('Wed', 'monthly-booking'); ?></div>
-                <div class="calendar-day-header"><?php _e('Thu', 'monthly-booking'); ?></div>
-                <div class="calendar-day-header"><?php _e('Fri', 'monthly-booking'); ?></div>
-                <div class="calendar-day-header"><?php _e('Sat', 'monthly-booking'); ?></div>
-                
-                <?php
-                for ($i = 0; $i < $start_day_of_week; $i++) {
-                    $prev_month_day = date('j', mktime(0, 0, 0, $month, -$start_day_of_week + $i + 1, $year));
-                    echo '<div class="calendar-day other-month">';
-                    echo '<div class="day-number">' . $prev_month_day . '</div>';
-                    echo '</div>';
-                }
-                
-                for ($day = 1; $day <= $days_in_month; $day++) {
-                    $current_date = sprintf('%04d-%02d-%02d', $year, $month, $day);
-                    $day_status = $this->get_day_status($current_date, $bookings, $cleaning_days);
-                    $is_today = ($current_date === $today);
-                    
-                    $classes = array('calendar-day');
-                    if ($is_today) $classes[] = 'today';
-                    if ($day_status['status'] !== 'mixed') $classes[] = $day_status['status'];
-                    
-                    echo '<div class="' . implode(' ', $classes) . '">';
-                    echo '<div class="day-number">' . $day . '</div>';
-                    
-                    if (!empty($day_status['bookings'])) {
-                        echo '<div class="day-bookings">';
-                        foreach ($day_status['bookings'] as $booking) {
-                            $booking_class = $booking['type'] === 'cleaning' ? 'booking-item cleaning' : 'booking-item';
-                            echo '<div class="' . $booking_class . '">';
-                            if ($booking['type'] === 'cleaning') {
-                                echo __('Cleaning', 'monthly-booking');
-                            } else {
-                                echo esc_html($booking['room_name'] ?? 'Room ' . $booking['room_id']);
-                            }
-                            echo '</div>';
+        <div class="plan-availability-calendar">
+            <table class="availability-table">
+                <thead>
+                    <tr>
+                        <th class="plan-header"><?php _e('プラン', 'monthly-booking'); ?></th>
+                        <?php
+                        for ($i = 0; $i < 180; $i++) {
+                            $date = date('Y-m-d', strtotime("+$i days"));
+                            $day_of_week = date('w', strtotime($date));
+                            $is_today = ($date === $today);
+                            $is_weekend = ($day_of_week == 0 || $day_of_week == 6);
+                            
+                            $header_classes = array('date-header');
+                            if ($is_today) $header_classes[] = 'today';
+                            if ($is_weekend) $header_classes[] = 'weekend';
+                            
+                            echo '<th class="' . implode(' ', $header_classes) . '">';
+                            echo date('n/j', strtotime($date)) . '<br>';
+                            echo date('(D)', strtotime($date));
+                            echo '</th>';
                         }
-                        echo '</div>';
-                    }
-                    
-                    echo '</div>';
-                }
-                
-                $remaining_cells = 42 - ($start_day_of_week + $days_in_month);
-                for ($i = 1; $i <= $remaining_cells; $i++) {
-                    echo '<div class="calendar-day other-month">';
-                    echo '<div class="day-number">' . $i . '</div>';
-                    echo '</div>';
-                }
-                ?>
-            </div>
+                        ?>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($plans as $plan): ?>
+                        <tr>
+                            <td class="plan-cell"><?php echo esc_html($plan); ?></td>
+                            <?php
+                            for ($i = 0; $i < 180; $i++) {
+                                $date = date('Y-m-d', strtotime("+$i days"));
+                                $availability = $this->get_plan_availability($room_id, $plan, $date, $room_bookings, $campaigns);
+                                $is_today = ($date === $today);
+                                
+                                $cell_classes = array('availability-cell', $availability['status']);
+                                if ($is_today) $cell_classes[] = 'today';
+                                
+                                echo '<td class="' . implode(' ', $cell_classes) . '">';
+                                echo $availability['symbol'];
+                                echo '</td>';
+                            }
+                            ?>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
         <?php
     }
     
     /**
-     * Get bookings for a specific month
+     * Get bookings for a room for the next 180 days
      */
-    private function get_month_bookings($year, $month) {
+    private function get_room_bookings_180_days($room_id) {
         global $wpdb;
         
         $bookings_table = $wpdb->prefix . 'monthly_bookings';
-        $rooms_table = $wpdb->prefix . 'monthly_rooms';
+        $start_date = date('Y-m-d');
+        $end_date = date('Y-m-d', strtotime('+180 days'));
         
-        $start_date = sprintf('%04d-%02d-01', $year, $month);
-        $end_date = date('Y-m-t', mktime(0, 0, 0, $month, 1, $year));
+        $sql = "SELECT * FROM $bookings_table 
+                WHERE room_id = %d 
+                AND (start_date <= %s AND end_date >= %s) 
+                AND status != 'cancelled'
+                ORDER BY start_date";
         
-        $sql = "SELECT b.*, r.room_name, r.display_name 
-                FROM $bookings_table b 
-                LEFT JOIN $rooms_table r ON b.room_id = r.id 
-                WHERE (b.start_date <= %s AND b.end_date >= %s) 
-                AND b.status != 'cancelled'
-                ORDER BY b.start_date";
-        
-        return $wpdb->get_results($wpdb->prepare($sql, $end_date, $start_date));
+        return $wpdb->get_results($wpdb->prepare($sql, $room_id, $end_date, $start_date));
     }
     
     /**
-     * Get the status of a specific day
+     * Get active campaigns
      */
-    private function get_day_status($date, $bookings, $cleaning_days) {
-        $day_bookings = array();
-        $statuses = array();
+    private function get_active_campaigns() {
+        global $wpdb;
+        
+        $campaigns_table = $wpdb->prefix . 'monthly_campaigns';
+        $today = date('Y-m-d');
+        
+        $sql = "SELECT * FROM $campaigns_table 
+                WHERE is_active = 1 
+                AND start_date <= %s 
+                AND end_date >= %s";
+        
+        return $wpdb->get_results($wpdb->prepare($sql, $today, $today));
+    }
+    
+    /**
+     * Get plan availability for a specific date (dummy data for now)
+     */
+    private function get_plan_availability($room_id, $plan, $date, $bookings, $campaigns) {
+        $today = date('Y-m-d');
+        $day_of_week = date('w', strtotime($date));
         
         foreach ($bookings as $booking) {
-            if ($date >= $booking->start_date && $date <= $booking->end_date) {
-                $day_bookings[] = array(
-                    'type' => 'booking',
-                    'room_id' => $booking->room_id,
-                    'room_name' => $booking->room_name,
-                    'status' => $booking->status
-                );
-                $statuses[] = 'booked';
-            }
-            
-            $cleaning_start = date('Y-m-d', strtotime($booking->end_date . ' +1 day'));
-            $cleaning_end = date('Y-m-d', strtotime($booking->end_date . ' +' . $cleaning_days . ' days'));
-            
-            if ($date >= $cleaning_start && $date <= $cleaning_end) {
-                $day_bookings[] = array(
-                    'type' => 'cleaning',
-                    'room_id' => $booking->room_id,
-                    'room_name' => $booking->room_name
-                );
-                $statuses[] = 'cleaning';
+            if ($date >= $booking->start_date && $date <= $booking->end_date && $booking->plan_type === $plan) {
+                return array('status' => 'unavailable', 'symbol' => '×');
             }
         }
         
-        if (empty($statuses)) {
-            $status = 'available';
-        } elseif (count(array_unique($statuses)) > 1) {
-            $status = 'mixed';
-        } else {
-            $status = $statuses[0];
+        $has_campaign = false;
+        foreach ($campaigns as $campaign) {
+            if ($date >= $campaign->start_date && $date <= $campaign->end_date) {
+                $has_campaign = true;
+                break;
+            }
         }
         
-        return array(
-            'status' => $status,
-            'bookings' => $day_bookings
-        );
+        if ($has_campaign && ($day_of_week == 1 || $day_of_week == 2)) {
+            return array('status' => 'campaign', 'symbol' => '△');
+        }
+        
+        if ($date < $today) {
+            return array('status' => 'unavailable', 'symbol' => '×');
+        }
+        
+        return array('status' => 'available', 'symbol' => '〇');
     }
+    
     
     /**
      * Admin page: 予約登録 (Booking Registration)
