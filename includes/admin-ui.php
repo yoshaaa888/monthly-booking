@@ -709,8 +709,19 @@ class MonthlyBooking_Admin_UI {
             background: #ffebee;
         }
         .availability-cell.campaign {
-            color: #ff9800;
-            background: #fff3e0;
+            color: #856404;
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            animation: campaign-highlight 2s ease-in-out infinite alternate;
+        }
+        .campaign-symbol {
+            font-size: 10px;
+            font-weight: bold;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.3);
+        }
+        @keyframes campaign-highlight {
+            0% { background-color: #fff3cd; }
+            100% { background-color: #ffeaa7; }
         }
         .availability-cell.today {
             border: 2px solid #2196f3;
@@ -826,7 +837,13 @@ class MonthlyBooking_Admin_UI {
                                 if ($is_today) $cell_classes[] = 'today';
                                 
                                 echo '<td class="' . implode(' ', $cell_classes) . '">';
-                                echo $availability['symbol'];
+                                if ($availability['status'] === 'campaign') {
+                                    echo '<span class="campaign-symbol" title="' . esc_attr($availability['campaign_name']) . '">';
+                                    echo esc_html($availability['symbol']) . ' ' . esc_html($availability['campaign_name']);
+                                    echo '</span>';
+                                } else {
+                                    echo esc_html($availability['symbol']);
+                                }
                                 echo '</td>';
                             }
                             ?>
@@ -834,6 +851,29 @@ class MonthlyBooking_Admin_UI {
                     <?php endforeach; ?>
                 </tbody>
             </table>
+        </div>
+        
+        <div class="campaign-legend">
+            <h3>表示記号の説明</h3>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <span class="legend-symbol available">〇</span>
+                    <span>予約可能</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-symbol unavailable">×</span>
+                    <span>予約不可</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-symbol campaign">△</span>
+                    <span>キャンペーン適用可能</span>
+                </div>
+            </div>
+            <div style="margin-top: 15px; padding: 10px; background: #e3f2fd; border-radius: 4px;">
+                <strong>キャンペーン詳細:</strong><br>
+                <span style="color: #1976d2;">• 早割:</span> 入居30日以上前のご予約で賃料・共益費10%OFF<br>
+                <span style="color: #1976d2;">• 即入居:</span> 入居7日以内のご予約で賃料・共益費20%OFF
+            </div>
         </div>
         <?php
     }
@@ -901,16 +941,15 @@ class MonthlyBooking_Admin_UI {
             }
         }
         
-        $has_campaign = false;
-        foreach ($campaigns as $campaign) {
-            if ($date >= $campaign->start_date && $date <= $campaign->end_date) {
-                $has_campaign = true;
-                break;
-            }
-        }
+        $applicable_campaign = $this->check_campaign_eligibility($date, $campaigns);
         
-        if ($has_campaign) {
-            return array('status' => 'campaign', 'symbol' => '△');
+        if ($applicable_campaign) {
+            return array(
+                'status' => 'campaign', 
+                'symbol' => '△', 
+                'campaign_name' => $applicable_campaign['name'],
+                'campaign_type' => $applicable_campaign['type']
+            );
         }
         
         return array('status' => 'available', 'symbol' => '〇');
@@ -935,6 +974,39 @@ class MonthlyBooking_Admin_UI {
      */
     private function date_ranges_overlap($start1, $end1, $start2, $end2) {
         return ($start1 <= $end2) && ($end1 >= $start2);
+    }
+    
+    /**
+     * Check campaign eligibility for a specific date
+     */
+    private function check_campaign_eligibility($date, $campaigns) {
+        $today = date('Y-m-d');
+        
+        foreach ($campaigns as $campaign) {
+            if ($campaign->is_active != 1) {
+                continue;
+            }
+            
+            if ($date < $campaign->start_date || $date > $campaign->end_date) {
+                continue;
+            }
+            
+            $days_until_checkin = (strtotime($date) - strtotime($today)) / (60 * 60 * 24);
+            
+            if (strpos($campaign->campaign_name, '早割') !== false) {
+                if ($days_until_checkin >= 30) {
+                    return array('name' => '早割', 'type' => 'early_booking');
+                }
+            }
+            
+            if (strpos($campaign->campaign_name, '即入居') !== false) {
+                if ($days_until_checkin <= 7 && $days_until_checkin >= 0) {
+                    return array('name' => '即入居', 'type' => 'immediate_checkin');
+                }
+            }
+        }
+        
+        return false;
     }
     
     

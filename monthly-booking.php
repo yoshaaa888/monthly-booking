@@ -3,7 +3,7 @@
  * Plugin Name: Monthly Room Booking
  * Plugin URI: https://github.com/yoshaaa888/monthly-booking
  * Description: A WordPress plugin for managing monthly room bookings with property management, calendar display, pricing logic, and campaign management.
- * Version: 1.3.1
+ * Version: 1.4.0
  * Author: Yoshi
  * License: GPL v2 or later
  * Text Domain: monthly-booking
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('MONTHLY_BOOKING_VERSION', '1.3.1');
+define('MONTHLY_BOOKING_VERSION', '1.4.0');
 define('MONTHLY_BOOKING_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MONTHLY_BOOKING_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -141,6 +141,60 @@ class MonthlyBooking {
             
             if (!$existing) {
                 $wpdb->insert($table_name, $property);
+            }
+        }
+        
+        $this->insert_sample_campaigns();
+    }
+    
+    private function insert_sample_campaigns() {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'monthly_campaigns';
+        
+        $sample_campaigns = array(
+            array(
+                'campaign_name' => '早割キャンペーン',
+                'campaign_description' => '入居30日以上前のご予約で賃料・共益費10%OFF',
+                'discount_type' => 'percentage',
+                'discount_value' => 10.00,
+                'min_stay_days' => 7,
+                'max_discount_amount' => 50000.00,
+                'applicable_rooms' => '',
+                'start_date' => date('Y-m-d'),
+                'end_date' => date('Y-m-d', strtotime('+365 days')),
+                'booking_start_date' => date('Y-m-d', strtotime('+30 days')),
+                'booking_end_date' => date('Y-m-d', strtotime('+395 days')),
+                'usage_limit' => 100,
+                'usage_count' => 0,
+                'is_active' => 1
+            ),
+            array(
+                'campaign_name' => '即入居割',
+                'campaign_description' => '入居7日以内のご予約で賃料・共益費20%OFF',
+                'discount_type' => 'percentage',
+                'discount_value' => 20.00,
+                'min_stay_days' => 7,
+                'max_discount_amount' => 80000.00,
+                'applicable_rooms' => '',
+                'start_date' => date('Y-m-d'),
+                'end_date' => date('Y-m-d', strtotime('+365 days')),
+                'booking_start_date' => date('Y-m-d'),
+                'booking_end_date' => date('Y-m-d', strtotime('+7 days')),
+                'usage_limit' => 50,
+                'usage_count' => 0,
+                'is_active' => 1
+            )
+        );
+        
+        foreach ($sample_campaigns as $campaign) {
+            $existing = $wpdb->get_row($wpdb->prepare(
+                "SELECT id FROM $table_name WHERE campaign_name = %s",
+                $campaign['campaign_name']
+            ));
+            
+            if (!$existing) {
+                $wpdb->insert($table_name, $campaign);
             }
         }
     }
