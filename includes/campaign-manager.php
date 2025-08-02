@@ -270,4 +270,166 @@ class MonthlyBooking_Campaign_Manager {
             array('%d')
         );
     }
+    
+    /**
+     * Get applicable campaigns for a given check-in date
+     * Automatically determines early booking and last-minute campaigns
+     * 
+     * @param string $checkin_date Check-in date in Y-m-d format
+     * @return array|null Campaign information or null if no applicable campaign
+     */
+    public function get_applicable_campaigns($checkin_date) {
+        if (empty($checkin_date)) {
+            return null;
+        }
+        
+        $today = new DateTime();
+        $checkin = new DateTime($checkin_date);
+        $days_until_checkin = $today->diff($checkin)->days;
+        
+        if ($checkin < $today) {
+            return null;
+        }
+        
+        $applicable_campaigns = array();
+        
+        if ($days_until_checkin <= 7) {
+            $campaign = $this->get_campaign_by_type('last_minute');
+            if ($campaign) {
+                $applicable_campaigns[] = array(
+                    'id' => $campaign->id,
+                    'name' => $campaign->campaign_name,
+                    'type' => 'last_minute',
+                    'discount_type' => $campaign->discount_type,
+                    'discount_value' => $campaign->discount_value,
+                    'badge' => '即入居',
+                    'description' => '入居7日以内の即入居キャンペーン',
+                    'days_until_checkin' => $days_until_checkin
+                );
+            }
+        }
+        
+        if ($days_until_checkin >= 30) {
+            $campaign = $this->get_campaign_by_type('early');
+            if ($campaign) {
+                $applicable_campaigns[] = array(
+                    'id' => $campaign->id,
+                    'name' => $campaign->campaign_name,
+                    'type' => 'early',
+                    'discount_type' => $campaign->discount_type,
+                    'discount_value' => $campaign->discount_value,
+                    'badge' => '早割',
+                    'description' => '入居30日以上前の早期予約キャンペーン',
+                    'days_until_checkin' => $days_until_checkin
+                );
+            }
+        }
+        
+        return !empty($applicable_campaigns) ? $applicable_campaigns : null;
+    }
+    
+    /**
+     * Get campaign by type from monthly_campaigns table
+     * 
+     * @param string $type Campaign type ('early' or 'last_minute')
+     * @return object|null Campaign object or null if not found
+     */
+    private function get_campaign_by_type($type) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'monthly_campaigns';
+        $today = date('Y-m-d');
+        
+        $type_conditions = array(
+            'early' => "campaign_description LIKE '%早割%' OR campaign_description LIKE '%early%'",
+            'last_minute' => "campaign_description LIKE '%即入居%' OR campaign_description LIKE '%last_minute%'"
+        );
+        
+        if (!isset($type_conditions[$type])) {
+            return null;
+        }
+        
+        $sql = $wpdb->prepare(
+            "SELECT * FROM $table_name 
+             WHERE is_active = 1 
+             AND start_date <= %s 
+             AND end_date >= %s 
+             AND ({$type_conditions[$type]})
+             ORDER BY discount_value DESC 
+             LIMIT 1",
+            $today,
+            $today
+        );
+        
+        return $wpdb->get_row($sql);
+    }
+    
+    /**
+     * Calculate campaign discount for given parameters
+     * 
+     * @param string $checkin_date Check-in date
+     * @param float $base_total Base total amount (rent + utilities)
+     * @param float $total_amount Total booking amount
+     * @return array Discount information
+     */
+    public function calculate_campaign_discount($checkin_date, $base_total, $total_amount) {
+        $campaigns = $this->get_applicable_campaigns($checkin_date);
+        
+        if (!$campaigns) {
+            return array(
+                'discount_amount' => 0,
+                'campaign_name' => null,
+                'campaign_badge' => null,
+                'campaign_type' => null
+            );
+        }
+        
+        $campaign = $campaigns[0];
+        $discount_amount = 0;
+        
+        if ($campaign['discount_type'] === 'percentage') {
+            $discount_amount = $base_total * ($campaign['discount_value'] / 100);
+        } elseif ($campaign['discount_type'] === 'fixed') {
+            $discount_amount = $campaign['discount_value'];
+        }
+        
+        $discount_amount = min($discount_amount, $total_amount);
+        
+        return array(
+            'discount_amount' => $discount_amount,
+            'campaign_name' => $campaign['name'],
+            'campaign_badge' => $campaign['badge'],
+            'campaign_type' => $campaign['type'],
+            'campaign_description' => $campaign['description'],
+            'days_until_checkin' => $campaign['days_until_checkin']
+        );
+    }
+    
+    /**
+     * Check if a specific date qualifies for any campaign
+     * 
+     * @param string $checkin_date Check-in date in Y-m-d format
+     * @return bool True if qualifies for campaign, false otherwise
+     */
+    public function has_applicable_campaign($checkin_date) {
+        $campaigns = $this->get_applicable_campaigns($checkin_date);
+        return !empty($campaigns);
+    }
+    
+    /**
+     * Get campaign badge for calendar display
+     * 
+     * @param string $checkin_date Check-in date
+     * @return string|null Campaign badge or null
+     */
+    public function get_campaign_badge($checkin_date) {
+        $campaigns = $this->get_applicable_campaigns($checkin_date);
+        
+        if (!$campaigns) {
+            return null;
+        }
+        
+        // Return the badge of the first applicable campaign
+        return $campaigns[0]['badge'];
+    }
 }

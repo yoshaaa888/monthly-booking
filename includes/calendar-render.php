@@ -814,6 +814,21 @@ class MonthlyBooking_Calendar_Render {
             margin: 10px 0;
             line-height: 1.5;
         }
+        .campaign-badge {
+            background: #ff6b6b;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        .campaign-badge.early {
+            background: #4ecdc4;
+        }
+        .campaign-badge.last_minute {
+            background: #ff6b6b;
+        }
         </style>
         <?php
         return ob_get_clean();
