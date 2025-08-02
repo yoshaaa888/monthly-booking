@@ -581,6 +581,8 @@ class MonthlyBooking_Booking_Logic {
             // Campaign discounts
             'campaign_discount' => $campaign_data['discount_amount'],
             'campaign_details' => $campaign_data['campaigns'],
+            'campaign_badge' => isset($campaign_data['campaign_badge']) ? $campaign_data['campaign_badge'] : null,
+            'campaign_type' => isset($campaign_data['campaign_type']) ? $campaign_data['campaign_type'] : null,
             
             'subtotal' => $subtotal,
             'final_total' => $final_total,
@@ -738,45 +740,33 @@ class MonthlyBooking_Booking_Logic {
     }
     
     /**
-     * Calculate Step 3 campaign discounts (早割・即入居割)
+     * Calculate Step 3 campaign discounts using new campaign manager
      */
     private function calculate_step3_campaign_discount($move_in_date, $move_out_date, $base_total) {
-        $today = new DateTime();
-        $move_in = new DateTime($move_in_date);
-        $days_until_move_in = $today->diff($move_in)->days;
+        if (!class_exists('MonthlyBooking_Campaign_Manager')) {
+            require_once plugin_dir_path(__FILE__) . 'campaign-manager.php';
+        }
+        
+        $campaign_manager = new MonthlyBooking_Campaign_Manager();
+        $campaign_info = $campaign_manager->calculate_campaign_discount($move_in_date, $base_total, $base_total);
         
         $applied_campaigns = array();
-        $total_discount = 0;
-        
-        if ($days_until_move_in >= 30) {
-            $early_discount = $base_total * 0.10; // 10% discount
-            $total_discount += $early_discount;
+        if ($campaign_info['campaign_name']) {
             $applied_campaigns[] = array(
-                'name' => __('早割キャンペーン', 'monthly-booking'),
-                'description' => __('入居30日以上前のご予約で10%割引', 'monthly-booking'),
+                'name' => $campaign_info['campaign_name'],
+                'description' => $campaign_info['campaign_description'],
                 'discount_type' => 'percentage',
-                'discount_value' => 10,
-                'discount_amount' => $early_discount
+                'discount_value' => $campaign_info['campaign_type'] === 'early' ? 10 : 20,
+                'discount_amount' => $campaign_info['discount_amount'],
+                'badge' => $campaign_info['campaign_badge']
             );
         }
-        
-        if ($days_until_move_in <= 7) {
-            $immediate_discount = $base_total * 0.20; // 20% discount
-            $total_discount += $immediate_discount;
-            $applied_campaigns[] = array(
-                'name' => __('即入居割キャンペーン', 'monthly-booking'),
-                'description' => __('入居7日以内のご予約で20%割引', 'monthly-booking'),
-                'discount_type' => 'percentage',
-                'discount_value' => 20,
-                'discount_amount' => $immediate_discount
-            );
-        }
-        
-        $total_discount = min($total_discount, $base_total * 0.5);
         
         return array(
-            'discount_amount' => $total_discount,
-            'campaigns' => $applied_campaigns
+            'discount_amount' => $campaign_info['discount_amount'],
+            'campaigns' => $applied_campaigns,
+            'campaign_badge' => $campaign_info['campaign_badge'],
+            'campaign_type' => $campaign_info['campaign_type']
         );
     }
     

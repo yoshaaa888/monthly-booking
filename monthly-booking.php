@@ -3,7 +3,7 @@
  * Plugin Name: Monthly Room Booking
  * Plugin URI: https://github.com/yoshaaa888/monthly-booking
  * Description: A WordPress plugin for managing monthly room bookings with property management, calendar display, pricing logic, and campaign management.
- * Version: 1.5.5
+ * Version: 1.5.7
  * Author: Yoshi
  * License: GPL v2 or later
  * Text Domain: monthly-booking
@@ -155,7 +155,7 @@ class MonthlyBooking {
         $sample_campaigns = array(
             array(
                 'campaign_name' => '早割キャンペーン',
-                'campaign_description' => '入居30日以上前のご予約で賃料・共益費10%OFF',
+                'campaign_description' => '入居30日以上前のご予約で賃料・共益費10%OFF 早割',
                 'discount_type' => 'percentage',
                 'discount_value' => 10.00,
                 'min_stay_days' => 7,
@@ -171,7 +171,7 @@ class MonthlyBooking {
             ),
             array(
                 'campaign_name' => '即入居割',
-                'campaign_description' => '入居7日以内のご予約で賃料・共益費20%OFF',
+                'campaign_description' => '入居7日以内のご予約で賃料・共益費20%OFF 即入居',
                 'discount_type' => 'percentage',
                 'discount_value' => 20.00,
                 'min_stay_days' => 7,

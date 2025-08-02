@@ -272,7 +272,11 @@ jQuery(document).ready(function($) {
         
         if (estimate.campaign_discount > 0) {
             html += '<div class="cost-item discount">';
-            html += '<span>キャンペーン割引</span>';
+            html += '<span>キャンペーン割引';
+            if (estimate.campaign_badge) {
+                html += ' <span class="campaign-badge ' + (estimate.campaign_type || '') + '">' + estimate.campaign_badge + '</span>';
+            }
+            html += '</span>';
             html += '<span>-' + formatCurrency(estimate.campaign_discount) + '</span>';
             html += '</div>';
             
