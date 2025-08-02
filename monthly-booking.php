@@ -57,10 +57,40 @@ class MonthlyBooking {
     
     public function activate() {
         $this->create_tables();
+        $this->insert_default_options();
         
         add_option('monthly_booking_version', MONTHLY_BOOKING_VERSION);
         
         flush_rewrite_rules();
+    }
+    
+    private function insert_default_options() {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'monthly_options';
+        
+        $default_options = array(
+            array('option_name' => '調理器具セット', 'price' => 6600, 'is_discount_target' => 1, 'display_order' => 1),
+            array('option_name' => '食器類', 'price' => 3900, 'is_discount_target' => 1, 'display_order' => 2),
+            array('option_name' => '洗剤類', 'price' => 3800, 'is_discount_target' => 1, 'display_order' => 3),
+            array('option_name' => 'タオル類', 'price' => 2900, 'is_discount_target' => 1, 'display_order' => 4),
+            array('option_name' => 'アメニティ類', 'price' => 3500, 'is_discount_target' => 1, 'display_order' => 5),
+            array('option_name' => '寝具カバーセット', 'price' => 4530, 'is_discount_target' => 1, 'display_order' => 6),
+            array('option_name' => '毛布', 'price' => 3950, 'is_discount_target' => 1, 'display_order' => 7),
+            array('option_name' => 'アイロン', 'price' => 6860, 'is_discount_target' => 0, 'display_order' => 8),
+            array('option_name' => '炊飯器', 'price' => 6600, 'is_discount_target' => 0, 'display_order' => 9)
+        );
+        
+        foreach ($default_options as $option) {
+            $existing = $wpdb->get_row($wpdb->prepare(
+                "SELECT id FROM $table_name WHERE option_name = %s",
+                $option['option_name']
+            ));
+            
+            if (!$existing) {
+                $wpdb->insert($table_name, $option);
+            }
+        }
     }
     
     public function deactivate() {
@@ -98,6 +128,15 @@ class MonthlyBooking {
             customer_id mediumint(9) NOT NULL,
             start_date date NOT NULL,
             end_date date NOT NULL,
+            num_adults int(2) DEFAULT 1,
+            num_children int(2) DEFAULT 0,
+            plan_type varchar(10) DEFAULT 'M',
+            base_rent decimal(10,2) NOT NULL,
+            utilities_fee decimal(10,2) NOT NULL,
+            initial_costs decimal(10,2) NOT NULL,
+            person_additional_fee decimal(10,2) DEFAULT 0,
+            options_total decimal(10,2) DEFAULT 0,
+            options_discount decimal(10,2) DEFAULT 0,
             total_price decimal(10,2) NOT NULL,
             discount_amount decimal(10,2) DEFAULT 0,
             final_price decimal(10,2) NOT NULL,
@@ -111,7 +150,8 @@ class MonthlyBooking {
             KEY customer_id (customer_id),
             KEY start_date (start_date),
             KEY end_date (end_date),
-            KEY status (status)
+            KEY status (status),
+            KEY plan_type (plan_type)
         ) $charset_collate;";
         dbDelta($sql);
         
@@ -190,6 +230,39 @@ class MonthlyBooking {
             KEY last_name (last_name),
             KEY phone (phone),
             KEY is_active (is_active)
+        ) $charset_collate;";
+        dbDelta($sql);
+        
+        $table_name = $wpdb->prefix . 'monthly_options';
+        $sql = "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            option_name varchar(100) NOT NULL,
+            option_description text,
+            price decimal(10,2) NOT NULL,
+            is_discount_target tinyint(1) DEFAULT 1,
+            display_order int(3) DEFAULT 0,
+            is_active tinyint(1) DEFAULT 1,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY is_active (is_active),
+            KEY display_order (display_order)
+        ) $charset_collate;";
+        dbDelta($sql);
+        
+        $table_name = $wpdb->prefix . 'monthly_booking_options';
+        $sql = "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            booking_id mediumint(9) NOT NULL,
+            option_id mediumint(9) NOT NULL,
+            quantity int(2) DEFAULT 1,
+            unit_price decimal(10,2) NOT NULL,
+            total_price decimal(10,2) NOT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY booking_id (booking_id),
+            KEY option_id (option_id),
+            UNIQUE KEY booking_option (booking_id, option_id)
         ) $charset_collate;";
         dbDelta($sql);
     }
