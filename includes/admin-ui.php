@@ -78,6 +78,15 @@ class MonthlyBooking_Admin_UI {
         
         add_submenu_page(
             'monthly-room-booking',
+            __('オプション管理', 'monthly-booking'),
+            __('オプション管理', 'monthly-booking'),
+            'manage_options',
+            'monthly-room-booking-options',
+            array($this, 'admin_page_options_management')
+        );
+        
+        add_submenu_page(
+            'monthly-room-booking',
             __('プラグイン設定', 'monthly-booking'),
             __('プラグイン設定', 'monthly-booking'),
             'manage_options',
@@ -254,6 +263,117 @@ class MonthlyBooking_Admin_UI {
                 
                 <div class="notice notice-info">
                     <p><?php _e('機能実装予定: キャンペーン一覧、新規作成、期間設定、割引率設定', 'monthly-booking'); ?></p>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Admin page: オプション管理 (Options Management)
+     */
+    public function admin_page_options_management() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
+        }
+        
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'monthly_options';
+        
+        if (isset($_POST['action']) && $_POST['action'] === 'update_option') {
+            check_admin_referer('monthly_booking_update_option');
+            
+            $option_id = intval($_POST['option_id']);
+            $option_name = sanitize_text_field($_POST['option_name']);
+            $price = floatval($_POST['price']);
+            $is_discount_target = isset($_POST['is_discount_target']) ? 1 : 0;
+            $display_order = intval($_POST['display_order']);
+            $is_active = isset($_POST['is_active']) ? 1 : 0;
+            
+            $wpdb->update(
+                $table_name,
+                array(
+                    'option_name' => $option_name,
+                    'price' => $price,
+                    'is_discount_target' => $is_discount_target,
+                    'display_order' => $display_order,
+                    'is_active' => $is_active
+                ),
+                array('id' => $option_id),
+                array('%s', '%f', '%d', '%d', '%d'),
+                array('%d')
+            );
+            
+            echo '<div class="notice notice-success"><p>' . __('オプションが更新されました。', 'monthly-booking') . '</p></div>';
+        }
+        
+        $options = $wpdb->get_results("SELECT * FROM $table_name ORDER BY display_order ASC");
+        
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+            
+            <div class="monthly-booking-admin-content">
+                <h2><?php _e('オプション管理', 'monthly-booking'); ?></h2>
+                <p><?php _e('月額予約のオプションセットを管理します。', 'monthly-booking'); ?></p>
+                
+                <table class="monthly-booking-table">
+                    <thead>
+                        <tr>
+                            <th><?php _e('表示順', 'monthly-booking'); ?></th>
+                            <th><?php _e('オプション名', 'monthly-booking'); ?></th>
+                            <th><?php _e('価格', 'monthly-booking'); ?></th>
+                            <th><?php _e('割引対象', 'monthly-booking'); ?></th>
+                            <th><?php _e('ステータス', 'monthly-booking'); ?></th>
+                            <th><?php _e('操作', 'monthly-booking'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($options as $option): ?>
+                        <tr>
+                            <form method="post" style="display: contents;">
+                                <?php wp_nonce_field('monthly_booking_update_option'); ?>
+                                <input type="hidden" name="action" value="update_option">
+                                <input type="hidden" name="option_id" value="<?php echo esc_attr($option->id); ?>">
+                                
+                                <td>
+                                    <input type="number" name="display_order" value="<?php echo esc_attr($option->display_order); ?>" min="1" max="99" style="width: 60px;">
+                                </td>
+                                <td>
+                                    <input type="text" name="option_name" value="<?php echo esc_attr($option->option_name); ?>" style="width: 200px;" required>
+                                </td>
+                                <td>
+                                    ¥<input type="number" name="price" value="<?php echo esc_attr($option->price); ?>" min="0" step="10" style="width: 100px;" required>
+                                </td>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="is_discount_target" value="1" <?php checked($option->is_discount_target, 1); ?>>
+                                        <?php _e('割引対象', 'monthly-booking'); ?>
+                                    </label>
+                                </td>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="is_active" value="1" <?php checked($option->is_active, 1); ?>>
+                                        <?php _e('有効', 'monthly-booking'); ?>
+                                    </label>
+                                </td>
+                                <td>
+                                    <button type="submit" class="button button-primary"><?php _e('更新', 'monthly-booking'); ?></button>
+                                </td>
+                            </form>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                
+                <div class="notice notice-info">
+                    <p><strong><?php _e('割引ルール:', 'monthly-booking'); ?></strong></p>
+                    <ul>
+                        <li><?php _e('2つのオプション選択で500円割引', 'monthly-booking'); ?></li>
+                        <li><?php _e('3つ以上のオプション選択で、3つ目以降1つにつき300円追加割引', 'monthly-booking'); ?></li>
+                        <li><?php _e('最大割引額は2,000円まで', 'monthly-booking'); ?></li>
+                        <li><?php _e('割引は「割引対象」にチェックが入っているオプションのみに適用されます', 'monthly-booking'); ?></li>
+                    </ul>
                 </div>
             </div>
         </div>

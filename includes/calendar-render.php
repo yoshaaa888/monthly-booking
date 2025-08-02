@@ -207,6 +207,56 @@ class MonthlyBooking_Calendar_Render {
                 </div>
                 
                 <div class="form-section">
+                    <h4><?php _e('人数情報', 'monthly-booking'); ?></h4>
+                    <div class="form-row">
+                        <label for="num_adults"><?php _e('大人の人数', 'monthly-booking'); ?> <span class="required">*</span></label>
+                        <select id="num_adults" name="num_adults" required>
+                            <option value="1" selected>1人</option>
+                            <option value="2">2人</option>
+                            <option value="3">3人</option>
+                            <option value="4">4人</option>
+                            <option value="5">5人</option>
+                            <option value="6">6人</option>
+                            <option value="7">7人</option>
+                            <option value="8">8人</option>
+                            <option value="9">9人</option>
+                            <option value="10">10人</option>
+                        </select>
+                        <small class="form-help"><?php _e('基本料金には1名分が含まれています', 'monthly-booking'); ?></small>
+                    </div>
+                    <div class="form-row">
+                        <label for="num_children"><?php _e('子供の人数（中学生以下）', 'monthly-booking'); ?></label>
+                        <select id="num_children" name="num_children">
+                            <option value="0" selected>0人</option>
+                            <option value="1">1人</option>
+                            <option value="2">2人</option>
+                            <option value="3">3人</option>
+                            <option value="4">4人</option>
+                            <option value="5">5人</option>
+                            <option value="6">6人</option>
+                            <option value="7">7人</option>
+                            <option value="8">8人</option>
+                            <option value="9">9人</option>
+                            <option value="10">10人</option>
+                        </select>
+                        <small class="form-help"><?php _e('追加料金: 大人 ¥1,000/日、子供 ¥500/日', 'monthly-booking'); ?></small>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h4><?php _e('オプションセット', 'monthly-booking'); ?></h4>
+                    <div id="options-grid" class="options-grid">
+                        <div class="options-loading"><?php _e('オプションを読み込み中...', 'monthly-booking'); ?></div>
+                    </div>
+                    <div class="options-discount-info">
+                        <small><?php _e('2つ選択で500円割引、3つ以上で追加300円割引（最大2,000円まで）', 'monthly-booking'); ?></small>
+                        <div id="options-discount-display" class="options-discount-display" style="display: none;">
+                            <strong><?php _e('オプション割引: ', 'monthly-booking'); ?><span id="discount-amount">¥0</span></strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-section">
                     <h4><?php _e('Contact Information', 'monthly-booking'); ?></h4>
                     <div class="form-row">
                         <label for="guest_name"><?php _e('Name', 'monthly-booking'); ?> <span class="required">*</span></label>
@@ -263,6 +313,18 @@ class MonthlyBooking_Calendar_Render {
                                 <td><?php _e('Initial Costs', 'monthly-booking'); ?>:</td>
                                 <td class="initial-costs-amount"></td>
                             </tr>
+                            <tr class="price-row person-fee-row" style="display: none;">
+                                <td><?php _e('追加人数料金', 'monthly-booking'); ?>:</td>
+                                <td class="person-fee-amount"></td>
+                            </tr>
+                            <tr class="price-row options-row" style="display: none;">
+                                <td><?php _e('オプション料金', 'monthly-booking'); ?>:</td>
+                                <td class="options-amount"></td>
+                            </tr>
+                            <tr class="price-row options-discount-row" style="display: none;">
+                                <td><?php _e('オプション割引', 'monthly-booking'); ?>:</td>
+                                <td class="options-discount-amount"></td>
+                            </tr>
                             <tr class="subtotal-row">
                                 <td><?php _e('Subtotal', 'monthly-booking'); ?>:</td>
                                 <td class="subtotal-amount"></td>
@@ -279,6 +341,10 @@ class MonthlyBooking_Calendar_Render {
                         <div class="campaign-details" style="display: none;">
                             <h5><?php _e('Applied Campaigns', 'monthly-booking'); ?></h5>
                             <div class="campaign-list"></div>
+                        </div>
+                        <div class="options-details" style="display: none;">
+                            <h5><?php _e('選択されたオプション', 'monthly-booking'); ?></h5>
+                            <div class="options-list"></div>
                         </div>
                     </div>
                     <div class="estimate-error" style="display: none;">
@@ -420,6 +486,87 @@ class MonthlyBooking_Calendar_Render {
         .error-message {
             color: #d63638;
             font-weight: 600;
+        }
+        .form-help {
+            display: block;
+            color: #666;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .option-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #f9f9f9;
+        }
+        .option-item input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        .option-item.discount-eligible {
+            border-color: #007cba;
+            background: #f0f8ff;
+        }
+        .option-label {
+            flex: 1;
+        }
+        .option-name {
+            font-weight: 600;
+            display: block;
+        }
+        .option-price {
+            color: #007cba;
+            font-size: 14px;
+        }
+        .options-discount-info {
+            padding: 10px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .options-discount-display {
+            margin-top: 10px;
+            padding: 8px;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            color: #155724;
+        }
+        .options-loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .person-fee-row,
+        .options-row,
+        .options-discount-row {
+            color: #007cba;
+        }
+        .options-details {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+        }
+        .options-details h5 {
+            margin-bottom: 10px;
+            color: #007cba;
+        }
+        .option-detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .option-detail-item:last-child {
+            border-bottom: none;
         }
         </style>
         <?php

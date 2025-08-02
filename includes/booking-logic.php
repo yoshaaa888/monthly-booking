@@ -18,6 +18,8 @@ class MonthlyBooking_Booking_Logic {
         add_action('wp_ajax_nopriv_calculate_estimate', array($this, 'ajax_calculate_estimate'));
         add_action('wp_ajax_submit_booking', array($this, 'ajax_submit_booking'));
         add_action('wp_ajax_nopriv_submit_booking', array($this, 'ajax_submit_booking'));
+        add_action('wp_ajax_get_booking_options', array($this, 'ajax_get_options'));
+        add_action('wp_ajax_nopriv_get_booking_options', array($this, 'ajax_get_options'));
     }
     
     /**
@@ -229,6 +231,9 @@ class MonthlyBooking_Booking_Logic {
         $plan = sanitize_text_field($_POST['plan']);
         $move_in_date = sanitize_text_field($_POST['move_in_date']);
         $stay_months = intval($_POST['stay_months']);
+        $num_adults = isset($_POST['num_adults']) ? intval($_POST['num_adults']) : 1;
+        $num_children = isset($_POST['num_children']) ? intval($_POST['num_children']) : 0;
+        $selected_options = isset($_POST['selected_options']) ? $_POST['selected_options'] : array();
         $guest_name = sanitize_text_field($_POST['guest_name']);
         $company_name = sanitize_text_field($_POST['company_name']);
         $guest_email = sanitize_email($_POST['guest_email']);
@@ -245,7 +250,15 @@ class MonthlyBooking_Booking_Logic {
             wp_send_json_error(__('Please enter a valid email address.', 'monthly-booking'));
         }
         
-        $estimate_data = $this->calculate_plan_estimate($plan, $move_in_date, $stay_months);
+        if ($num_adults < 1 || $num_adults > 10) {
+            wp_send_json_error(__('Number of adults must be between 1 and 10.', 'monthly-booking'));
+        }
+        
+        if ($num_children < 0 || $num_children > 10) {
+            wp_send_json_error(__('Number of children must be between 0 and 10.', 'monthly-booking'));
+        }
+        
+        $estimate_data = $this->calculate_plan_estimate($plan, $move_in_date, $stay_months, $num_adults, $num_children, $selected_options);
         
         $estimate_data['guest_info'] = array(
             'name' => $guest_name,
@@ -257,9 +270,9 @@ class MonthlyBooking_Booking_Logic {
     }
     
     /**
-     * Calculate estimate based on plan and duration
+     * Calculate estimate based on plan and duration with person count and options
      */
-    public function calculate_plan_estimate($plan, $move_in_date, $stay_months) {
+    public function calculate_plan_estimate($plan, $move_in_date, $stay_months, $num_adults = 1, $num_children = 0, $selected_options = array()) {
         global $wpdb;
         
         $plan_prices = $this->get_plan_pricing($plan);
@@ -281,7 +294,15 @@ class MonthlyBooking_Booking_Logic {
         $total_utilities = $daily_utilities * $stay_days;
         $initial_costs = $cleaning_fee + $key_fee + $bedding_fee;
         
-        $subtotal = $total_rent + $total_utilities + $initial_costs;
+        $additional_adults = max(0, $num_adults - 1);
+        $person_additional_fee = ($additional_adults * 1000 + $num_children * 500) * $stay_days;
+        
+        $options_data = $this->calculate_options_total($selected_options);
+        $options_total = $options_data['total'];
+        $options_discount = $options_data['discount'];
+        $options_final = $options_total - $options_discount;
+        
+        $subtotal = $total_rent + $total_utilities + $initial_costs + $person_additional_fee + $options_final;
         $tax_amount = $subtotal * ($tax_rate / 100);
         $subtotal_with_tax = $subtotal + $tax_amount;
         
@@ -296,6 +317,8 @@ class MonthlyBooking_Booking_Logic {
             'stay_months' => $stay_months,
             'stay_days' => $stay_days,
             'end_date' => $end_date->format('Y-m-d'),
+            'num_adults' => $num_adults,
+            'num_children' => $num_children,
             'daily_rent' => $daily_rent,
             'total_rent' => $total_rent,
             'daily_utilities' => $daily_utilities,
@@ -304,6 +327,11 @@ class MonthlyBooking_Booking_Logic {
             'key_fee' => $key_fee,
             'bedding_fee' => $bedding_fee,
             'initial_costs' => $initial_costs,
+            'person_additional_fee' => $person_additional_fee,
+            'options_total' => $options_total,
+            'options_discount' => $options_discount,
+            'options_final' => $options_final,
+            'selected_options' => $options_data['details'],
             'subtotal' => $subtotal,
             'tax_rate' => $tax_rate,
             'tax_amount' => $tax_amount,
@@ -415,5 +443,110 @@ class MonthlyBooking_Booking_Logic {
             'discount_amount' => $total_discount,
             'campaigns' => $applied_campaigns
         );
+    }
+    
+    /**
+     * Calculate options total with bundle discounts
+     */
+    private function calculate_options_total($selected_options) {
+        global $wpdb;
+        
+        if (empty($selected_options)) {
+            return array(
+                'total' => 0,
+                'discount' => 0,
+                'details' => array()
+            );
+        }
+        
+        $table_name = $wpdb->prefix . 'monthly_options';
+        $option_ids = array_map('intval', array_keys($selected_options));
+        $placeholders = implode(',', array_fill(0, count($option_ids), '%d'));
+        
+        $options = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM $table_name WHERE id IN ($placeholders) AND is_active = 1",
+            ...$option_ids
+        ));
+        
+        $total = 0;
+        $discount_eligible_count = 0;
+        $option_details = array();
+        
+        foreach ($options as $option) {
+            $quantity = isset($selected_options[$option->id]) ? intval($selected_options[$option->id]) : 1;
+            $option_total = $option->price * $quantity;
+            $total += $option_total;
+            
+            if ($option->is_discount_target) {
+                $discount_eligible_count += $quantity;
+            }
+            
+            $option_details[] = array(
+                'id' => $option->id,
+                'name' => $option->option_name,
+                'price' => $option->price,
+                'quantity' => $quantity,
+                'total' => $option_total,
+                'is_discount_target' => $option->is_discount_target
+            );
+        }
+        
+        $discount = $this->calculate_option_bundle_discount($discount_eligible_count);
+        
+        return array(
+            'total' => $total,
+            'discount' => $discount,
+            'details' => $option_details,
+            'discount_eligible_count' => $discount_eligible_count
+        );
+    }
+    
+    /**
+     * Calculate option bundle discount based on count
+     * 2 options: -¥500
+     * 3+ options: -¥300 per additional option (max -¥2,000)
+     */
+    private function calculate_option_bundle_discount($count) {
+        if ($count < 2) {
+            return 0;
+        }
+        
+        $discount = 0;
+        
+        if ($count >= 2) {
+            $discount += 500;
+        }
+        
+        if ($count >= 3) {
+            $additional_options = $count - 2;
+            $additional_discount = $additional_options * 300;
+            $discount += $additional_discount;
+        }
+        
+        return min($discount, 2000);
+    }
+    
+    /**
+     * Get available options for selection
+     */
+    public function get_available_options() {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'monthly_options';
+        
+        return $wpdb->get_results(
+            "SELECT * FROM $table_name WHERE is_active = 1 ORDER BY display_order ASC"
+        );
+    }
+    
+    /**
+     * AJAX handler for getting available options
+     */
+    public function ajax_get_options() {
+        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        
+        $options = $this->get_available_options();
+        
+        wp_send_json_success($options);
     }
 }

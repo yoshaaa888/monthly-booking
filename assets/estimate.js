@@ -8,10 +8,115 @@ jQuery(document).ready(function($) {
     const $detailsDiv = $('.estimate-details');
     const $errorDiv = $('.estimate-error');
     
+    let availableOptions = [];
+    
+    function loadOptions() {
+        if (typeof monthlyBookingAjax === 'undefined') {
+            $('.options-loading').text('オプションの読み込みに失敗しました');
+            return;
+        }
+        
+        $.ajax({
+            url: monthlyBookingAjax.ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'get_booking_options',
+                nonce: monthlyBookingAjax.nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    availableOptions = response.data;
+                    renderOptions();
+                } else {
+                    $('.options-loading').text('オプションの読み込みに失敗しました');
+                }
+            },
+            error: function() {
+                $('.options-loading').text('オプションの読み込みに失敗しました');
+            }
+        });
+    }
+    
+    function renderOptions() {
+        const $grid = $('#options-grid');
+        $grid.empty();
+        
+        if (availableOptions.length === 0) {
+            $grid.html('<div class="options-loading">利用可能なオプションがありません</div>');
+            return;
+        }
+        
+        availableOptions.forEach(function(option) {
+            const isDiscountEligible = parseInt(option.is_discount_target) === 1;
+            const $optionItem = $(`
+                <div class="option-item ${isDiscountEligible ? 'discount-eligible' : ''}">
+                    <input type="checkbox" id="option_${option.id}" name="options[]" value="${option.id}">
+                    <label for="option_${option.id}" class="option-label">
+                        <span class="option-name">${option.option_name}</span>
+                        <span class="option-price">¥${parseInt(option.price).toLocaleString('ja-JP')}</span>
+                        ${isDiscountEligible ? '<small style="color: #007cba;">割引対象</small>' : '<small style="color: #666;">割引対象外</small>'}
+                    </label>
+                </div>
+            `);
+            $grid.append($optionItem);
+        });
+        
+        $grid.find('input[type="checkbox"]').on('change', function() {
+            updateOptionsDiscount();
+            if ($resultDiv.is(':visible')) {
+                setTimeout(calculateEstimate, 300);
+            }
+        });
+    }
+    
+    function updateOptionsDiscount() {
+        const selectedOptions = getSelectedOptions();
+        let discountEligibleCount = 0;
+        
+        selectedOptions.forEach(function(optionId) {
+            const option = availableOptions.find(opt => opt.id == optionId);
+            if (option && parseInt(option.is_discount_target) === 1) {
+                discountEligibleCount++;
+            }
+        });
+        
+        const discount = calculateOptionDiscount(discountEligibleCount);
+        const $discountDisplay = $('#options-discount-display');
+        
+        if (discount > 0) {
+            $('#discount-amount').text('¥' + discount.toLocaleString('ja-JP'));
+            $discountDisplay.show();
+        } else {
+            $discountDisplay.hide();
+        }
+    }
+    
+    function calculateOptionDiscount(count) {
+        if (count < 2) return 0;
+        
+        let discount = 0;
+        if (count >= 2) {
+            discount += 500;
+        }
+        if (count >= 3) {
+            discount += (count - 2) * 300;
+        }
+        return Math.min(discount, 2000);
+    }
+    
+    function getSelectedOptions() {
+        const selected = [];
+        $('#options-grid input[type="checkbox"]:checked').each(function() {
+            selected.push($(this).val());
+        });
+        return selected;
+    }
+    
     function validateForm() {
         const plan = $('input[name="plan"]:checked').val();
         const moveInDate = $('#move_in_date').val();
         const stayMonths = $('#stay_months').val();
+        const numAdults = $('#num_adults').val();
         const guestName = $('#guest_name').val().trim();
         const guestEmail = $('#guest_email').val().trim();
         
@@ -27,6 +132,11 @@ jQuery(document).ready(function($) {
         
         if (!stayMonths) {
             showError('Please select stay duration.');
+            return false;
+        }
+        
+        if (!numAdults || numAdults < 1) {
+            showError('大人の人数を選択してください。');
             return false;
         }
         
@@ -71,6 +181,44 @@ jQuery(document).ready(function($) {
         $('.rent-amount').text(formatCurrency(estimate.total_rent));
         $('.utilities-amount').text(formatCurrency(estimate.total_utilities));
         $('.initial-costs-amount').text(formatCurrency(estimate.initial_costs));
+        
+        if (estimate.person_additional_fee > 0) {
+            $('.person-fee-amount').text(formatCurrency(estimate.person_additional_fee));
+            $('.person-fee-row').show();
+        } else {
+            $('.person-fee-row').hide();
+        }
+        
+        if (estimate.options_total > 0) {
+            $('.options-amount').text(formatCurrency(estimate.options_total));
+            $('.options-row').show();
+            
+            if (estimate.options_discount > 0) {
+                $('.options-discount-amount').text('-' + formatCurrency(estimate.options_discount));
+                $('.options-discount-row').show();
+            } else {
+                $('.options-discount-row').hide();
+            }
+            
+            if (estimate.selected_options && estimate.selected_options.length > 0) {
+                let optionsHtml = '';
+                estimate.selected_options.forEach(function(option) {
+                    optionsHtml += '<div class="option-detail-item">';
+                    optionsHtml += '<span>' + option.name + '</span>';
+                    optionsHtml += '<span>' + formatCurrency(option.total) + '</span>';
+                    optionsHtml += '</div>';
+                });
+                $('.options-list').html(optionsHtml);
+                $('.options-details').show();
+            } else {
+                $('.options-details').hide();
+            }
+        } else {
+            $('.options-row').hide();
+            $('.options-discount-row').hide();
+            $('.options-details').hide();
+        }
+        
         $('.subtotal-amount').text(formatCurrency(estimate.subtotal_with_tax));
         $('.total-amount').text(formatCurrency(estimate.final_total));
         
@@ -108,12 +256,20 @@ jQuery(document).ready(function($) {
             return;
         }
         
+        const selectedOptions = {};
+        getSelectedOptions().forEach(function(optionId) {
+            selectedOptions[optionId] = 1;
+        });
+        
         const formData = {
             action: 'calculate_estimate',
             nonce: monthlyBookingAjax.nonce,
             plan: $('input[name="plan"]:checked').val(),
             move_in_date: $('#move_in_date').val(),
             stay_months: $('#stay_months').val(),
+            num_adults: $('#num_adults').val(),
+            num_children: $('#num_children').val(),
+            selected_options: selectedOptions,
             guest_name: $('#guest_name').val().trim(),
             company_name: $('#company_name').val().trim(),
             guest_email: $('#guest_email').val().trim()
@@ -152,8 +308,19 @@ jQuery(document).ready(function($) {
     });
     
     $form.on('change', 'input, select', function() {
+        if ($(this).attr('name') === 'options[]') {
+            updateOptionsDiscount();
+        }
         if ($resultDiv.is(':visible')) {
             setTimeout(calculateEstimate, 500);
         }
     });
+    
+    $('#num_adults, #num_children').on('change', function() {
+        if ($resultDiv.is(':visible')) {
+            setTimeout(calculateEstimate, 300);
+        }
+    });
+    
+    loadOptions();
 });
