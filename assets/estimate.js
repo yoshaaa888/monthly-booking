@@ -451,58 +451,151 @@ jQuery(document).ready(function($) {
         searchProperties();
     });
 
-    function determinePlanByDuration(stayMonths) {
-        const stayDays = stayMonths * 30;
+    function determinePlanByDuration(stayDays) {
         
-        if (stayDays <= 7) {
-            return { code: 'SS', name: 'SS Plan - Compact Studio (15-20㎡)' };
-        } else if (stayDays <= 30) {
-            return { code: 'S', name: 'S Plan - Standard Studio (20-25㎡)' };
-        } else if (stayDays <= 90) {
-            return { code: 'M', name: 'M Plan - Medium Room (25-35㎡)' };
+        if (stayDays >= 7 && stayDays <= 29) {
+            return { 
+                code: 'SS', 
+                name: 'SS Plan - Compact Studio (15-20㎡)',
+                duration: stayDays + '日間'
+            };
+        } else if (stayDays >= 30 && stayDays <= 89) {
+            return { 
+                code: 'S', 
+                name: 'S Plan - Standard Studio (20-25㎡)',
+                duration: stayDays + '日間'
+            };
+        } else if (stayDays >= 90 && stayDays <= 179) {
+            return { 
+                code: 'M', 
+                name: 'M Plan - Medium Room (25-35㎡)',
+                duration: stayDays + '日間'
+            };
+        } else if (stayDays >= 180) {
+            return { 
+                code: 'L', 
+                name: 'L Plan - Large Room (35㎡+)',
+                duration: stayDays + '日間'
+            };
         } else {
-            return { code: 'L', name: 'L Plan - Large Room (35㎡+)' };
+            return { 
+                code: '', 
+                name: '滞在期間が短すぎます（最低7日間必要）',
+                duration: stayDays + '日間'
+            };
         }
     }
     
-    function calculateStayDuration() {
+    function calculateStayDuration(moveInDate, moveOutDate) {
+        if (!moveInDate || !moveOutDate) {
+            return 0;
+        }
+        
+        const checkIn = new Date(moveInDate);
+        const checkOut = new Date(moveOutDate);
+        
+        if (checkOut <= checkIn) {
+            return 0;
+        }
+        
+        const timeDiff = checkOut.getTime() - checkIn.getTime();
+        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        
+        return daysDiff;
+    }
+    
+    function calculateStayMonths(stayDays) {
+        return Math.ceil(stayDays / 30);
+    }
+    
+    function updatePlanDisplay() {
         const moveInDate = $('#move_in_date').val();
         const moveOutDate = $('#move_out_date').val();
         
         if (moveInDate && moveOutDate) {
-            const startDate = new Date(moveInDate);
-            const endDate = new Date(moveOutDate);
-            const diffTime = Math.abs(endDate - startDate);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            const diffMonths = Math.ceil(diffDays / 30);
+            const stayDays = calculateStayDuration(moveInDate, moveOutDate);
+            const stayMonths = calculateStayMonths(stayDays);
             
-            $('#stay_months').val(diffMonths);
+            $('#stay_months').val(stayMonths);
             
-            if (diffMonths > 0) {
-                const plan = determinePlanByDuration(diffMonths);
-                $('#auto-selected-plan').text(plan.name);
+            if (stayDays > 0) {
+                const plan = determinePlanByDuration(stayDays);
+                $('#auto-selected-plan').text(plan.name + ' (' + plan.duration + ')');
                 $('#selected-plan-display').show();
+                
+                if (plan.code) {
+                    $('#selected-plan-display').removeClass('error-plan').addClass('valid-plan');
+                } else {
+                    $('#selected-plan-display').removeClass('valid-plan').addClass('error-plan');
+                }
+            } else {
+                $('#selected-plan-display').hide();
             }
             
-            if ($resultDiv.is(':visible')) {
+            if ($('#estimate-result').is(':visible')) {
                 setTimeout(calculateEstimate, 300);
             }
+        } else {
+            $('#selected-plan-display').hide();
+            $('#stay_months').val('');
         }
     }
     
-    $('#move_in_date, #move_out_date').on('change', calculateStayDuration);
+    $('#move_in_date, #move_out_date').on('change', updatePlanDisplay);
+    
+    function updatePlanDisplay() {
+        const moveInDate = $('#move_in_date').val();
+        const moveOutDate = $('#move_out_date').val();
+        
+        if (moveInDate && moveOutDate) {
+            const stayDays = calculateStayDuration(moveInDate, moveOutDate);
+            const stayMonths = calculateStayMonths(stayDays);
+            
+            $('#stay_months').val(stayMonths);
+            
+            if (stayDays > 0) {
+                const plan = determinePlanByDuration(stayDays);
+                $('#auto-selected-plan').text(plan.name + ' (' + plan.duration + ')');
+                $('#selected-plan-display').show();
+                
+                if (plan.code) {
+                    $('#selected-plan-display').removeClass('error-plan').addClass('valid-plan');
+                } else {
+                    $('#selected-plan-display').removeClass('valid-plan').addClass('error-plan');
+                }
+            } else {
+                $('#selected-plan-display').hide();
+            }
+            
+            if ($('#estimate-result').is(':visible')) {
+                setTimeout(calculateEstimate, 300);
+            }
+        } else {
+            $('#selected-plan-display').hide();
+            $('#stay_months').val('');
+        }
+    }
+    
+    $('#move_in_date, #move_out_date').on('change', updatePlanDisplay);
     
     $('#stay_months').on('change', function() {
         const stayMonths = parseInt($(this).val());
         if (stayMonths) {
-            const plan = determinePlanByDuration(stayMonths);
-            $('#auto-selected-plan').text(plan.name);
+            const stayDays = stayMonths * 30; // Approximate conversion
+            const plan = determinePlanByDuration(stayDays);
+            $('#auto-selected-plan').text(plan.name + ' (' + plan.duration + ')');
             $('#selected-plan-display').show();
+            
+            if (plan.code) {
+                $('#selected-plan-display').removeClass('error-plan').addClass('valid-plan');
+            } else {
+                $('#selected-plan-display').removeClass('valid-plan').addClass('error-plan');
+            }
         } else {
             $('#selected-plan-display').hide();
         }
         
-        if ($resultDiv.is(':visible')) {
+        if ($('#estimate-result').is(':visible')) {
             setTimeout(calculateEstimate, 300);
         }
     });

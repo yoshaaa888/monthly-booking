@@ -245,7 +245,12 @@ class MonthlyBooking_Booking_Logic {
         $guest_phone = sanitize_text_field($_POST['guest_phone']);
         $special_requests = sanitize_textarea_field($_POST['special_requests']);
         
-        $plan = $this->determine_plan_by_duration($stay_months);
+        $stay_days = $this->calculate_stay_days($move_in_date, $move_out_date);
+        $plan = $this->determine_plan_by_days($stay_days);
+        
+        if (!$plan) {
+            wp_send_json_error(__('滞在期間は最低7日間必要です。', 'monthly-booking'));
+        }
         
         if (empty($room_id) || empty($move_in_date) || empty($move_out_date) || empty($stay_months)) {
             wp_send_json_error(__('必須項目をすべて入力してください。', 'monthly-booking'));
@@ -396,15 +401,49 @@ class MonthlyBooking_Booking_Logic {
     private function determine_plan_by_duration($stay_months) {
         $stay_days = $stay_months * 30;
         
-        if ($stay_days <= 7) {
+        if ($stay_days >= 7 && $stay_days <= 29) {
             return 'SS';
-        } elseif ($stay_days <= 30) {
+        } elseif ($stay_days >= 30 && $stay_days <= 89) {
             return 'S';
-        } elseif ($stay_days <= 90) {
+        } elseif ($stay_days >= 90 && $stay_days <= 179) {
             return 'M';
-        } else {
+        } elseif ($stay_days >= 180) {
             return 'L';
+        } else {
+            return null;
         }
+    }
+    
+    /**
+     * Determine plan based on exact number of days
+     */
+    private function determine_plan_by_days($stay_days) {
+        if ($stay_days >= 7 && $stay_days <= 29) {
+            return 'SS';
+        } elseif ($stay_days >= 30 && $stay_days <= 89) {
+            return 'S';
+        } elseif ($stay_days >= 90 && $stay_days <= 179) {
+            return 'M';
+        } elseif ($stay_days >= 180) {
+            return 'L';
+        } else {
+            return null;
+        }
+    }
+    
+    /**
+     * Calculate exact days between two dates
+     */
+    private function calculate_stay_days($move_in_date, $move_out_date) {
+        $check_in = new DateTime($move_in_date);
+        $check_out = new DateTime($move_out_date);
+        
+        if ($check_out <= $check_in) {
+            return 0;
+        }
+        
+        $interval = $check_in->diff($check_out);
+        return $interval->days;
     }
     
     /**

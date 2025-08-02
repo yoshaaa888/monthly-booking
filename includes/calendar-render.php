@@ -243,10 +243,10 @@ class MonthlyBooking_Calendar_Render {
                     <div class="auto-plan-info">
                         <p><?php _e('滞在期間に基づいて最適なプランを自動選択します：', 'monthly-booking'); ?></p>
                         <ul class="plan-duration-list">
-                            <li><strong>SS Plan:</strong> <?php _e('7日以下 - Compact Studio (15-20㎡)', 'monthly-booking'); ?></li>
-                            <li><strong>S Plan:</strong> <?php _e('8-30日 - Standard Studio (20-25㎡)', 'monthly-booking'); ?></li>
-                            <li><strong>M Plan:</strong> <?php _e('31-90日 - Medium Room (25-35㎡)', 'monthly-booking'); ?></li>
-                            <li><strong>L Plan:</strong> <?php _e('91日以上 - Large Room (35㎡+)', 'monthly-booking'); ?></li>
+                            <li><strong>SS Plan:</strong> <?php _e('7-29日 - Compact Studio (15-20㎡)', 'monthly-booking'); ?></li>
+                            <li><strong>S Plan:</strong> <?php _e('30-89日 - Standard Studio (20-25㎡)', 'monthly-booking'); ?></li>
+                            <li><strong>M Plan:</strong> <?php _e('90-179日 - Medium Room (25-35㎡)', 'monthly-booking'); ?></li>
+                            <li><strong>L Plan:</strong> <?php _e('180日以上 - Large Room (35㎡+)', 'monthly-booking'); ?></li>
                         </ul>
                         <div id="selected-plan-display" class="selected-plan-display" style="display: none;">
                             <strong><?php _e('選択されたプラン: ', 'monthly-booking'); ?><span id="auto-selected-plan"></span></strong>
@@ -687,10 +687,18 @@ class MonthlyBooking_Calendar_Render {
         .selected-plan-display {
             margin-top: 15px;
             padding: 10px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .selected-plan-display.valid-plan {
             background: #d4edda;
             border: 1px solid #c3e6cb;
-            border-radius: 4px;
             color: #155724;
+        }
+        .selected-plan-display.error-plan {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
         }
         </style>
         <?php
