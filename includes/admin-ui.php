@@ -839,14 +839,14 @@ class MonthlyBooking_Admin_UI {
     }
     
     /**
-     * Get bookings for a room for the next 180 days
+     * Get bookings for a room for the next 180 days plus buffer for cleaning periods
      */
     private function get_room_bookings_180_days($room_id) {
         global $wpdb;
         
         $bookings_table = $wpdb->prefix . 'monthly_bookings';
-        $start_date = date('Y-m-d');
-        $end_date = date('Y-m-d', strtotime('+180 days'));
+        $start_date = date('Y-m-d', strtotime('-30 days'));
+        $end_date = date('Y-m-d', strtotime('+365 days'));
         
         $sql = "SELECT * FROM $bookings_table 
                 WHERE room_id = %d 
@@ -875,14 +875,28 @@ class MonthlyBooking_Admin_UI {
     }
     
     /**
-     * Get plan availability for a specific date (dummy data for now)
+     * Get plan availability for a specific date with real booking conflict detection
      */
     private function get_plan_availability($room_id, $plan, $date, $bookings, $campaigns) {
         $today = date('Y-m-d');
-        $day_of_week = date('w', strtotime($date));
+        
+        if ($date < $today) {
+            return array('status' => 'unavailable', 'symbol' => '×');
+        }
+        
+        $plan_days = $this->get_plan_duration($plan);
+        $cleaning_grace_days = 5;
+        
+        $proposed_start = $date;
+        $proposed_end = date('Y-m-d', strtotime($date . ' +' . ($plan_days - 1) . ' days'));
+        $proposed_end_with_cleaning = date('Y-m-d', strtotime($proposed_end . ' +' . $cleaning_grace_days . ' days'));
         
         foreach ($bookings as $booking) {
-            if ($date >= $booking->start_date && $date <= $booking->end_date && $booking->plan_type === $plan) {
+            $booking_start = $booking->start_date;
+            $booking_end = $booking->end_date;
+            $booking_end_with_cleaning = date('Y-m-d', strtotime($booking_end . ' +' . $cleaning_grace_days . ' days'));
+            
+            if ($this->date_ranges_overlap($proposed_start, $proposed_end_with_cleaning, $booking_start, $booking_end_with_cleaning)) {
                 return array('status' => 'unavailable', 'symbol' => '×');
             }
         }
@@ -895,15 +909,32 @@ class MonthlyBooking_Admin_UI {
             }
         }
         
-        if ($has_campaign && ($day_of_week == 1 || $day_of_week == 2)) {
+        if ($has_campaign) {
             return array('status' => 'campaign', 'symbol' => '△');
         }
         
-        if ($date < $today) {
-            return array('status' => 'unavailable', 'symbol' => '×');
-        }
-        
         return array('status' => 'available', 'symbol' => '〇');
+    }
+    
+    /**
+     * Get the duration in days for each plan type
+     */
+    private function get_plan_duration($plan) {
+        $plan_durations = array(
+            'SS' => 7,
+            'S' => 30,
+            'M' => 90,
+            'L' => 180
+        );
+        
+        return isset($plan_durations[$plan]) ? $plan_durations[$plan] : 30;
+    }
+    
+    /**
+     * Check if two date ranges overlap
+     */
+    private function date_ranges_overlap($start1, $end1, $start2, $end2) {
+        return ($start1 <= $end2) && ($end1 >= $start2);
     }
     
     
