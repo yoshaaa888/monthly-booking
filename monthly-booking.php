@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('MONTHLY_BOOKING_VERSION', '1.4.0');
+define('MONTHLY_BOOKING_VERSION', '1.5.7');
 define('MONTHLY_BOOKING_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MONTHLY_BOOKING_PLUGIN_URL', plugin_dir_url(__FILE__));
 
