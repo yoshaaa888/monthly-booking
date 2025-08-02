@@ -115,17 +115,11 @@ jQuery(document).ready(function($) {
     }
     
     function validateForm() {
-        const plan = $('input[name="plan"]:checked').val();
         const moveInDate = $('#move_in_date').val();
         const stayMonths = $('#stay_months').val();
         const numAdults = $('#num_adults').val();
         const guestName = $('#guest_name').val().trim();
         const guestEmail = $('#guest_email').val().trim();
-        
-        if (!plan) {
-            showError('Please select a plan.');
-            return false;
-        }
         
         if (!moveInDate) {
             showError('Please select a move-in date.');
@@ -266,7 +260,6 @@ jQuery(document).ready(function($) {
         const formData = {
             action: 'calculate_estimate',
             nonce: monthlyBookingAjax.nonce,
-            plan: $('input[name="plan"]:checked').val(),
             move_in_date: $('#move_in_date').val(),
             stay_months: $('#stay_months').val(),
             num_adults: $('#num_adults').val(),
@@ -435,6 +428,35 @@ jQuery(document).ready(function($) {
     
     $('#search_properties').on('click', function() {
         searchProperties();
+    });
+
+    function determinePlanByDuration(stayMonths) {
+        const stayDays = stayMonths * 30;
+        
+        if (stayDays <= 7) {
+            return { code: 'SS', name: 'SS Plan - Compact Studio (15-20㎡)' };
+        } else if (stayDays <= 30) {
+            return { code: 'S', name: 'S Plan - Standard Studio (20-25㎡)' };
+        } else if (stayDays <= 90) {
+            return { code: 'M', name: 'M Plan - Medium Room (25-35㎡)' };
+        } else {
+            return { code: 'L', name: 'L Plan - Large Room (35㎡+)' };
+        }
+    }
+    
+    $('#stay_months').on('change', function() {
+        const stayMonths = parseInt($(this).val());
+        if (stayMonths) {
+            const plan = determinePlanByDuration(stayMonths);
+            $('#auto-selected-plan').text(plan.name);
+            $('#selected-plan-display').show();
+        } else {
+            $('#selected-plan-display').hide();
+        }
+        
+        if ($resultDiv.is(':visible')) {
+            setTimeout(calculateEstimate, 300);
+        }
     });
 
     loadOptions();

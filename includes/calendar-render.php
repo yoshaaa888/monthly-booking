@@ -162,41 +162,23 @@ class MonthlyBooking_Calendar_Render {
         <div class="monthly-booking-estimate-form">
             <div class="estimate-header">
                 <h3><?php _e('Monthly Room Booking Estimate', 'monthly-booking'); ?></h3>
-                <p><?php _e('Select your plan and move-in date to get an instant estimate.', 'monthly-booking'); ?></p>
+                <p><?php _e('入居日と滞在期間を選択すると、自動で最適なプランを判定して見積もりを表示します。', 'monthly-booking'); ?></p>
             </div>
             
             <form id="monthly-estimate-form" class="estimate-form">
                 <div class="form-section">
-                    <h4><?php _e('Plan Selection', 'monthly-booking'); ?></h4>
-                    <div class="plan-options">
-                        <label class="plan-option">
-                            <input type="radio" name="plan" value="SS" <?php checked($atts['default_plan'], 'SS'); ?>>
-                            <span class="plan-label">
-                                <strong>SS Plan</strong>
-                                <small><?php _e('Compact Studio (15-20㎡)', 'monthly-booking'); ?></small>
-                            </span>
-                        </label>
-                        <label class="plan-option">
-                            <input type="radio" name="plan" value="S" <?php checked($atts['default_plan'], 'S'); ?>>
-                            <span class="plan-label">
-                                <strong>S Plan</strong>
-                                <small><?php _e('Standard Studio (20-25㎡)', 'monthly-booking'); ?></small>
-                            </span>
-                        </label>
-                        <label class="plan-option">
-                            <input type="radio" name="plan" value="M" <?php checked($atts['default_plan'], 'M'); ?>>
-                            <span class="plan-label">
-                                <strong>M Plan</strong>
-                                <small><?php _e('Medium Room (25-35㎡)', 'monthly-booking'); ?></small>
-                            </span>
-                        </label>
-                        <label class="plan-option">
-                            <input type="radio" name="plan" value="L" <?php checked($atts['default_plan'], 'L'); ?>>
-                            <span class="plan-label">
-                                <strong>L Plan</strong>
-                                <small><?php _e('Large Room (35㎡+)', 'monthly-booking'); ?></small>
-                            </span>
-                        </label>
+                    <h4><?php _e('自動プラン判定', 'monthly-booking'); ?></h4>
+                    <div class="auto-plan-info">
+                        <p><?php _e('滞在期間に基づいて最適なプランを自動選択します：', 'monthly-booking'); ?></p>
+                        <ul class="plan-duration-list">
+                            <li><strong>SS Plan:</strong> <?php _e('7日以下 - Compact Studio (15-20㎡)', 'monthly-booking'); ?></li>
+                            <li><strong>S Plan:</strong> <?php _e('8-30日 - Standard Studio (20-25㎡)', 'monthly-booking'); ?></li>
+                            <li><strong>M Plan:</strong> <?php _e('31-90日 - Medium Room (25-35㎡)', 'monthly-booking'); ?></li>
+                            <li><strong>L Plan:</strong> <?php _e('91日以上 - Large Room (35㎡+)', 'monthly-booking'); ?></li>
+                        </ul>
+                        <div id="selected-plan-display" class="selected-plan-display" style="display: none;">
+                            <strong><?php _e('選択されたプラン: ', 'monthly-booking'); ?><span id="auto-selected-plan"></span></strong>
+                        </div>
                     </div>
                 </div>
                 
@@ -597,6 +579,28 @@ class MonthlyBooking_Calendar_Render {
         }
         .option-detail-item:last-child {
             border-bottom: none;
+        }
+        .auto-plan-info {
+            background: #f0f8ff;
+            padding: 15px;
+            border: 1px solid #007cba;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+        .plan-duration-list {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .plan-duration-list li {
+            margin-bottom: 5px;
+        }
+        .selected-plan-display {
+            margin-top: 15px;
+            padding: 10px;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            color: #155724;
         }
         </style>
         <?php

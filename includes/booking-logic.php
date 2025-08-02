@@ -232,7 +232,6 @@ class MonthlyBooking_Booking_Logic {
     public function ajax_calculate_estimate() {
         check_ajax_referer('monthly_booking_nonce', 'nonce');
         
-        $plan = sanitize_text_field($_POST['plan']);
         $move_in_date = sanitize_text_field($_POST['move_in_date']);
         $stay_months = intval($_POST['stay_months']);
         $num_adults = isset($_POST['num_adults']) ? intval($_POST['num_adults']) : 1;
@@ -242,7 +241,9 @@ class MonthlyBooking_Booking_Logic {
         $company_name = sanitize_text_field($_POST['company_name']);
         $guest_email = sanitize_email($_POST['guest_email']);
         
-        if (empty($plan) || empty($move_in_date) || empty($stay_months)) {
+        $plan = $this->determine_plan_by_duration($stay_months);
+        
+        if (empty($move_in_date) || empty($stay_months)) {
             wp_send_json_error(__('Please fill in all required fields.', 'monthly-booking'));
         }
         
@@ -383,6 +384,23 @@ class MonthlyBooking_Booking_Logic {
         }
         
         return isset($default_prices[$plan]) ? $default_prices[$plan] : $default_prices['M'];
+    }
+    
+    /**
+     * Automatically determine plan based on stay duration
+     */
+    private function determine_plan_by_duration($stay_months) {
+        $stay_days = $stay_months * 30;
+        
+        if ($stay_days <= 7) {
+            return 'SS';
+        } elseif ($stay_days <= 30) {
+            return 'S';
+        } elseif ($stay_days <= 90) {
+            return 'M';
+        } else {
+            return 'L';
+        }
     }
     
     /**
