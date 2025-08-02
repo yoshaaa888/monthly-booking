@@ -52,24 +52,60 @@ class MonthlyBooking_Booking_Logic {
         check_ajax_referer('monthly_booking_nonce', 'nonce');
         
         $booking_data = array(
-            'property_id' => intval($_POST['property_id']),
-            'start_date' => sanitize_text_field($_POST['start_date']),
-            'end_date' => sanitize_text_field($_POST['end_date']),
+            'room_id' => intval($_POST['room_id']),
+            'move_in_date' => sanitize_text_field($_POST['move_in_date']),
+            'move_out_date' => sanitize_text_field($_POST['move_out_date']),
+            'stay_months' => intval($_POST['stay_months']),
+            'plan_type' => sanitize_text_field($_POST['plan_type']),
+            'num_adults' => intval($_POST['num_adults']),
+            'num_children' => intval($_POST['num_children']),
+            'selected_options' => isset($_POST['selected_options']) ? $_POST['selected_options'] : array(),
+            
+            'daily_rent' => floatval($_POST['daily_rent']),
+            'total_rent' => floatval($_POST['total_rent']),
+            'daily_utilities' => floatval($_POST['daily_utilities']),
+            'total_utilities' => floatval($_POST['total_utilities']),
+            'cleaning_fee' => floatval($_POST['cleaning_fee']),
+            'key_fee' => floatval($_POST['key_fee']),
+            'bedding_fee' => floatval($_POST['bedding_fee']),
+            'initial_costs' => floatval($_POST['initial_costs']),
+            'person_additional_fee' => floatval($_POST['person_additional_fee']),
+            'options_total' => floatval($_POST['options_total']),
+            'options_discount' => floatval($_POST['options_discount']),
+            'total_price' => floatval($_POST['total_price']),
+            'campaign_discount' => floatval($_POST['campaign_discount']),
+            'final_price' => floatval($_POST['final_price']),
+            
             'guest_name' => sanitize_text_field($_POST['guest_name']),
-            'guest_email' => sanitize_email($_POST['guest_email'])
+            'guest_email' => sanitize_email($_POST['guest_email']),
+            'guest_phone' => sanitize_text_field($_POST['guest_phone']),
+            'company_name' => sanitize_text_field($_POST['company_name']),
+            'special_requests' => sanitize_textarea_field($_POST['special_requests'])
         );
         
-        $validation = $this->validate_booking_data($booking_data);
+        $validation = $this->validate_step4_booking_data($booking_data);
         if (is_wp_error($validation)) {
             wp_send_json_error($validation->get_error_message());
         }
         
-        $booking_id = $this->create_booking($booking_data);
+        $customer_id = $this->create_or_get_customer($booking_data);
+        if (!$customer_id) {
+            wp_send_json_error(__('Failed to create customer record.', 'monthly-booking'));
+        }
+        
+        $booking_data['customer_id'] = $customer_id;
+        $booking_id = $this->create_step4_booking($booking_data);
         
         if ($booking_id) {
+            $this->save_booking_options($booking_id, $booking_data['selected_options']);
+            
+            $external_response = $this->send_to_external_accounting_system($booking_id, $booking_data);
+            
             wp_send_json_success(array(
                 'booking_id' => $booking_id,
-                'message' => __('Booking submitted successfully!', 'monthly-booking')
+                'customer_id' => $customer_id,
+                'external_response' => $external_response,
+                'message' => __('仮予約が完了しました！', 'monthly-booking')
             ));
         } else {
             wp_send_json_error(__('Failed to create booking. Please try again.', 'monthly-booking'));
@@ -224,6 +260,195 @@ class MonthlyBooking_Booking_Logic {
         );
         
         return $result ? $wpdb->insert_id : false;
+    }
+    
+    private function create_or_get_customer($data) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'monthly_customers';
+        
+        $existing_customer = $wpdb->get_row($wpdb->prepare(
+            "SELECT id FROM $table_name WHERE email = %s AND is_active = 1",
+            $data['guest_email']
+        ));
+        
+        if ($existing_customer) {
+            return $existing_customer->id;
+        }
+        
+        $name_parts = explode(' ', trim($data['guest_name']), 2);
+        $first_name = $name_parts[0];
+        $last_name = isset($name_parts[1]) ? $name_parts[1] : '';
+        
+        $result = $wpdb->insert(
+            $table_name,
+            array(
+                'first_name' => $first_name,
+                'last_name' => $last_name,
+                'email' => $data['guest_email'],
+                'phone' => $data['guest_phone'],
+                'notes' => !empty($data['company_name']) ? 'Company: ' . $data['company_name'] . "\n" . $data['special_requests'] : $data['special_requests'],
+                'is_active' => 1,
+                'created_at' => current_time('mysql')
+            ),
+            array('%s', '%s', '%s', '%s', '%s', '%d', '%s')
+        );
+        
+        return $result ? $wpdb->insert_id : false;
+    }
+    
+    private function validate_step4_booking_data($data) {
+        if (empty($data['guest_name'])) {
+            return new WP_Error('invalid_name', __('お名前を入力してください。', 'monthly-booking'));
+        }
+        
+        if (empty($data['guest_email']) || !is_email($data['guest_email'])) {
+            return new WP_Error('invalid_email', __('有効なメールアドレスを入力してください。', 'monthly-booking'));
+        }
+        
+        if (empty($data['move_in_date']) || empty($data['move_out_date'])) {
+            return new WP_Error('invalid_dates', __('入居日と退去日を入力してください。', 'monthly-booking'));
+        }
+        
+        if (empty($data['room_id']) || $data['room_id'] <= 0) {
+            return new WP_Error('invalid_room', __('部屋を選択してください。', 'monthly-booking'));
+        }
+        
+        if ($data['num_adults'] < 1 || $data['num_adults'] > 10) {
+            return new WP_Error('invalid_adults', __('大人の人数は1〜10名で入力してください。', 'monthly-booking'));
+        }
+        
+        if ($data['num_children'] < 0 || $data['num_children'] > 10) {
+            return new WP_Error('invalid_children', __('子どもの人数は0〜10名で入力してください。', 'monthly-booking'));
+        }
+        
+        return true;
+    }
+    
+    private function create_step4_booking($data) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'monthly_bookings';
+        
+        $result = $wpdb->insert(
+            $table_name,
+            array(
+                'room_id' => $data['room_id'],
+                'customer_id' => $data['customer_id'],
+                'start_date' => $data['move_in_date'],
+                'end_date' => $data['move_out_date'],
+                'num_adults' => $data['num_adults'],
+                'num_children' => $data['num_children'],
+                'plan_type' => $data['plan_type'],
+                'base_rent' => $data['total_rent'],
+                'utilities_fee' => $data['total_utilities'],
+                'initial_costs' => $data['initial_costs'],
+                'person_additional_fee' => $data['person_additional_fee'],
+                'options_total' => $data['options_total'],
+                'options_discount' => $data['options_discount'],
+                'total_price' => $data['total_price'],
+                'discount_amount' => $data['campaign_discount'],
+                'final_price' => $data['final_price'],
+                'status' => 'pending',
+                'payment_status' => 'unpaid',
+                'notes' => $data['special_requests'],
+                'created_at' => current_time('mysql')
+            ),
+            array('%d', '%d', '%s', '%s', '%d', '%d', '%s', '%f', '%f', '%f', '%f', '%f', '%f', '%f', '%f', '%f', '%s', '%s', '%s', '%s')
+        );
+        
+        return $result ? $wpdb->insert_id : false;
+    }
+    
+    private function save_booking_options($booking_id, $selected_options) {
+        global $wpdb;
+        
+        if (empty($selected_options)) {
+            return true;
+        }
+        
+        $options_table = $wpdb->prefix . 'monthly_options';
+        $booking_options_table = $wpdb->prefix . 'monthly_booking_options';
+        
+        foreach ($selected_options as $option_id => $quantity) {
+            $option = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM $options_table WHERE id = %d AND is_active = 1",
+                intval($option_id)
+            ));
+            
+            if ($option) {
+                $wpdb->insert(
+                    $booking_options_table,
+                    array(
+                        'booking_id' => $booking_id,
+                        'option_id' => $option_id,
+                        'quantity' => intval($quantity),
+                        'unit_price' => $option->price,
+                        'total_price' => $option->price * intval($quantity),
+                        'created_at' => current_time('mysql')
+                    ),
+                    array('%d', '%d', '%d', '%f', '%f', '%s')
+                );
+            }
+        }
+        
+        return true;
+    }
+    
+    private function send_to_external_accounting_system($booking_id, $data) {
+        $external_url = apply_filters('monthly_booking_external_accounting_url', 'https://api.example.com/accounting/bookings');
+        
+        $payload = array(
+            'booking_id' => $booking_id,
+            'customer_email' => $data['guest_email'],
+            'customer_name' => $data['guest_name'],
+            'company_name' => $data['company_name'],
+            'room_id' => $data['room_id'],
+            'check_in_date' => $data['move_in_date'],
+            'check_out_date' => $data['move_out_date'],
+            'plan_type' => $data['plan_type'],
+            'num_adults' => $data['num_adults'],
+            'num_children' => $data['num_children'],
+            'pricing_breakdown' => array(
+                'daily_rent' => $data['daily_rent'],
+                'total_rent' => $data['total_rent'],
+                'utilities_fee' => $data['total_utilities'],
+                'initial_costs' => $data['initial_costs'],
+                'person_additional_fee' => $data['person_additional_fee'],
+                'options_total' => $data['options_total'],
+                'options_discount' => $data['options_discount'],
+                'campaign_discount' => $data['campaign_discount'],
+                'final_price' => $data['final_price']
+            ),
+            'selected_options' => $data['selected_options'],
+            'special_requests' => $data['special_requests'],
+            'created_at' => current_time('mysql')
+        );
+        
+        $response = wp_remote_post($external_url, array(
+            'timeout' => 30,
+            'headers' => array(
+                'Content-Type' => 'application/json',
+                'User-Agent' => 'Monthly-Booking-Plugin/1.5.5'
+            ),
+            'body' => json_encode($payload)
+        ));
+        
+        if (is_wp_error($response)) {
+            error_log('Monthly Booking: External accounting system error - ' . $response->get_error_message());
+            return array('success' => false, 'error' => $response->get_error_message());
+        }
+        
+        $response_code = wp_remote_retrieve_response_code($response);
+        $response_body = wp_remote_retrieve_body($response);
+        
+        error_log('Monthly Booking: External accounting system response - Code: ' . $response_code . ', Body: ' . $response_body);
+        
+        return array(
+            'success' => $response_code >= 200 && $response_code < 300,
+            'response_code' => $response_code,
+            'response_body' => $response_body
+        );
     }
     
     /**

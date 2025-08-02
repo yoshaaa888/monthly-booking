@@ -723,6 +723,97 @@ class MonthlyBooking_Calendar_Render {
             margin-top: 10px;
             font-style: italic;
         }
+        .booking-action-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border: 2px solid #007cba;
+            border-radius: 8px;
+        }
+        .booking-confirmation {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .booking-notice {
+            font-size: 1.1em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .booking-details {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .booking-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .booking-submit-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .booking-submit-btn:hover:not(:disabled) {
+            background: #218838;
+        }
+        .booking-submit-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .booking-modify-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .booking-modify-btn:hover:not(:disabled) {
+            background: #5a6268;
+        }
+        .booking-success {
+            text-align: center;
+            padding: 30px;
+        }
+        .success-header {
+            margin-bottom: 30px;
+        }
+        .success-header h3 {
+            color: #28a745;
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        .success-message {
+            font-size: 1.2em;
+            color: #333;
+        }
+        .booking-details-section, .next-steps-section, .contact-section {
+            margin: 25px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 6px;
+            text-align: left;
+        }
+        .booking-info p {
+            margin: 8px 0;
+            font-size: 1.1em;
+        }
+        .next-steps-list {
+            padding-left: 20px;
+        }
+        .next-steps-list li {
+            margin: 10px 0;
+            line-height: 1.5;
+        }
         </style>
         <?php
         return ob_get_clean();

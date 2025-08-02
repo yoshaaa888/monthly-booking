@@ -315,6 +315,21 @@ jQuery(document).ready(function($) {
         
         html += '</div>';
         
+        html += '<div class="booking-action-section">';
+        html += '<div class="booking-confirmation">';
+        html += '<p class="booking-notice">📋 <strong>この内容で仮予約を申し込みますか？</strong></p>';
+        html += '<p class="booking-details">予約確定後、詳細な契約手続きのご案内をメールでお送りいたします。</p>';
+        html += '</div>';
+        html += '<div class="booking-buttons">';
+        html += '<button type="button" id="submit-booking-btn" class="booking-submit-btn">✅ この内容で申し込む</button>';
+        html += '<button type="button" id="modify-estimate-btn" class="booking-modify-btn">📝 見積もりを修正する</button>';
+        html += '</div>';
+        html += '</div>';
+        
+        html += '</div>';
+        
+        window.currentEstimateData = estimate;
+        
         $resultDiv.html(html).show();
     }
     
@@ -618,6 +633,133 @@ jQuery(document).ready(function($) {
             setTimeout(calculateEstimate, 300);
         }
     });
+
+    $(document).on('click', '#submit-booking-btn', function(e) {
+        e.preventDefault();
+        submitBooking();
+    });
+    
+    $(document).on('click', '#modify-estimate-btn', function(e) {
+        e.preventDefault();
+        $('#estimate-result').hide();
+        $('html, body').animate({
+            scrollTop: $('#monthly-booking-estimate-form').offset().top
+        }, 500);
+    });
+    
+    function submitBooking() {
+        if (!window.currentEstimateData) {
+            showError('見積もりデータが見つかりません。再度見積もりを計算してください。');
+            return;
+        }
+        
+        const estimate = window.currentEstimateData;
+        const $submitBtn = $('#submit-booking-btn');
+        const $modifyBtn = $('#modify-estimate-btn');
+        
+        $submitBtn.prop('disabled', true).text('申し込み中...');
+        $modifyBtn.prop('disabled', true);
+        
+        const bookingData = {
+            action: 'submit_booking',
+            nonce: monthlyBookingAjax.nonce,
+            
+            room_id: $('#room_id').val(),
+            move_in_date: estimate.move_in_date,
+            move_out_date: estimate.move_out_date,
+            stay_months: estimate.stay_months,
+            plan_type: estimate.plan,
+            num_adults: estimate.num_adults,
+            num_children: estimate.num_children,
+            selected_options: getSelectedOptions().reduce((obj, id) => {
+                obj[id] = 1;
+                return obj;
+            }, {}),
+            
+            daily_rent: estimate.daily_rent,
+            total_rent: estimate.total_rent,
+            daily_utilities: estimate.daily_utilities,
+            total_utilities: estimate.total_utilities,
+            cleaning_fee: estimate.cleaning_fee,
+            key_fee: estimate.key_fee,
+            bedding_fee: estimate.bedding_fee,
+            initial_costs: estimate.initial_costs,
+            person_additional_fee: estimate.person_additional_fee,
+            options_total: estimate.options_total,
+            options_discount: estimate.options_discount,
+            total_price: estimate.subtotal,
+            campaign_discount: estimate.campaign_discount,
+            final_price: estimate.final_total,
+            
+            guest_name: $('#guest_name').val().trim(),
+            guest_email: $('#guest_email').val().trim(),
+            guest_phone: $('#guest_phone').val().trim(),
+            company_name: $('#company_name').val().trim(),
+            special_requests: $('#special_requests').val().trim()
+        };
+        
+        $.ajax({
+            url: monthlyBookingAjax.ajaxurl,
+            type: 'POST',
+            data: bookingData,
+            success: function(response) {
+                if (response.success) {
+                    displayBookingSuccess(response.data);
+                } else {
+                    showError(response.data || '予約の申し込みに失敗しました。もう一度お試しください。');
+                    $submitBtn.prop('disabled', false).text('✅ この内容で申し込む');
+                    $modifyBtn.prop('disabled', false);
+                }
+            },
+            error: function() {
+                showError('ネットワークエラーが発生しました。もう一度お試しください。');
+                $submitBtn.prop('disabled', false).text('✅ この内容で申し込む');
+                $modifyBtn.prop('disabled', false);
+            }
+        });
+    }
+    
+    function displayBookingSuccess(data) {
+        const $resultDiv = $('#estimate-result');
+        
+        let html = '<div class="booking-success">';
+        html += '<div class="success-header">';
+        html += '<h3>🎉 仮予約完了</h3>';
+        html += '<p class="success-message">ご予約ありがとうございます！仮予約が正常に完了いたしました。</p>';
+        html += '</div>';
+        
+        html += '<div class="booking-details-section">';
+        html += '<h4>📋 予約詳細</h4>';
+        html += '<div class="booking-info">';
+        html += '<p><strong>予約ID:</strong> ' + data.booking_id + '</p>';
+        html += '<p><strong>お客様ID:</strong> ' + data.customer_id + '</p>';
+        html += '<p><strong>予約日時:</strong> ' + new Date().toLocaleString('ja-JP') + '</p>';
+        html += '</div>';
+        html += '</div>';
+        
+        html += '<div class="next-steps-section">';
+        html += '<h4>📧 今後の流れ</h4>';
+        html += '<ol class="next-steps-list">';
+        html += '<li>ご登録いただいたメールアドレスに確認メールをお送りします</li>';
+        html += '<li>担当者より詳細な契約手続きのご案内をいたします</li>';
+        html += '<li>必要書類の準備と提出をお願いします</li>';
+        html += '<li>最終確認後、正式な契約となります</li>';
+        html += '</ol>';
+        html += '</div>';
+        
+        html += '<div class="contact-section">';
+        html += '<h4>📞 お問い合わせ</h4>';
+        html += '<p>ご不明な点がございましたら、お気軽にお問い合わせください。</p>';
+        html += '</div>';
+        
+        html += '</div>';
+        
+        $resultDiv.html(html);
+        
+        $('html, body').animate({
+            scrollTop: $resultDiv.offset().top
+        }, 500);
+    }
 
     loadOptions();
 });
