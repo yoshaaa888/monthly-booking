@@ -115,19 +115,36 @@ jQuery(document).ready(function($) {
     }
     
     function validateForm() {
+        const roomId = $('#room_id').val();
         const moveInDate = $('#move_in_date').val();
+        const moveOutDate = $('#move_out_date').val();
         const stayMonths = $('#stay_months').val();
         const numAdults = $('#num_adults').val();
         const guestName = $('#guest_name').val().trim();
         const guestEmail = $('#guest_email').val().trim();
         
+        if (!roomId) {
+            showError('部屋を選択してください。');
+            return false;
+        }
+        
         if (!moveInDate) {
-            showError('Please select a move-in date.');
+            showError('入居日を選択してください。');
+            return false;
+        }
+        
+        if (!moveOutDate) {
+            showError('退去日を選択してください。');
+            return false;
+        }
+        
+        if (moveInDate && moveOutDate && new Date(moveOutDate) <= new Date(moveInDate)) {
+            showError('退去日は入居日より後の日付を選択してください。');
             return false;
         }
         
         if (!stayMonths) {
-            showError('Please select stay duration.');
+            showError('滞在期間を選択してください。');
             return false;
         }
         
@@ -137,12 +154,12 @@ jQuery(document).ready(function($) {
         }
         
         if (!guestName) {
-            showError('Please enter your name.');
+            showError('お名前を入力してください。');
             return false;
         }
         
         if (!guestEmail) {
-            showError('Please enter your email address.');
+            showError('メールアドレスを入力してください。');
             return false;
         }
         
@@ -260,14 +277,18 @@ jQuery(document).ready(function($) {
         const formData = {
             action: 'calculate_estimate',
             nonce: monthlyBookingAjax.nonce,
+            room_id: $('#room_id').val(),
             move_in_date: $('#move_in_date').val(),
+            move_out_date: $('#move_out_date').val(),
             stay_months: $('#stay_months').val(),
             num_adults: $('#num_adults').val(),
             num_children: $('#num_children').val(),
             selected_options: selectedOptions,
             guest_name: $('#guest_name').val().trim(),
             company_name: $('#company_name').val().trim(),
-            guest_email: $('#guest_email').val().trim()
+            guest_email: $('#guest_email').val().trim(),
+            guest_phone: $('#guest_phone').val().trim(),
+            special_requests: $('#special_requests').val().trim()
         };
         
         $detailsDiv.hide();
@@ -443,6 +464,33 @@ jQuery(document).ready(function($) {
             return { code: 'L', name: 'L Plan - Large Room (35㎡+)' };
         }
     }
+    
+    function calculateStayDuration() {
+        const moveInDate = $('#move_in_date').val();
+        const moveOutDate = $('#move_out_date').val();
+        
+        if (moveInDate && moveOutDate) {
+            const startDate = new Date(moveInDate);
+            const endDate = new Date(moveOutDate);
+            const diffTime = Math.abs(endDate - startDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const diffMonths = Math.ceil(diffDays / 30);
+            
+            $('#stay_months').val(diffMonths);
+            
+            if (diffMonths > 0) {
+                const plan = determinePlanByDuration(diffMonths);
+                $('#auto-selected-plan').text(plan.name);
+                $('#selected-plan-display').show();
+            }
+            
+            if ($resultDiv.is(':visible')) {
+                setTimeout(calculateEstimate, 300);
+            }
+        }
+    }
+    
+    $('#move_in_date, #move_out_date').on('change', calculateStayDuration);
     
     $('#stay_months').on('change', function() {
         const stayMonths = parseInt($(this).val());

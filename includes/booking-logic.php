@@ -232,7 +232,9 @@ class MonthlyBooking_Booking_Logic {
     public function ajax_calculate_estimate() {
         check_ajax_referer('monthly_booking_nonce', 'nonce');
         
+        $room_id = intval($_POST['room_id']);
         $move_in_date = sanitize_text_field($_POST['move_in_date']);
+        $move_out_date = sanitize_text_field($_POST['move_out_date']);
         $stay_months = intval($_POST['stay_months']);
         $num_adults = isset($_POST['num_adults']) ? intval($_POST['num_adults']) : 1;
         $num_children = isset($_POST['num_children']) ? intval($_POST['num_children']) : 0;
@@ -240,15 +242,17 @@ class MonthlyBooking_Booking_Logic {
         $guest_name = sanitize_text_field($_POST['guest_name']);
         $company_name = sanitize_text_field($_POST['company_name']);
         $guest_email = sanitize_email($_POST['guest_email']);
+        $guest_phone = sanitize_text_field($_POST['guest_phone']);
+        $special_requests = sanitize_textarea_field($_POST['special_requests']);
         
         $plan = $this->determine_plan_by_duration($stay_months);
         
-        if (empty($move_in_date) || empty($stay_months)) {
-            wp_send_json_error(__('Please fill in all required fields.', 'monthly-booking'));
+        if (empty($room_id) || empty($move_in_date) || empty($move_out_date) || empty($stay_months)) {
+            wp_send_json_error(__('必須項目をすべて入力してください。', 'monthly-booking'));
         }
         
         if (empty($guest_name) || empty($guest_email)) {
-            wp_send_json_error(__('Name and email are required.', 'monthly-booking'));
+            wp_send_json_error(__('お名前とメールアドレスを入力してください。', 'monthly-booking'));
         }
         
         if (!is_email($guest_email)) {

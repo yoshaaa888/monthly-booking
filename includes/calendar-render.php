@@ -158,14 +158,86 @@ class MonthlyBooking_Calendar_Render {
         ), $atts, 'monthly_booking_estimate');
         
         ob_start();
+        
+        if (isset($_POST['preview_form']) && $_POST['preview_form'] == '1') {
+            ?>
+            <div class="form-preview-container">
+                <h3><?php _e('入力内容の確認', 'monthly-booking'); ?></h3>
+                <div class="preview-content">
+                    <h4><?php _e('送信されたデータ:', 'monthly-booking'); ?></h4>
+                    <table class="preview-table">
+                        <?php foreach ($_POST as $key => $value): ?>
+                            <?php if ($key !== 'preview_form'): ?>
+                                <tr>
+                                    <td><strong><?php echo esc_html($key); ?>:</strong></td>
+                                    <td><?php echo esc_html(is_array($value) ? implode(', ', $value) : $value); ?></td>
+                                </tr>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                    </table>
+                </div>
+                <div class="preview-actions">
+                    <button onclick="window.location.reload()" class="button"><?php _e('戻る', 'monthly-booking'); ?></button>
+                </div>
+            </div>
+            <style>
+                .form-preview-container {
+                    max-width: 800px;
+                    margin: 20px auto;
+                    padding: 20px;
+                    background: #fff;
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+                .preview-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 15px 0;
+                }
+                .preview-table td {
+                    padding: 8px 12px;
+                    border: 1px solid #ddd;
+                    vertical-align: top;
+                }
+                .preview-table td:first-child {
+                    background: #f8f9fa;
+                    width: 200px;
+                }
+                .preview-actions {
+                    margin-top: 20px;
+                    text-align: center;
+                }
+            </style>
+            <?php
+            return ob_get_clean();
+        }
+        
         ?>
         <div class="monthly-booking-estimate-form">
             <div class="estimate-header">
-                <h3><?php _e('Monthly Room Booking Estimate', 'monthly-booking'); ?></h3>
-                <p><?php _e('入居日と滞在期間を選択すると、自動で最適なプランを判定して見積もりを表示します。', 'monthly-booking'); ?></p>
+                <h3><?php _e('月額賃貸見積もり', 'monthly-booking'); ?></h3>
+                <p><?php _e('必要事項を入力して見積もりを取得してください。入居日と退去日から自動でプランを判定します。', 'monthly-booking'); ?></p>
             </div>
             
-            <form id="monthly-estimate-form" class="estimate-form">
+            <form id="monthly-estimate-form" class="estimate-form" method="post">
+                <div class="form-section">
+                    <h4><?php _e('対象部屋', 'monthly-booking'); ?></h4>
+                    <div class="form-row">
+                        <label for="room_id"><?php _e('部屋選択', 'monthly-booking'); ?> <span class="required">*</span></label>
+                        <select id="room_id" name="room_id" required>
+                            <option value=""><?php _e('部屋を選択してください...', 'monthly-booking'); ?></option>
+                            <?php
+                            global $wpdb;
+                            $rooms = $wpdb->get_results("SELECT room_id, display_name, room_name FROM {$wpdb->prefix}monthly_rooms WHERE status = 'active' ORDER BY display_name");
+                            foreach ($rooms as $room) {
+                                echo '<option value="' . esc_attr($room->room_id) . '">' . esc_html($room->display_name . ' - ' . $room->room_name) . '</option>';
+                            }
+                            ?>
+                        </select>
+                    </div>
+                </div>
+                
                 <div class="form-section">
                     <h4><?php _e('自動プラン判定', 'monthly-booking'); ?></h4>
                     <div class="auto-plan-info">
@@ -183,26 +255,31 @@ class MonthlyBooking_Calendar_Render {
                 </div>
                 
                 <div class="form-section">
-                    <h4><?php _e('Move-in Information', 'monthly-booking'); ?></h4>
+                    <h4><?php _e('滞在期間', 'monthly-booking'); ?></h4>
                     <div class="form-row">
-                        <label for="move_in_date"><?php _e('Move-in Date', 'monthly-booking'); ?> <span class="required">*</span></label>
+                        <label for="move_in_date"><?php _e('入居日', 'monthly-booking'); ?> <span class="required">*</span></label>
                         <input type="date" id="move_in_date" name="move_in_date" required min="<?php echo date('Y-m-d'); ?>">
                     </div>
                     <div class="form-row">
-                        <label for="stay_months"><?php _e('Stay Duration (months)', 'monthly-booking'); ?> <span class="required">*</span></label>
-                        <select id="stay_months" name="stay_months" required>
-                            <option value=""><?php _e('Select duration', 'monthly-booking'); ?></option>
-                            <option value="1">1 <?php _e('month', 'monthly-booking'); ?></option>
-                            <option value="2">2 <?php _e('months', 'monthly-booking'); ?></option>
-                            <option value="3">3 <?php _e('months', 'monthly-booking'); ?></option>
-                            <option value="6">6 <?php _e('months', 'monthly-booking'); ?></option>
-                            <option value="12">12 <?php _e('months', 'monthly-booking'); ?></option>
+                        <label for="move_out_date"><?php _e('退去日', 'monthly-booking'); ?> <span class="required">*</span></label>
+                        <input type="date" id="move_out_date" name="move_out_date" required>
+                    </div>
+                    <div class="form-row">
+                        <label for="stay_months"><?php _e('滞在期間（月数）', 'monthly-booking'); ?></label>
+                        <select id="stay_months" name="stay_months">
+                            <option value=""><?php _e('自動計算されます...', 'monthly-booking'); ?></option>
+                            <option value="1">1 <?php _e('ヶ月', 'monthly-booking'); ?></option>
+                            <option value="2">2 <?php _e('ヶ月', 'monthly-booking'); ?></option>
+                            <option value="3">3 <?php _e('ヶ月', 'monthly-booking'); ?></option>
+                            <option value="6">6 <?php _e('ヶ月', 'monthly-booking'); ?></option>
+                            <option value="12">12 <?php _e('ヶ月', 'monthly-booking'); ?></option>
                         </select>
+                        <small class="form-help"><?php _e('入居日・退去日から自動計算されます', 'monthly-booking'); ?></small>
                     </div>
                 </div>
                 
                 <div class="form-section">
-                    <h4><?php _e('人数情報', 'monthly-booking'); ?></h4>
+                    <h4><?php _e('利用人数', 'monthly-booking'); ?></h4>
                     <div class="form-row">
                         <label for="num_adults"><?php _e('大人の人数', 'monthly-booking'); ?> <span class="required">*</span></label>
                         <select id="num_adults" name="num_adults" required>
@@ -252,41 +329,35 @@ class MonthlyBooking_Calendar_Render {
                 </div>
                 
                 <div class="form-section">
-                    <h4><?php _e('Contact Information', 'monthly-booking'); ?></h4>
+                    <h4><?php _e('お客様情報', 'monthly-booking'); ?></h4>
                     <div class="form-row">
-                        <label for="property_search"><?php _e('Property Search', 'monthly-booking'); ?></label>
-                        <div class="property-search-filters">
-                            <select id="station_filter" name="station_filter">
-                                <option value=""><?php _e('Select Station...', 'monthly-booking'); ?></option>
-                            </select>
-                            <select id="structure_filter" name="structure_filter">
-                                <option value=""><?php _e('Select Structure...', 'monthly-booking'); ?></option>
-                            </select>
-                            <select id="occupancy_filter" name="occupancy_filter">
-                                <option value=""><?php _e('Max Occupants...', 'monthly-booking'); ?></option>
-                            </select>
-                            <button type="button" id="search_properties" class="button"><?php _e('Search Properties', 'monthly-booking'); ?></button>
-                        </div>
-                        <div id="property_results" class="property-results"></div>
-                    </div>
-                    
-                    <div class="form-row">
-                        <label for="guest_name"><?php _e('Name', 'monthly-booking'); ?> <span class="required">*</span></label>
+                        <label for="guest_name"><?php _e('お名前', 'monthly-booking'); ?> <span class="required">*</span></label>
                         <input type="text" id="guest_name" name="guest_name" required>
                     </div>
                     <div class="form-row">
-                        <label for="company_name"><?php _e('Company Name (Optional)', 'monthly-booking'); ?></label>
-                        <input type="text" id="company_name" name="company_name">
+                        <label for="guest_email"><?php _e('メールアドレス', 'monthly-booking'); ?> <span class="required">*</span></label>
+                        <input type="email" id="guest_email" name="guest_email" required>
                     </div>
                     <div class="form-row">
-                        <label for="guest_email"><?php _e('Email Address', 'monthly-booking'); ?> <span class="required">*</span></label>
-                        <input type="email" id="guest_email" name="guest_email" required>
+                        <label for="guest_phone"><?php _e('電話番号', 'monthly-booking'); ?></label>
+                        <input type="tel" id="guest_phone" name="guest_phone">
+                    </div>
+                    <div class="form-row">
+                        <label for="company_name"><?php _e('法人名（任意）', 'monthly-booking'); ?></label>
+                        <input type="text" id="company_name" name="company_name" placeholder="<?php _e('法人でのご利用の場合はご記入ください', 'monthly-booking'); ?>">
+                    </div>
+                    <div class="form-row">
+                        <label for="special_requests"><?php _e('特別なご要望', 'monthly-booking'); ?></label>
+                        <textarea id="special_requests" name="special_requests" rows="3" placeholder="<?php _e('ご要望がございましたらご記入ください', 'monthly-booking'); ?>"></textarea>
                     </div>
                 </div>
                 
                 <div class="form-actions">
                     <button type="button" id="calculate-estimate" class="estimate-button">
-                        <?php _e('Calculate Estimate', 'monthly-booking'); ?>
+                        <?php _e('見積もりを計算', 'monthly-booking'); ?>
+                    </button>
+                    <button type="submit" name="preview_form" value="1" class="button button-secondary">
+                        <?php _e('入力内容を確認', 'monthly-booking'); ?>
                     </button>
                 </div>
             </form>
@@ -437,12 +508,31 @@ class MonthlyBooking_Calendar_Render {
             color: #d63638;
         }
         .form-row input,
-        .form-row select {
+        .form-row select,
+        .form-row textarea {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 16px;
+        }
+        .form-row textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .button-secondary {
+            background: #f0f0f0;
+            color: #333;
+            padding: 12px 20px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-left: 10px;
+            transition: background 0.3s ease;
+        }
+        .button-secondary:hover {
+            background: #e0e0e0;
         }
         .form-actions {
             text-align: center;
