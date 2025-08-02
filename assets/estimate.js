@@ -186,82 +186,136 @@ jQuery(document).ready(function($) {
     
     function displayResults(data) {
         const estimate = data.data;
+        const $resultDiv = $('#estimate-result');
         
-        $('.plan-display').text(estimate.plan_name);
-        $('.date-display').text(estimate.move_in_date);
-        $('.duration-display').text(estimate.stay_months + ' months');
+        let html = '<div class="estimate-summary">';
+        html += '<h3>📊 見積結果</h3>';
         
-        $('.rent-amount').text(formatCurrency(estimate.total_rent));
-        $('.utilities-amount').text(formatCurrency(estimate.total_utilities));
-        $('.initial-costs-amount').text(formatCurrency(estimate.initial_costs));
+        html += '<div class="estimate-section">';
+        html += '<h4>📋 予約詳細</h4>';
+        html += '<p><strong>プラン:</strong> ' + estimate.plan_name + '</p>';
+        html += '<p><strong>入居日:</strong> ' + estimate.move_in_date + '</p>';
+        html += '<p><strong>退去日:</strong> ' + estimate.move_out_date + '</p>';
+        html += '<p><strong>滞在期間:</strong> ' + estimate.stay_days + '日間 (' + estimate.stay_months + 'ヶ月)</p>';
+        html += '<p><strong>利用人数:</strong> 大人' + estimate.num_adults + '名';
+        if (estimate.num_children > 0) {
+            html += ', 子ども' + estimate.num_children + '名';
+        }
+        html += '</p>';
+        html += '</div>';
+        
+        html += '<div class="estimate-section">';
+        html += '<h4>💰 料金内訳（税込）</h4>';
+        
+        html += '<div class="cost-item">';
+        html += '<span>日割賃料 (' + formatCurrency(estimate.daily_rent) + '/日 × ' + estimate.stay_days + '日)</span>';
+        html += '<span>' + formatCurrency(estimate.total_rent) + '</span>';
+        html += '</div>';
+        
+        html += '<div class="cost-item">';
+        html += '<span>共益費 (' + formatCurrency(estimate.daily_utilities) + '/日 × ' + estimate.stay_days + '日)</span>';
+        html += '<span>' + formatCurrency(estimate.total_utilities) + '</span>';
+        html += '</div>';
+        
+        html += '<div class="cost-item">';
+        html += '<span>初期費用</span>';
+        html += '<span>' + formatCurrency(estimate.initial_costs) + '</span>';
+        html += '</div>';
+        html += '<div class="cost-subitem">';
+        html += '<span>　├ 清掃費</span><span>' + formatCurrency(estimate.cleaning_fee) + '</span>';
+        html += '</div>';
+        html += '<div class="cost-subitem">';
+        html += '<span>　├ 鍵手数料</span><span>' + formatCurrency(estimate.key_fee) + '</span>';
+        html += '</div>';
+        html += '<div class="cost-subitem">';
+        html += '<span>　└ 布団代</span><span>' + formatCurrency(estimate.bedding_fee) + '</span>';
+        html += '</div>';
         
         if (estimate.person_additional_fee > 0) {
-            $('.person-fee-amount').text(formatCurrency(estimate.person_additional_fee));
-            $('.person-fee-row').show();
-        } else {
-            $('.person-fee-row').hide();
+            html += '<div class="cost-item">';
+            html += '<span>人数追加料金</span>';
+            html += '<span>' + formatCurrency(estimate.person_additional_fee) + '</span>';
+            html += '</div>';
+            
+            if (estimate.adult_additional_fee > 0) {
+                html += '<div class="cost-subitem">';
+                html += '<span>　├ 大人追加 (' + (estimate.num_adults - 1) + '名 × ¥1,000/日 × ' + estimate.stay_days + '日)</span>';
+                html += '<span>' + formatCurrency(estimate.adult_additional_fee) + '</span>';
+                html += '</div>';
+            }
+            
+            if (estimate.children_additional_fee > 0) {
+                html += '<div class="cost-subitem">';
+                html += '<span>　└ 子ども追加 (' + estimate.num_children + '名 × ¥500/日 × ' + estimate.stay_days + '日)</span>';
+                html += '<span>' + formatCurrency(estimate.children_additional_fee) + '</span>';
+                html += '</div>';
+            }
         }
         
         if (estimate.options_total > 0) {
-            $('.options-amount').text(formatCurrency(estimate.options_total));
-            $('.options-row').show();
+            html += '<div class="cost-item">';
+            html += '<span>オプション料金</span>';
+            html += '<span>' + formatCurrency(estimate.options_total) + '</span>';
+            html += '</div>';
             
             if (estimate.options_discount > 0) {
-                $('.options-discount-amount').text('-' + formatCurrency(estimate.options_discount));
-                $('.options-discount-row').show();
-            } else {
-                $('.options-discount-row').hide();
+                html += '<div class="cost-item discount">';
+                html += '<span>オプション同時購入割引';
+                if (estimate.options_discount_eligible_count >= 2) {
+                    html += ' (' + estimate.options_discount_eligible_count + '個選択)';
+                }
+                html += '</span>';
+                html += '<span>-' + formatCurrency(estimate.options_discount) + '</span>';
+                html += '</div>';
             }
-            
-            if (estimate.selected_options && estimate.selected_options.length > 0) {
-                let optionsHtml = '';
-                estimate.selected_options.forEach(function(option) {
-                    optionsHtml += '<div class="option-detail-item">';
-                    optionsHtml += '<span>' + option.name + '</span>';
-                    optionsHtml += '<span>' + formatCurrency(option.total) + '</span>';
-                    optionsHtml += '</div>';
-                });
-                $('.options-list').html(optionsHtml);
-                $('.options-details').show();
-            } else {
-                $('.options-details').hide();
-            }
-        } else {
-            $('.options-row').hide();
-            $('.options-discount-row').hide();
-            $('.options-details').hide();
         }
-        
-        $('.subtotal-amount').text(formatCurrency(estimate.subtotal_with_tax));
-        $('.total-amount').text(formatCurrency(estimate.final_total));
         
         if (estimate.campaign_discount > 0) {
-            $('.campaign-discount').text('-' + formatCurrency(estimate.campaign_discount));
-            $('.campaign-row').show();
+            html += '<div class="cost-item discount">';
+            html += '<span>キャンペーン割引</span>';
+            html += '<span>-' + formatCurrency(estimate.campaign_discount) + '</span>';
+            html += '</div>';
             
             if (estimate.campaign_details && estimate.campaign_details.length > 0) {
-                let campaignHtml = '';
                 estimate.campaign_details.forEach(function(campaign) {
-                    campaignHtml += '<div class="campaign-item">';
-                    campaignHtml += '<strong>' + campaign.name + '</strong>';
-                    if (campaign.description) {
-                        campaignHtml += '<br><small>' + campaign.description + '</small>';
-                    }
-                    campaignHtml += '<br><span class="discount-amount">-' + formatCurrency(campaign.discount_amount) + '</span>';
-                    campaignHtml += '</div>';
+                    html += '<div class="cost-subitem discount">';
+                    html += '<span>　└ ' + campaign.name + ' (' + campaign.discount_value + '%割引)</span>';
+                    html += '<span>-' + formatCurrency(campaign.discount_amount) + '</span>';
+                    html += '</div>';
                 });
-                $('.campaign-list').html(campaignHtml);
-                $('.campaign-details').show();
             }
-        } else {
-            $('.campaign-row').hide();
-            $('.campaign-details').hide();
         }
         
-        $loadingDiv.hide();
-        $errorDiv.hide();
-        $detailsDiv.show();
-        $resultDiv.show();
+        html += '<div class="cost-total">';
+        html += '<span><strong>🎯 合計金額（税込）</strong></span>';
+        html += '<span><strong>' + formatCurrency(estimate.final_total) + '</strong></span>';
+        html += '</div>';
+        
+        if (estimate.tax_note) {
+            html += '<p class="tax-note">' + estimate.tax_note + '</p>';
+        }
+        
+        html += '</div>';
+        
+        if (estimate.selected_options && estimate.selected_options.length > 0) {
+            html += '<div class="estimate-section">';
+            html += '<h4>🛍️ 選択オプション詳細</h4>';
+            estimate.selected_options.forEach(function(option) {
+                html += '<div class="option-detail-item">';
+                html += '<span>' + option.name + ' × ' + option.quantity;
+                if (option.is_discount_target) {
+                    html += ' <span class="discount-eligible">（割引対象）</span>';
+                }
+                html += '</span>';
+                html += '<span>' + formatCurrency(option.total) + '</span>';
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+        
+        html += '</div>';
+        
+        $resultDiv.html(html).show();
     }
     
     function calculateEstimate() {
@@ -507,41 +561,6 @@ jQuery(document).ready(function($) {
     function calculateStayMonths(stayDays) {
         return Math.ceil(stayDays / 30);
     }
-    
-    function updatePlanDisplay() {
-        const moveInDate = $('#move_in_date').val();
-        const moveOutDate = $('#move_out_date').val();
-        
-        if (moveInDate && moveOutDate) {
-            const stayDays = calculateStayDuration(moveInDate, moveOutDate);
-            const stayMonths = calculateStayMonths(stayDays);
-            
-            $('#stay_months').val(stayMonths);
-            
-            if (stayDays > 0) {
-                const plan = determinePlanByDuration(stayDays);
-                $('#auto-selected-plan').text(plan.name + ' (' + plan.duration + ')');
-                $('#selected-plan-display').show();
-                
-                if (plan.code) {
-                    $('#selected-plan-display').removeClass('error-plan').addClass('valid-plan');
-                } else {
-                    $('#selected-plan-display').removeClass('valid-plan').addClass('error-plan');
-                }
-            } else {
-                $('#selected-plan-display').hide();
-            }
-            
-            if ($('#estimate-result').is(':visible')) {
-                setTimeout(calculateEstimate, 300);
-            }
-        } else {
-            $('#selected-plan-display').hide();
-            $('#stay_months').val('');
-        }
-    }
-    
-    $('#move_in_date, #move_out_date').on('change', updatePlanDisplay);
     
     function updatePlanDisplay() {
         const moveInDate = $('#move_in_date').val();

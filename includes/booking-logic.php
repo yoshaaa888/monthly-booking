@@ -272,7 +272,7 @@ class MonthlyBooking_Booking_Logic {
             wp_send_json_error(__('Number of children must be between 0 and 10.', 'monthly-booking'));
         }
         
-        $estimate_data = $this->calculate_plan_estimate($plan, $move_in_date, $stay_months, $num_adults, $num_children, $selected_options);
+        $estimate_data = $this->calculate_plan_estimate($plan, $move_in_date, $stay_months, $num_adults, $num_children, $selected_options, $room_id);
         
         $estimate_data['guest_info'] = array(
             'name' => $guest_name,
@@ -286,74 +286,82 @@ class MonthlyBooking_Booking_Logic {
     /**
      * Calculate estimate based on plan and duration with person count and options
      */
-    public function calculate_plan_estimate($plan, $move_in_date, $stay_months, $num_adults = 1, $num_children = 0, $selected_options = array()) {
+    public function calculate_plan_estimate($plan, $move_in_date, $stay_months, $num_adults = 1, $num_children = 0, $selected_options = array(), $room_id = null) {
         global $wpdb;
         
-        $plan_prices = $this->get_plan_pricing($plan);
+        $move_out_date = $this->calculate_move_out_date($move_in_date, $stay_months);
+        $stay_days = $this->calculate_stay_days($move_in_date, $move_out_date);
         
-        $start_date = new DateTime($move_in_date);
-        $end_date = clone $start_date;
-        $end_date->modify("+{$stay_months} months");
+        $room_info = $this->get_room_info_for_estimate($room_id);
+        $daily_rent = $room_info ? $room_info->daily_rent : $this->get_default_daily_rent($plan);
         
-        $daily_rent = $plan_prices['base_price'];
-        $daily_utilities = $plan_prices['service_fee'];
-        $cleaning_fee = $plan_prices['cleaning_fee'];
-        $key_fee = $plan_prices['key_fee'];
-        $bedding_fee = $plan_prices['bedding_fee'];
-        $tax_rate = $plan_prices['tax_rate'];
-        
-        $stay_days = $stay_months * 30;
         
         $total_rent = $daily_rent * $stay_days;
+        
+        $daily_utilities = ($plan === 'SS') ? 2500 : 2000;
         $total_utilities = $daily_utilities * $stay_days;
+        
+        $cleaning_fee = 38500;  // 清掃費
+        $key_fee = 11000;       // 鍵手数料
+        $bedding_fee = 11000;   // 布団代
         $initial_costs = $cleaning_fee + $key_fee + $bedding_fee;
         
-        $additional_adults = max(0, $num_adults - 1);
-        $person_additional_fee = ($additional_adults * 1000 + $num_children * 500) * $stay_days;
+        $adult_additional_fee = max(0, ($num_adults - 1)) * 1000 * $stay_days;
+        $children_additional_fee = $num_children * 500 * $stay_days;
+        $person_additional_fee = $adult_additional_fee + $children_additional_fee;
         
+        // 5. Options calculation with bundle discounts
         $options_data = $this->calculate_options_total($selected_options);
         $options_total = $options_data['total'];
         $options_discount = $options_data['discount'];
         $options_final = $options_total - $options_discount;
         
         $subtotal = $total_rent + $total_utilities + $initial_costs + $person_additional_fee + $options_final;
-        $tax_amount = $subtotal * ($tax_rate / 100);
-        $subtotal_with_tax = $subtotal + $tax_amount;
         
-        $campaign_data = $this->calculate_estimate_campaign_discount($move_in_date, $end_date->format('Y-m-d'), $subtotal_with_tax);
+        // 6. Campaign discounts (早割・即入居割)
+        $campaign_data = $this->calculate_step3_campaign_discount($move_in_date, $move_out_date, $subtotal);
         
-        $final_total = $subtotal_with_tax - $campaign_data['discount_amount'];
+        $final_total = $subtotal - $campaign_data['discount_amount'];
         
         return array(
             'plan' => $plan,
             'plan_name' => $this->get_plan_name($plan),
             'move_in_date' => $move_in_date,
+            'move_out_date' => $move_out_date,
             'stay_months' => $stay_months,
             'stay_days' => $stay_days,
-            'end_date' => $end_date->format('Y-m-d'),
             'num_adults' => $num_adults,
             'num_children' => $num_children,
+            
             'daily_rent' => $daily_rent,
             'total_rent' => $total_rent,
             'daily_utilities' => $daily_utilities,
             'total_utilities' => $total_utilities,
+            
             'cleaning_fee' => $cleaning_fee,
             'key_fee' => $key_fee,
             'bedding_fee' => $bedding_fee,
             'initial_costs' => $initial_costs,
+            
+            'adult_additional_fee' => $adult_additional_fee,
+            'children_additional_fee' => $children_additional_fee,
             'person_additional_fee' => $person_additional_fee,
+            
             'options_total' => $options_total,
             'options_discount' => $options_discount,
             'options_final' => $options_final,
             'selected_options' => $options_data['details'],
-            'subtotal' => $subtotal,
-            'tax_rate' => $tax_rate,
-            'tax_amount' => $tax_amount,
-            'subtotal_with_tax' => $subtotal_with_tax,
+            'options_discount_eligible_count' => $options_data['discount_eligible_count'],
+            
+            // Campaign discounts
             'campaign_discount' => $campaign_data['discount_amount'],
             'campaign_details' => $campaign_data['campaigns'],
+            
+            'subtotal' => $subtotal,
             'final_total' => $final_total,
-            'currency' => '¥'
+            'currency' => '¥',
+            
+            'tax_note' => __('全て税込価格です', 'monthly-booking')
         );
     }
     
@@ -461,7 +469,94 @@ class MonthlyBooking_Booking_Logic {
     }
     
     /**
-     * Calculate campaign discounts for estimate
+     * Calculate move-out date from move-in date and stay months
+     */
+    private function calculate_move_out_date($move_in_date, $stay_months) {
+        $start_date = new DateTime($move_in_date);
+        $end_date = clone $start_date;
+        $end_date->modify("+{$stay_months} months");
+        return $end_date->format('Y-m-d');
+    }
+    
+    /**
+     * Get room information for estimate calculation
+     */
+    private function get_room_info_for_estimate($room_id = null) {
+        global $wpdb;
+        
+        if (!$room_id) {
+            $table_name = $wpdb->prefix . 'monthly_rooms';
+            return $wpdb->get_row(
+                "SELECT * FROM $table_name WHERE is_active = 1 ORDER BY id LIMIT 1"
+            );
+        }
+        
+        $table_name = $wpdb->prefix . 'monthly_rooms';
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table_name WHERE id = %d AND is_active = 1",
+            $room_id
+        ));
+    }
+    
+    /**
+     * Get default daily rent for plan if no room specified
+     */
+    private function get_default_daily_rent($plan) {
+        $default_rents = array(
+            'SS' => 2500,
+            'S'  => 2000,
+            'M'  => 1900,
+            'L'  => 1800
+        );
+        
+        return isset($default_rents[$plan]) ? $default_rents[$plan] : 2000;
+    }
+    
+    /**
+     * Calculate Step 3 campaign discounts (早割・即入居割)
+     */
+    private function calculate_step3_campaign_discount($move_in_date, $move_out_date, $base_total) {
+        $today = new DateTime();
+        $move_in = new DateTime($move_in_date);
+        $days_until_move_in = $today->diff($move_in)->days;
+        
+        $applied_campaigns = array();
+        $total_discount = 0;
+        
+        if ($days_until_move_in >= 30) {
+            $early_discount = $base_total * 0.10; // 10% discount
+            $total_discount += $early_discount;
+            $applied_campaigns[] = array(
+                'name' => __('早割キャンペーン', 'monthly-booking'),
+                'description' => __('入居30日以上前のご予約で10%割引', 'monthly-booking'),
+                'discount_type' => 'percentage',
+                'discount_value' => 10,
+                'discount_amount' => $early_discount
+            );
+        }
+        
+        if ($days_until_move_in <= 7) {
+            $immediate_discount = $base_total * 0.20; // 20% discount
+            $total_discount += $immediate_discount;
+            $applied_campaigns[] = array(
+                'name' => __('即入居割キャンペーン', 'monthly-booking'),
+                'description' => __('入居7日以内のご予約で20%割引', 'monthly-booking'),
+                'discount_type' => 'percentage',
+                'discount_value' => 20,
+                'discount_amount' => $immediate_discount
+            );
+        }
+        
+        $total_discount = min($total_discount, $base_total * 0.5);
+        
+        return array(
+            'discount_amount' => $total_discount,
+            'campaigns' => $applied_campaigns
+        );
+    }
+    
+    /**
+     * Calculate campaign discounts for estimate (legacy method)
      */
     private function calculate_estimate_campaign_discount($start_date, $end_date, $base_total) {
         global $wpdb;

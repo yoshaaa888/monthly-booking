@@ -700,6 +700,29 @@ class MonthlyBooking_Calendar_Render {
             border: 1px solid #f5c6cb;
             color: #721c24;
         }
+        .cost-subitem {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 0.9em;
+            color: #666;
+            border-bottom: none;
+        }
+        .cost-subitem span:first-child {
+            padding-left: 10px;
+        }
+        .discount-eligible {
+            font-size: 0.8em;
+            color: #28a745;
+            font-weight: bold;
+        }
+        .tax-note {
+            text-align: center;
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 10px;
+            font-style: italic;
+        }
         </style>
         <?php
         return ob_get_clean();
