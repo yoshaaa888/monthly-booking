@@ -226,14 +226,7 @@ class MonthlyBooking_Calendar_Render {
                     <div class="form-row">
                         <label for="room_id"><?php _e('部屋選択', 'monthly-booking'); ?> <span class="required">*</span></label>
                         <select id="room_id" name="room_id" required>
-                            <option value=""><?php _e('部屋を選択してください...', 'monthly-booking'); ?></option>
-                            <?php
-                            global $wpdb;
-                            $rooms = $wpdb->get_results("SELECT room_id, display_name, room_name FROM {$wpdb->prefix}monthly_rooms WHERE status = 'active' ORDER BY display_name");
-                            foreach ($rooms as $room) {
-                                echo '<option value="' . esc_attr($room->room_id) . '">' . esc_html($room->display_name . ' - ' . $room->room_name) . '</option>';
-                            }
-                            ?>
+                            <option value="">部屋を読み込み中...</option>
                         </select>
                     </div>
                 </div>
@@ -263,18 +256,6 @@ class MonthlyBooking_Calendar_Render {
                     <div class="form-row">
                         <label for="move_out_date"><?php _e('退去日', 'monthly-booking'); ?> <span class="required">*</span></label>
                         <input type="date" id="move_out_date" name="move_out_date" required>
-                    </div>
-                    <div class="form-row">
-                        <label for="stay_months"><?php _e('滞在期間（月数）', 'monthly-booking'); ?></label>
-                        <select id="stay_months" name="stay_months">
-                            <option value=""><?php _e('自動計算されます...', 'monthly-booking'); ?></option>
-                            <option value="1">1 <?php _e('ヶ月', 'monthly-booking'); ?></option>
-                            <option value="2">2 <?php _e('ヶ月', 'monthly-booking'); ?></option>
-                            <option value="3">3 <?php _e('ヶ月', 'monthly-booking'); ?></option>
-                            <option value="6">6 <?php _e('ヶ月', 'monthly-booking'); ?></option>
-                            <option value="12">12 <?php _e('ヶ月', 'monthly-booking'); ?></option>
-                        </select>
-                        <small class="form-help"><?php _e('入居日・退去日から自動計算されます', 'monthly-booking'); ?></small>
                     </div>
                 </div>
                 
