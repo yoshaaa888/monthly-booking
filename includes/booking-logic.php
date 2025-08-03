@@ -637,17 +637,19 @@ class MonthlyBooking_Booking_Logic {
     }
     
     /**
-     * Automatically determine plan based on stay duration
+     * Automatically determine plan based on stay duration using calendar months
      */
-    private function determine_plan_by_duration($stay_days) {
+    private function determine_plan_by_duration($move_in_date, $move_out_date) {
+        $stay_days = $this->calculate_stay_days($move_in_date, $move_out_date);
+        $stay_months = $this->calculate_stay_months($move_in_date, $move_out_date);
         
-        if ($stay_days >= 7 && $stay_days <= 29) {
+        if ($stay_days >= 7 && $stay_months < 1) {
             return 'SS';
-        } elseif ($stay_days >= 30 && $stay_days <= 89) {
+        } elseif ($stay_months >= 1 && $stay_months < 3) {
             return 'S';
-        } elseif ($stay_days >= 90 && $stay_days <= 179) {
+        } elseif ($stay_months >= 3 && $stay_months < 6) {
             return 'M';
-        } elseif ($stay_days >= 180) {
+        } elseif ($stay_months >= 6) {
             return 'L';
         } else {
             return null;
@@ -724,6 +726,10 @@ class MonthlyBooking_Booking_Logic {
                 $months++;
                 $current_date = clone $next_month;
             } else {
+                $days_remaining = $current_date->diff($check_out)->days;
+                if ($days_remaining >= 28) { // Allow for February edge case
+                    $months++;
+                }
                 break;
             }
         }

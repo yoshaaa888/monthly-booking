@@ -535,19 +535,19 @@ jQuery(document).ready(function($) {
                 name: 'SS Plan - スーパーショートプラン',
                 duration: stayDays + '日間'
             };
-        } else if (stayMonths >= 1 && stayDays <= 89) {
+        } else if (stayMonths >= 1 && stayMonths < 3) {
             return { 
                 code: 'S', 
                 name: 'S Plan - ショートプラン',
                 duration: stayDays + '日間'
             };
-        } else if (stayDays >= 90 && stayDays <= 179) {
+        } else if (stayMonths >= 3 && stayMonths < 6) {
             return { 
                 code: 'M', 
                 name: 'M Plan - ミドルプラン',
                 duration: stayDays + '日間'
             };
-        } else if (stayDays >= 180) {
+        } else if (stayMonths >= 6) {
             return { 
                 code: 'L', 
                 name: 'L Plan - ロングプラン',
@@ -588,9 +588,9 @@ jQuery(document).ready(function($) {
         
         let months = 0;
         let currentDate = new Date(checkIn);
-        const originalDay = checkIn.getDate();
         
         while (currentDate < checkOut) {
+            const originalDay = currentDate.getDate();
             const nextMonth = new Date(currentDate);
             nextMonth.setMonth(nextMonth.getMonth() + 1);
             
@@ -602,6 +602,10 @@ jQuery(document).ready(function($) {
                 months++;
                 currentDate = new Date(nextMonth);
             } else {
+                const daysRemaining = Math.floor((checkOut - currentDate) / (1000 * 60 * 60 * 24));
+                if (daysRemaining >= 28) { // Allow for February edge case
+                    months++;
+                }
                 break;
             }
         }
