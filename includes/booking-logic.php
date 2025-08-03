@@ -727,7 +727,7 @@ class MonthlyBooking_Booking_Logic {
                 $current_date = clone $next_month;
             } else {
                 $days_remaining = $current_date->diff($check_out)->days;
-                if ($days_remaining >= 28) { // Allow for February edge case
+                if ($days_remaining >= 30) { // Strict 30-day minimum for partial month
                     $months++;
                 }
                 break;

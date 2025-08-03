@@ -25,6 +25,10 @@ function test_plan_determination($move_in_date, $move_out_date, $expected_plan) 
             $months++;
             $current_date = clone $next_month;
         } else {
+            $days_remaining = $current_date->diff($check_out)->days;
+            if ($days_remaining >= 30) { // Strict 30-day minimum for partial month
+                $months++;
+            }
             break;
         }
     }

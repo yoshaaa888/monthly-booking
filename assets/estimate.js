@@ -603,7 +603,7 @@ jQuery(document).ready(function($) {
                 currentDate = new Date(nextMonth);
             } else {
                 const daysRemaining = Math.floor((checkOut - currentDate) / (1000 * 60 * 60 * 24));
-                if (daysRemaining >= 28) { // Allow for February edge case
+                if (daysRemaining >= 30) { // Strict 30-day minimum for partial month
                     months++;
                 }
                 break;
