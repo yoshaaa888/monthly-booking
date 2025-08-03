@@ -13,3 +13,6 @@ A WordPress plugin for managing monthly property bookings with calendar display,
 - includes/ - Core functionality
 - templates/ - Frontend templates
 
+## Development
+This plugin follows WordPress coding standards and includes comprehensive testing infrastructure.
+
