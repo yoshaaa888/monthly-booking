@@ -118,7 +118,6 @@ jQuery(document).ready(function($) {
         const roomId = $('#room_id').val();
         const moveInDate = $('#move_in_date').val();
         const moveOutDate = $('#move_out_date').val();
-        const stayMonths = $('#stay_months').val();
         const numAdults = $('#num_adults').val();
         const guestName = $('#guest_name').val().trim();
         const guestEmail = $('#guest_email').val().trim();
@@ -143,10 +142,6 @@ jQuery(document).ready(function($) {
             return false;
         }
         
-        if (!stayMonths) {
-            showError('滞在期間を選択してください。');
-            return false;
-        }
         
         if (!numAdults || numAdults < 1) {
             showError('大人の人数を選択してください。');
@@ -196,7 +191,7 @@ jQuery(document).ready(function($) {
         html += '<p><strong>プラン:</strong> ' + estimate.plan_name + '</p>';
         html += '<p><strong>入居日:</strong> ' + estimate.move_in_date + '</p>';
         html += '<p><strong>退去日:</strong> ' + estimate.move_out_date + '</p>';
-        html += '<p><strong>滞在期間:</strong> ' + estimate.stay_days + '日間 (' + estimate.stay_months + 'ヶ月)</p>';
+        html += '<p><strong>滞在期間:</strong> ' + estimate.stay_days + '日間</p>';
         html += '<p><strong>利用人数:</strong> 大人' + estimate.num_adults + '名';
         if (estimate.num_children > 0) {
             html += ', 子ども' + estimate.num_children + '名';
@@ -353,7 +348,6 @@ jQuery(document).ready(function($) {
             room_id: $('#room_id').val(),
             move_in_date: $('#move_in_date').val(),
             move_out_date: $('#move_out_date').val(),
-            stay_months: $('#stay_months').val(),
             num_adults: $('#num_adults').val(),
             num_children: $('#num_children').val(),
             selected_options: selectedOptions,
@@ -460,15 +454,12 @@ jQuery(document).ready(function($) {
     
     function searchProperties() {
         const moveInDate = $('#move_in_date').val();
-        const stayMonths = $('#stay_months').val();
+        const moveOutDate = $('#move_out_date').val();
         
-        if (!moveInDate || !stayMonths) {
+        if (!moveInDate || !moveOutDate) {
             alert(monthlyBookingAjax.selectDatesFirst);
             return;
         }
-        
-        const endDate = new Date(moveInDate);
-        endDate.setMonth(endDate.getMonth() + parseInt(stayMonths));
         
         $.ajax({
             url: monthlyBookingAjax.ajaxurl,
@@ -477,7 +468,7 @@ jQuery(document).ready(function($) {
                 action: 'search_properties',
                 nonce: monthlyBookingAjax.nonce,
                 start_date: moveInDate,
-                end_date: endDate.toISOString().split('T')[0],
+                end_date: moveOutDate,
                 station: $('#station_filter').val(),
                 max_occupants: $('#occupancy_filter').val(),
                 structure: $('#structure_filter').val()
@@ -534,15 +525,17 @@ jQuery(document).ready(function($) {
         searchProperties();
     });
 
-    function determinePlanByDuration(stayDays) {
+    function determinePlanByDuration(moveInDate, moveOutDate) {
+        const stayDays = calculateStayDuration(moveInDate, moveOutDate);
+        const stayMonths = calculateStayMonths(moveInDate, moveOutDate);
         
-        if (stayDays >= 7 && stayDays <= 29) {
+        if (stayDays >= 7 && stayMonths < 1) {
             return { 
                 code: 'SS', 
                 name: 'SS Plan - スーパーショートプラン',
                 duration: stayDays + '日間'
             };
-        } else if (stayDays >= 30 && stayDays <= 89) {
+        } else if (stayMonths >= 1 && stayDays <= 89) {
             return { 
                 code: 'S', 
                 name: 'S Plan - ショートプラン',
@@ -587,8 +580,33 @@ jQuery(document).ready(function($) {
         return daysDiff;
     }
     
-    function calculateStayMonths(stayDays) {
-        return Math.ceil(stayDays / 30);
+    function calculateStayMonths(moveInDate, moveOutDate) {
+        if (!moveInDate || !moveOutDate) return 0;
+        
+        const checkIn = new Date(moveInDate);
+        const checkOut = new Date(moveOutDate);
+        
+        let months = 0;
+        let currentDate = new Date(checkIn);
+        const originalDay = checkIn.getDate();
+        
+        while (currentDate < checkOut) {
+            const nextMonth = new Date(currentDate);
+            nextMonth.setMonth(nextMonth.getMonth() + 1);
+            
+            if (nextMonth.getDate() !== originalDay) {
+                nextMonth.setDate(0);
+            }
+            
+            if (nextMonth <= checkOut) {
+                months++;
+                currentDate = new Date(nextMonth);
+            } else {
+                break;
+            }
+        }
+        
+        return months;
     }
     
     function updatePlanDisplay() {
@@ -596,41 +614,7 @@ jQuery(document).ready(function($) {
         const moveOutDate = $('#move_out_date').val();
         
         if (moveInDate && moveOutDate) {
-            const stayDays = calculateStayDuration(moveInDate, moveOutDate);
-            const stayMonths = calculateStayMonths(stayDays);
-            
-            $('#stay_months').val(stayMonths);
-            
-            if (stayDays > 0) {
-                const plan = determinePlanByDuration(stayDays);
-                $('#auto-selected-plan').text(plan.name + ' (' + plan.duration + ')');
-                $('#selected-plan-display').show();
-                
-                if (plan.code) {
-                    $('#selected-plan-display').removeClass('error-plan').addClass('valid-plan');
-                } else {
-                    $('#selected-plan-display').removeClass('valid-plan').addClass('error-plan');
-                }
-            } else {
-                $('#selected-plan-display').hide();
-            }
-            
-            if ($('#estimate-result').is(':visible')) {
-                setTimeout(calculateEstimate, 300);
-            }
-        } else {
-            $('#selected-plan-display').hide();
-            $('#stay_months').val('');
-        }
-    }
-    
-    $('#move_in_date, #move_out_date').on('change', updatePlanDisplay);
-    
-    $('#stay_months').on('change', function() {
-        const stayMonths = parseInt($(this).val());
-        if (stayMonths) {
-            const stayDays = stayMonths * 30; // Approximate conversion
-            const plan = determinePlanByDuration(stayDays);
+            const plan = determinePlanByDuration(moveInDate, moveOutDate);
             $('#auto-selected-plan').text(plan.name + ' (' + plan.duration + ')');
             $('#selected-plan-display').show();
             
@@ -639,14 +623,17 @@ jQuery(document).ready(function($) {
             } else {
                 $('#selected-plan-display').removeClass('valid-plan').addClass('error-plan');
             }
+            
+            if ($('#estimate-result').is(':visible')) {
+                setTimeout(calculateEstimate, 300);
+            }
         } else {
             $('#selected-plan-display').hide();
         }
-        
-        if ($('#estimate-result').is(':visible')) {
-            setTimeout(calculateEstimate, 300);
-        }
-    });
+    }
+    
+    $('#move_in_date, #move_out_date').on('change', updatePlanDisplay);
+    
 
     $(document).on('click', '#submit-booking-btn', function(e) {
         e.preventDefault();
@@ -681,7 +668,6 @@ jQuery(document).ready(function($) {
             room_id: $('#room_id').val(),
             move_in_date: estimate.move_in_date,
             move_out_date: estimate.move_out_date,
-            stay_months: estimate.stay_months,
             plan_type: estimate.plan,
             num_adults: estimate.num_adults,
             num_children: estimate.num_children,
