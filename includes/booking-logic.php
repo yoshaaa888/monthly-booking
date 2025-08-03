@@ -1045,6 +1045,13 @@ class MonthlyBooking_Booking_Logic {
             ORDER BY structure
         ");
         
+        $rooms = $wpdb->get_results("
+            SELECT room_id, display_name, daily_rent 
+            FROM $rooms_table 
+            WHERE is_active = 1 AND status = 'active'
+            ORDER BY display_name
+        ");
+        
         $rent_ranges = array(
             array('label' => '¥2,000以下', 'max' => 2000),
             array('label' => '¥2,001-¥3,000', 'min' => 2001, 'max' => 3000),
@@ -1055,6 +1062,7 @@ class MonthlyBooking_Booking_Logic {
         return array(
             'stations' => $stations,
             'structures' => $structures,
+            'rooms' => $rooms,
             'rent_ranges' => $rent_ranges,
             'occupancy_options' => range(1, 10)
         );

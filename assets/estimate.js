@@ -423,6 +423,16 @@ jQuery(document).ready(function($) {
                 if (response.success) {
                     const filters = response.data;
                     
+                    const roomSelect = $('#room_id');
+                    if (roomSelect.length) {
+                        roomSelect.empty().append('<option value="">部屋を選択してください...</option>');
+                        if (filters.rooms && filters.rooms.length > 0) {
+                            filters.rooms.forEach(function(room) {
+                                roomSelect.append('<option value="' + room.room_id + '">' + room.display_name + ' (¥' + parseInt(room.daily_rent).toLocaleString() + '/日)</option>');
+                            });
+                        }
+                    }
+                    
                     const stationSelect = $('#station_filter');
                     stationSelect.empty().append('<option value="">' + monthlyBookingAjax.selectStation + '</option>');
                     filters.stations.forEach(function(station) {
