@@ -229,7 +229,7 @@ class MonthlyBooking_Calendar_Render {
                             <option value=""><?php _e('部屋を選択してください...', 'monthly-booking'); ?></option>
                             <?php
                             global $wpdb;
-                            $rooms = $wpdb->get_results("SELECT room_id, display_name, room_name FROM {$wpdb->prefix}monthly_rooms WHERE status = 'active' ORDER BY display_name");
+                            $rooms = $wpdb->get_results("SELECT room_id, display_name, room_name FROM {$wpdb->prefix}monthly_rooms WHERE is_active = 1 ORDER BY display_name");
                             foreach ($rooms as $room) {
                                 echo '<option value="' . esc_attr($room->room_id) . '">' . esc_html($room->display_name . ' - ' . $room->room_name) . '</option>';
                             }
@@ -243,10 +243,10 @@ class MonthlyBooking_Calendar_Render {
                     <div class="auto-plan-info">
                         <p><?php _e('滞在期間に基づいて最適なプランを自動選択します：', 'monthly-booking'); ?></p>
                         <ul class="plan-duration-list">
-                            <li><strong>SS Plan:</strong> <?php _e('7-29日 - Compact Studio (15-20㎡)', 'monthly-booking'); ?></li>
-                            <li><strong>S Plan:</strong> <?php _e('30-89日 - Standard Studio (20-25㎡)', 'monthly-booking'); ?></li>
-                            <li><strong>M Plan:</strong> <?php _e('90-179日 - Medium Room (25-35㎡)', 'monthly-booking'); ?></li>
-                            <li><strong>L Plan:</strong> <?php _e('180日以上 - Large Room (35㎡+)', 'monthly-booking'); ?></li>
+                            <li><strong>SS Plan:</strong> <?php _e('7-29日 - スーパーショートプラン', 'monthly-booking'); ?></li>
+                            <li><strong>S Plan:</strong> <?php _e('30-89日 - ショートプラン', 'monthly-booking'); ?></li>
+                            <li><strong>M Plan:</strong> <?php _e('90-179日 - ミドルプラン', 'monthly-booking'); ?></li>
+                            <li><strong>L Plan:</strong> <?php _e('180日以上 - ロングプラン', 'monthly-booking'); ?></li>
                         </ul>
                         <div id="selected-plan-display" class="selected-plan-display" style="display: none;">
                             <strong><?php _e('選択されたプラン: ', 'monthly-booking'); ?><span id="auto-selected-plan"></span></strong>
