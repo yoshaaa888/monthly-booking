@@ -1,0 +1,97 @@
+/* Monthly Booking Admin Styles */
+.monthly-booking-admin-content {
+    max-width: 1200px;
+    margin: 20px 0;
+}
+
+.monthly-booking-admin-content h2 {
+    color: #23282d;
+    font-size: 24px;
+    margin-bottom: 15px;
+}
+
+.monthly-booking-admin-content p {
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+.notice.notice-info {
+    border-left-color: #00a0d2;
+    background-color: #f7fcfe;
+    padding: 12px;
+    margin: 20px 0;
+}
+
+.monthly-booking-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.monthly-booking-table th,
+.monthly-booking-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.monthly-booking-table th {
+    background-color: #f1f1f1;
+    font-weight: 600;
+}
+
+.monthly-booking-form {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.monthly-booking-form .form-table th {
+    width: 200px;
+    padding: 20px 10px 20px 0;
+}
+
+.monthly-booking-form .form-table td {
+    padding: 15px 10px;
+}
+
+.monthly-booking-form input[type="text"],
+.monthly-booking-form input[type="email"],
+.monthly-booking-form input[type="number"],
+.monthly-booking-form input[type="date"],
+.monthly-booking-form select,
+.monthly-booking-form textarea {
+    width: 100%;
+    max-width: 400px;
+}
+
+.monthly-booking-calendar {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.campaign-status-active {
+    color: #46b450;
+    font-weight: 600;
+}
+
+.campaign-status-inactive {
+    color: #dc3232;
+    font-weight: 600;
+}
+
+.button.button-primary.monthly-booking-btn {
+    background: #0073aa;
+    border-color: #0073aa;
+    color: #fff;
+}
+
+.button.button-primary.monthly-booking-btn:hover {
+    background: #005a87;
+    border-color: #005a87;
+}
