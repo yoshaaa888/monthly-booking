@@ -529,25 +529,25 @@ jQuery(document).ready(function($) {
         if (stayDays >= 7 && stayDays <= 29) {
             return { 
                 code: 'SS', 
-                name: 'SS Plan - Compact Studio (15-20㎡)',
+                name: 'SS Plan - スーパーショートプラン',
                 duration: stayDays + '日間'
             };
         } else if (stayDays >= 30 && stayDays <= 89) {
             return { 
                 code: 'S', 
-                name: 'S Plan - Standard Studio (20-25㎡)',
+                name: 'S Plan - ショートプラン',
                 duration: stayDays + '日間'
             };
         } else if (stayDays >= 90 && stayDays <= 179) {
             return { 
                 code: 'M', 
-                name: 'M Plan - Medium Room (25-35㎡)',
+                name: 'M Plan - ミドルプラン',
                 duration: stayDays + '日間'
             };
         } else if (stayDays >= 180) {
             return { 
                 code: 'L', 
-                name: 'L Plan - Large Room (35㎡+)',
+                name: 'L Plan - ロングプラン',
                 duration: stayDays + '日間'
             };
         } else {

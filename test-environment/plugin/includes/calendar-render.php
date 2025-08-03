@@ -243,10 +243,10 @@ class MonthlyBooking_Calendar_Render {
                     <div class="auto-plan-info">
                         <p><?php _e('滞在期間に基づいて最適なプランを自動選択します：', 'monthly-booking'); ?></p>
                         <ul class="plan-duration-list">
-                            <li><strong>SS Plan:</strong> <?php _e('7-29日 - Compact Studio (15-20㎡)', 'monthly-booking'); ?></li>
-                            <li><strong>S Plan:</strong> <?php _e('30-89日 - Standard Studio (20-25㎡)', 'monthly-booking'); ?></li>
-                            <li><strong>M Plan:</strong> <?php _e('90-179日 - Medium Room (25-35㎡)', 'monthly-booking'); ?></li>
-                            <li><strong>L Plan:</strong> <?php _e('180日以上 - Large Room (35㎡+)', 'monthly-booking'); ?></li>
+                            <li><strong>SS Plan:</strong> <?php _e('7-29日 - スーパーショートプラン', 'monthly-booking'); ?></li>
+                            <li><strong>S Plan:</strong> <?php _e('30-89日 - ショートプラン', 'monthly-booking'); ?></li>
+                            <li><strong>M Plan:</strong> <?php _e('90-179日 - ミドルプラン', 'monthly-booking'); ?></li>
+                            <li><strong>L Plan:</strong> <?php _e('180日以上 - ロングプラン', 'monthly-booking'); ?></li>
                         </ul>
                         <div id="selected-plan-display" class="selected-plan-display" style="display: none;">
                             <strong><?php _e('選択されたプラン: ', 'monthly-booking'); ?><span id="auto-selected-plan"></span></strong>

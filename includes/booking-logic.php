@@ -686,10 +686,10 @@ class MonthlyBooking_Booking_Logic {
      */
     private function get_plan_name($plan) {
         $plan_names = array(
-            'SS' => __('SS Plan - Compact Studio (15-20㎡)', 'monthly-booking'),
-            'S'  => __('S Plan - Standard Studio (20-25㎡)', 'monthly-booking'),
-            'M'  => __('M Plan - Medium Room (25-35㎡)', 'monthly-booking'),
-            'L'  => __('L Plan - Large Room (35㎡+)', 'monthly-booking')
+            'SS' => __('SS Plan - スーパーショートプラン', 'monthly-booking'),
+            'S'  => __('S Plan - ショートプラン', 'monthly-booking'),
+            'M'  => __('M Plan - ミドルプラン', 'monthly-booking'),
+            'L'  => __('L Plan - ロングプラン', 'monthly-booking')
         );
         
         return isset($plan_names[$plan]) ? $plan_names[$plan] : $plan_names['M'];
@@ -1048,7 +1048,7 @@ class MonthlyBooking_Booking_Logic {
         $rooms = $wpdb->get_results("
             SELECT room_id, display_name, daily_rent 
             FROM $rooms_table 
-            WHERE is_active = 1 AND status = 'active'
+            WHERE is_active = 1
             ORDER BY display_name
         ");
         
