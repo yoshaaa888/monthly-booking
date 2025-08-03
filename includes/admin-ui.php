@@ -99,6 +99,7 @@ class MonthlyBooking_Admin_UI {
      * Enqueue admin scripts and styles
      */
     public function enqueue_admin_scripts($hook) {
+        error_log("Admin hook: $hook");
         if (strpos($hook, 'monthly-booking') === false) {
             return;
         }
@@ -581,7 +582,7 @@ class MonthlyBooking_Admin_UI {
                 <div class="calendar-controls">
                     <div class="room-selector">
                         <label for="room_select"><?php _e('部屋選択', 'monthly-booking'); ?>:</label>
-                        <select id="room_select" name="room_id" onchange="window.location.href='<?php echo admin_url('admin.php?page=monthly-room-booking-calendar&room_id='); ?>' + this.value;">
+                        <select id="room_select" name="room_id" onchange="try { console.log('Room selected:', this.value); var url = '<?php echo admin_url('admin.php?page=monthly-room-booking-calendar&room_id='); ?>' + this.value; console.log('Redirecting to:', url); window.location.href = url; } catch(e) { console.error('Dropdown error:', e); alert('Error selecting room: ' + e.message); }">
                             <option value="0"><?php _e('部屋を選択してください', 'monthly-booking'); ?></option>
                             <?php foreach ($rooms as $room): ?>
                                 <option value="<?php echo esc_attr($room->id); ?>" <?php selected($selected_room_id, $room->id); ?>>
