@@ -233,8 +233,8 @@ class MonthlyBooking_Admin_UI {
                                     </span>
                                 </td>
                                 <td>
-                                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=edit&id=' . $property->id); ?>" class="button button-small"><?php _e('Edit', 'monthly-booking'); ?></a>
-                                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=delete&id=' . $property->id); ?>" class="button button-small button-link-delete" onclick="return confirm('<?php _e('Are you sure you want to delete this property?', 'monthly-booking'); ?>')"><?php _e('Delete', 'monthly-booking'); ?></a>
+                                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=edit&id=' . $property->room_id); ?>" class="button button-small"><?php _e('Edit', 'monthly-booking'); ?></a>
+                                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=delete&id=' . $property->room_id); ?>" class="button button-small button-link-delete" onclick="return confirm('<?php _e('Are you sure you want to delete this property?', 'monthly-booking'); ?>')"><?php _e('Delete', 'monthly-booking'); ?></a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -264,7 +264,7 @@ class MonthlyBooking_Admin_UI {
         $property = null;
         if ($property_id) {
             $table_name = $wpdb->prefix . 'monthly_rooms';
-            $property = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $property_id));
+            $property = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE room_id = %d", $property_id));
         }
         
         $is_edit = $property_id > 0;
@@ -528,7 +528,7 @@ class MonthlyBooking_Admin_UI {
         );
         
         if ($property_db_id > 0) {
-            $result = $wpdb->update($table_name, $data, array('id' => $property_db_id));
+            $result = $wpdb->update($table_name, $data, array('room_id' => $property_db_id));
             $message = __('Property updated successfully.', 'monthly-booking');
         } else {
             $data['created_at'] = current_time('mysql');
@@ -552,7 +552,7 @@ class MonthlyBooking_Admin_UI {
         global $wpdb;
         
         $table_name = $wpdb->prefix . 'monthly_rooms';
-        $result = $wpdb->delete($table_name, array('id' => $property_id), array('%d'));
+        $result = $wpdb->delete($table_name, array('room_id' => $property_id), array('%d'));
         
         if ($result !== false) {
             wp_redirect(admin_url('admin.php?page=monthly-room-booking&message=deleted'));
@@ -606,7 +606,7 @@ class MonthlyBooking_Admin_UI {
                         <select id="room_select" name="room_id" onchange="try { console.log('Room selected:', this.value); var url = '<?php echo admin_url('admin.php?page=monthly-room-booking-calendar&room_id='); ?>' + this.value; console.log('Redirecting to:', url); window.location.href = url; } catch(e) { console.error('Dropdown error:', e); alert('Error selecting room: ' + e.message); }">
                             <option value="0"><?php _e('部屋を選択してください', 'monthly-booking'); ?></option>
                             <?php foreach ($rooms as $room): ?>
-                                <option value="<?php echo esc_attr($room->id); ?>" <?php selected($selected_room_id, $room->id); ?>>
+                                <option value="<?php echo esc_attr($room->room_id); ?>" <?php selected($selected_room_id, $room->room_id); ?>>
                                     <?php echo esc_html($room->display_name . ' (' . $room->room_name . ')'); ?>
                                 </option>
                             <?php endforeach; ?>
@@ -805,7 +805,7 @@ class MonthlyBooking_Admin_UI {
         
         error_log("get_all_rooms Debug - Executing query on table: " . $rooms_table);
         
-        $sql = "SELECT id, room_id, display_name, room_name, property_name 
+        $sql = "SELECT room_id, display_name, room_name, property_name 
                 FROM $rooms_table 
                 WHERE is_active = 1 
                 ORDER BY property_name, room_name";
