@@ -812,7 +812,14 @@ class MonthlyBooking_Booking_Logic {
     /**
      * Calculate Step 3 campaign discounts using new campaign manager
      */
-    private function calculate_step3_campaign_discount($move_in_date, $move_out_date, $base_total) {
+    /**
+     * 統合キャンペーン割引適用関数
+     * 
+     * @param string $move_in_date チェックイン日
+     * @param float $base_total 基本料金合計
+     * @return array 割引情報配列
+     */
+    private function apply_campaign_discount($move_in_date, $base_total) {
         if (!class_exists('MonthlyBooking_Campaign_Manager')) {
             require_once plugin_dir_path(__FILE__) . 'campaign-manager.php';
         }
@@ -838,6 +845,10 @@ class MonthlyBooking_Booking_Logic {
             'campaign_badge' => $campaign_info['campaign_badge'],
             'campaign_type' => $campaign_info['campaign_type']
         );
+    }
+
+    private function calculate_step3_campaign_discount($move_in_date, $move_out_date, $base_total) {
+        return $this->apply_campaign_discount($move_in_date, $base_total);
     }
     
     /**

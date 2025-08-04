@@ -343,6 +343,16 @@ class MonthlyBooking_Campaign_Manager {
      * @param string $type Campaign type ('early' or 'last_minute')
      * @return object|null Campaign object or null if not found
      */
+    /**
+     * Get campaign by type (instant or earlybird)
+     * 
+     * 現在の実装: 説明文マッチングによるキャンペーン判定
+     * 将来拡張の余地: type列による判定方式への移行可能
+     * 例: 「早割」「即入居」「季節割」「10万円コミコミ割」など
+     * 
+     * @param string $type キャンペーンタイプ ('instant' または 'earlybird')
+     * @return object|null キャンペーンオブジェクト
+     */
     private function get_campaign_by_type($type) {
         global $wpdb;
         
