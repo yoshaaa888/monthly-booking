@@ -117,6 +117,8 @@ INSERT INTO `wp_monthly_customers` (`name`, `email`, `phone`, `address`) VALUES
 
 
 
+
+
 CREATE INDEX idx_bookings_dates ON `wp_monthly_bookings` (`move_in_date`, `move_out_date`);
 CREATE INDEX idx_bookings_status ON `wp_monthly_bookings` (`status`);
 CREATE INDEX idx_options_discount ON `wp_monthly_options` (`is_discount_target`);
