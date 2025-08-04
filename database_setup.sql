@@ -32,17 +32,6 @@ CREATE TABLE IF NOT EXISTS `wp_monthly_options` (
   KEY `display_order` (`display_order`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS `wp_monthly_campaigns` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) NOT NULL,
-  `discount_rate` decimal(5,2) NOT NULL,
-  `condition_type` varchar(50) NOT NULL,
-  `condition_value` int(11) NOT NULL,
-  `badge_text` varchar(50),
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `wp_monthly_customers` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -112,9 +101,6 @@ INSERT INTO `wp_monthly_options` (`option_name`, `option_description`, `price`, 
 ('アイロン', 'アイロン＋アイロン台セット', 6860.00, 0, 8, 1),
 ('炊飯器（4合炊き）', '炊飯器（4合炊き）※メーカー直送', 6600.00, 0, 9, 1);
 
-INSERT INTO `wp_monthly_campaigns` (`name`, `discount_rate`, `condition_type`, `condition_value`, `badge_text`, `is_active`) VALUES
-('早割キャンペーン', 10.00, 'advance_days', 30, '早割', 1),
-('即入居割', 20.00, 'immediate_days', 7, '即入居', 1);
 
 INSERT INTO `wp_monthly_customers` (`name`, `email`, `phone`, `address`) VALUES
 ('田中太郎', 'tanaka@example.com', '090-1234-5678', '東京都新宿区西新宿1-1-1'),
@@ -122,7 +108,10 @@ INSERT INTO `wp_monthly_customers` (`name`, `email`, `phone`, `address`) VALUES
 ('鈴木一郎', 'suzuki@example.com', '090-3456-7890', '東京都品川区大崎1-1-1');
 
 
+
+
+
+
 CREATE INDEX idx_bookings_dates ON `wp_monthly_bookings` (`move_in_date`, `move_out_date`);
 CREATE INDEX idx_bookings_status ON `wp_monthly_bookings` (`status`);
 CREATE INDEX idx_options_discount ON `wp_monthly_options` (`is_discount_target`);
-CREATE INDEX idx_campaigns_active ON `wp_monthly_campaigns` (`is_active`);

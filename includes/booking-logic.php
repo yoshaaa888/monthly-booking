@@ -825,8 +825,8 @@ class MonthlyBooking_Booking_Logic {
             $applied_campaigns[] = array(
                 'name' => $campaign_info['campaign_name'],
                 'description' => $campaign_info['campaign_description'],
-                'discount_type' => 'percentage',
-                'discount_value' => $campaign_info['campaign_type'] === 'early' ? 10 : 20,
+                'discount_type' => $campaign_info['discount_type'],
+                'discount_value' => $campaign_info['discount_value'],
                 'discount_amount' => $campaign_info['discount_amount'],
                 'badge' => $campaign_info['campaign_badge']
             );
