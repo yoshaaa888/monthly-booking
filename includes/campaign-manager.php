@@ -278,7 +278,7 @@ class MonthlyBooking_Campaign_Manager {
      * @param string $checkin_date Check-in date in Y-m-d format
      * @return array|null Campaign information or null if no applicable campaign
      */
-    public function get_applicable_campaigns($checkin_date) {
+    public function get_applicable_campaigns($checkin_date, $stay_days = null) {
         if (empty($checkin_date)) {
             return null;
         }
@@ -291,41 +291,67 @@ class MonthlyBooking_Campaign_Manager {
             return null;
         }
         
-        $applicable_campaigns = array();
+        $eligible_campaigns = array();
         
-        if ($days_until_checkin <= 7) {
-            $campaign = $this->get_campaign_by_type('last_minute');
+        if ($stay_days && $stay_days >= 7 && $stay_days <= 10) {
+            $campaign = $this->get_campaign_by_type('flatrate');
             if ($campaign) {
-                $applicable_campaigns[] = array(
+                $eligible_campaigns[] = array(
                     'id' => $campaign->id,
                     'name' => $campaign->campaign_name,
-                    'type' => 'last_minute',
+                    'type' => 'flatrate',
+                    'discount_type' => $campaign->discount_type,
+                    'discount_value' => $campaign->discount_value,
+                    'badge' => 'コミコミ10万円',
+                    'description' => '7〜10日滞在で全込み10万円',
+                    'days_until_checkin' => $days_until_checkin,
+                    'priority' => 999999 // Highest priority for flatrate
+                );
+            }
+        }
+        
+        if ($days_until_checkin <= 7) {
+            $campaign = $this->get_campaign_by_type('immediate');
+            if ($campaign) {
+                $eligible_campaigns[] = array(
+                    'id' => $campaign->id,
+                    'name' => $campaign->campaign_name,
+                    'type' => 'immediate',
                     'discount_type' => $campaign->discount_type,
                     'discount_value' => $campaign->discount_value,
                     'badge' => '即入居',
                     'description' => '入居7日以内の即入居キャンペーン',
-                    'days_until_checkin' => $days_until_checkin
+                    'days_until_checkin' => $days_until_checkin,
+                    'priority' => $campaign->discount_value
                 );
             }
         }
         
         if ($days_until_checkin >= 30) {
-            $campaign = $this->get_campaign_by_type('early');
+            $campaign = $this->get_campaign_by_type('earlybird');
             if ($campaign) {
-                $applicable_campaigns[] = array(
+                $eligible_campaigns[] = array(
                     'id' => $campaign->id,
                     'name' => $campaign->campaign_name,
-                    'type' => 'early',
+                    'type' => 'earlybird',
                     'discount_type' => $campaign->discount_type,
                     'discount_value' => $campaign->discount_value,
                     'badge' => '早割',
                     'description' => '入居30日以上前の早期予約キャンペーン',
-                    'days_until_checkin' => $days_until_checkin
+                    'days_until_checkin' => $days_until_checkin,
+                    'priority' => $campaign->discount_value
                 );
             }
         }
         
-        return !empty($applicable_campaigns) ? $applicable_campaigns : null;
+        if (!empty($eligible_campaigns)) {
+            usort($eligible_campaigns, function($a, $b) {
+                return $b['priority'] <=> $a['priority'];
+            });
+            return array($eligible_campaigns[0]);
+        }
+        
+        return null;
     }
     
     /**
@@ -334,31 +360,33 @@ class MonthlyBooking_Campaign_Manager {
      * @param string $type Campaign type ('early' or 'last_minute')
      * @return object|null Campaign object or null if not found
      */
+    /**
+     * Get campaign by type (instant or earlybird)
+     * 
+     * 現在の実装: 説明文マッチングによるキャンペーン判定
+     * 将来拡張の余地: type列による判定方式への移行可能
+     * 例: 「早割」「即入居」「季節割」「10万円コミコミ割」など
+     * 
+     * @param string $type キャンペーンタイプ ('instant' または 'earlybird')
+     * @return object|null キャンペーンオブジェクト
+     */
     private function get_campaign_by_type($type) {
         global $wpdb;
         
         $table_name = $wpdb->prefix . 'monthly_campaigns';
         $today = date('Y-m-d');
         
-        $type_conditions = array(
-            'early' => "campaign_description LIKE '%早割%' OR campaign_description LIKE '%early%'",
-            'last_minute' => "campaign_description LIKE '%即入居%' OR campaign_description LIKE '%last_minute%'"
-        );
-        
-        if (!isset($type_conditions[$type])) {
-            return null;
-        }
-        
         $sql = $wpdb->prepare(
             "SELECT * FROM $table_name 
              WHERE is_active = 1 
              AND start_date <= %s 
              AND end_date >= %s 
-             AND ({$type_conditions[$type]})
+             AND type = %s
              ORDER BY discount_value DESC 
              LIMIT 1",
             $today,
-            $today
+            $today,
+            $type === 'instant' ? 'immediate' : $type
         );
         
         return $wpdb->get_row($sql);
@@ -372,15 +400,18 @@ class MonthlyBooking_Campaign_Manager {
      * @param float $total_amount Total booking amount
      * @return array Discount information
      */
-    public function calculate_campaign_discount($checkin_date, $base_total, $total_amount) {
-        $campaigns = $this->get_applicable_campaigns($checkin_date);
+    public function calculate_campaign_discount($checkin_date, $base_total, $total_amount, $stay_days = null) {
+        $campaigns = $this->get_applicable_campaigns($checkin_date, $stay_days);
         
         if (!$campaigns) {
             return array(
                 'discount_amount' => 0,
                 'campaign_name' => null,
                 'campaign_badge' => null,
-                'campaign_type' => null
+                'campaign_type' => null,
+                'campaign_description' => null,
+                'discount_type' => null,
+                'discount_value' => null
             );
         }
         
@@ -391,6 +422,9 @@ class MonthlyBooking_Campaign_Manager {
             $discount_amount = $base_total * ($campaign['discount_value'] / 100);
         } elseif ($campaign['discount_type'] === 'fixed') {
             $discount_amount = $campaign['discount_value'];
+        } elseif ($campaign['discount_type'] === 'flatrate') {
+            $flatrate_price = $campaign['discount_value'];
+            $discount_amount = max(0, $total_amount - $flatrate_price);
         }
         
         $discount_amount = min($discount_amount, $total_amount);
@@ -401,6 +435,8 @@ class MonthlyBooking_Campaign_Manager {
             'campaign_badge' => $campaign['badge'],
             'campaign_type' => $campaign['type'],
             'campaign_description' => $campaign['description'],
+            'discount_type' => $campaign['discount_type'],
+            'discount_value' => $campaign['discount_value'],
             'days_until_checkin' => $campaign['days_until_checkin']
         );
     }
