@@ -200,7 +200,7 @@ jQuery(document).ready(function($) {
         html += '</div>';
         
         html += '<div class="estimate-section">';
-        html += '<h4>💰 料金内訳（税込）</h4>';
+        html += '<h4>💰 料金内訳</h4>';
         
         html += '<div class="cost-item">';
         html += '<span>日割賃料 (' + formatCurrency(estimate.daily_rent) + '/日 × ' + estimate.stay_days + '日)</span>';
@@ -327,8 +327,37 @@ jQuery(document).ready(function($) {
             }
         }
         
+        if (estimate.non_taxable_subtotal && estimate.taxable_subtotal) {
+            html += '<div class="tax-separation-section">';
+            html += '<h5>📊 税区分別内訳</h5>';
+            
+            html += '<div class="cost-item tax-breakdown">';
+            html += '<span>非課税小計（賃料・共益費）</span>';
+            html += '<span>' + formatCurrency(estimate.non_taxable_subtotal) + '</span>';
+            html += '</div>';
+            
+            html += '<div class="cost-item tax-breakdown">';
+            html += '<span>課税小計（税込）</span>';
+            html += '<span>' + formatCurrency(estimate.taxable_subtotal) + '</span>';
+            html += '</div>';
+            
+            if (estimate.tax_exclusive_amount && estimate.consumption_tax) {
+                html += '<div class="cost-subitem tax-detail">';
+                html += '<span>　├ 税抜金額</span>';
+                html += '<span>' + formatCurrency(estimate.tax_exclusive_amount) + '</span>';
+                html += '</div>';
+                
+                html += '<div class="cost-subitem tax-detail">';
+                html += '<span>　└ 消費税（' + (estimate.tax_rate || 10) + '%）</span>';
+                html += '<span>' + formatCurrency(estimate.consumption_tax) + '</span>';
+                html += '</div>';
+            }
+            
+            html += '</div>';
+        }
+        
         html += '<div class="cost-total">';
-        html += '<span><strong>🎯 合計金額（税込）</strong></span>';
+        html += '<span><strong>🎯 合計金額</strong></span>';
         html += '<span><strong>' + formatCurrency(estimate.final_total) + '</strong></span>';
         html += '</div>';
         

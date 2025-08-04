@@ -554,9 +554,24 @@ class MonthlyBooking_Booking_Logic {
         $options_discount = $options_data['discount'];
         $options_final = $options_total - $options_discount;
         
-        $subtotal = $total_rent + $total_utilities + $initial_costs + $person_additional_fee + $options_final;
+        // Priority 4: Tax separation calculation
+        $non_taxable_subtotal = $total_rent + $total_utilities + 
+                               $adult_additional_rent + $adult_additional_utilities +
+                               $children_additional_rent + $children_additional_utilities;
         
-        // 6. Campaign discounts (早割・即入居割)
+        $taxable_base_fees = $cleaning_fee + $key_fee + $bedding_fee;
+        $taxable_person_fees = $adult_bedding_fee + $children_bedding_fee;
+        $taxable_subtotal_before_discount = $taxable_base_fees + $taxable_person_fees + $options_total;
+        
+        $taxable_subtotal = $taxable_subtotal_before_discount - $options_discount;
+        
+        $tax_rate = 0.10;
+        $tax_exclusive_amount = $taxable_subtotal / (1 + $tax_rate);
+        $consumption_tax = $taxable_subtotal - $tax_exclusive_amount;
+        
+        $subtotal = $non_taxable_subtotal + $taxable_subtotal;
+        
+        // 6. Campaign discounts (早割・即入居割) - apply to entire subtotal
         $campaign_data = $this->calculate_step3_campaign_discount($move_in_date, $move_out_date, $subtotal);
         
         $final_total = $subtotal - $campaign_data['discount_amount'];
@@ -611,7 +626,13 @@ class MonthlyBooking_Booking_Logic {
             'final_total' => $final_total,
             'currency' => '¥',
             
-            'tax_note' => __('全て税込価格です', 'monthly-booking')
+            'non_taxable_subtotal' => $non_taxable_subtotal,
+            'taxable_subtotal' => $taxable_subtotal,
+            'tax_exclusive_amount' => $tax_exclusive_amount,
+            'consumption_tax' => $consumption_tax,
+            'tax_rate' => $tax_rate * 100, // Convert to percentage for display
+            
+            'tax_note' => __('非課税項目と課税項目を分離表示', 'monthly-booking')
         );
     }
     
