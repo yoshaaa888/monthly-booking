@@ -278,7 +278,7 @@ class MonthlyBooking_Campaign_Manager {
      * @param string $checkin_date Check-in date in Y-m-d format
      * @return array|null Campaign information or null if no applicable campaign
      */
-    public function get_applicable_campaigns($checkin_date) {
+    public function get_applicable_campaigns($checkin_date, $stay_days = null) {
         if (empty($checkin_date)) {
             return null;
         }
@@ -293,13 +293,30 @@ class MonthlyBooking_Campaign_Manager {
         
         $eligible_campaigns = array();
         
-        if ($days_until_checkin <= 7) {
-            $campaign = $this->get_campaign_by_type('instant');
+        if ($stay_days && $stay_days >= 7 && $stay_days <= 10) {
+            $campaign = $this->get_campaign_by_type('flatrate');
             if ($campaign) {
                 $eligible_campaigns[] = array(
                     'id' => $campaign->id,
                     'name' => $campaign->campaign_name,
-                    'type' => 'instant',
+                    'type' => 'flatrate',
+                    'discount_type' => $campaign->discount_type,
+                    'discount_value' => $campaign->discount_value,
+                    'badge' => 'コミコミ10万円',
+                    'description' => '7〜10日滞在で全込み10万円',
+                    'days_until_checkin' => $days_until_checkin,
+                    'priority' => 999999 // Highest priority for flatrate
+                );
+            }
+        }
+        
+        if ($days_until_checkin <= 7) {
+            $campaign = $this->get_campaign_by_type('immediate');
+            if ($campaign) {
+                $eligible_campaigns[] = array(
+                    'id' => $campaign->id,
+                    'name' => $campaign->campaign_name,
+                    'type' => 'immediate',
                     'discount_type' => $campaign->discount_type,
                     'discount_value' => $campaign->discount_value,
                     'badge' => '即入居',
@@ -364,13 +381,12 @@ class MonthlyBooking_Campaign_Manager {
              WHERE is_active = 1 
              AND start_date <= %s 
              AND end_date >= %s 
-             AND (campaign_name LIKE %s OR campaign_description LIKE %s)
+             AND type = %s
              ORDER BY discount_value DESC 
              LIMIT 1",
             $today,
             $today,
-            '%' . ($type === 'instant' ? '即入居' : '早割') . '%',
-            '%' . ($type === 'instant' ? '即入居' : '早割') . '%'
+            $type === 'instant' ? 'immediate' : $type
         );
         
         return $wpdb->get_row($sql);
@@ -384,8 +400,8 @@ class MonthlyBooking_Campaign_Manager {
      * @param float $total_amount Total booking amount
      * @return array Discount information
      */
-    public function calculate_campaign_discount($checkin_date, $base_total, $total_amount) {
-        $campaigns = $this->get_applicable_campaigns($checkin_date);
+    public function calculate_campaign_discount($checkin_date, $base_total, $total_amount, $stay_days = null) {
+        $campaigns = $this->get_applicable_campaigns($checkin_date, $stay_days);
         
         if (!$campaigns) {
             return array(
@@ -406,6 +422,9 @@ class MonthlyBooking_Campaign_Manager {
             $discount_amount = $base_total * ($campaign['discount_value'] / 100);
         } elseif ($campaign['discount_type'] === 'fixed') {
             $discount_amount = $campaign['discount_value'];
+        } elseif ($campaign['discount_type'] === 'flatrate') {
+            $flatrate_price = $campaign['discount_value'];
+            $discount_amount = max(0, $total_amount - $flatrate_price);
         }
         
         $discount_amount = min($discount_amount, $total_amount);

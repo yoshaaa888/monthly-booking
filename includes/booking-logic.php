@@ -819,13 +819,13 @@ class MonthlyBooking_Booking_Logic {
      * @param float $base_total 基本料金合計
      * @return array 割引情報配列
      */
-    private function apply_campaign_discount($move_in_date, $base_total) {
+    private function apply_campaign_discount($move_in_date, $base_total, $stay_days = null) {
         if (!class_exists('MonthlyBooking_Campaign_Manager')) {
             require_once plugin_dir_path(__FILE__) . 'campaign-manager.php';
         }
         
         $campaign_manager = new MonthlyBooking_Campaign_Manager();
-        $campaign_info = $campaign_manager->calculate_campaign_discount($move_in_date, $base_total, $base_total);
+        $campaign_info = $campaign_manager->calculate_campaign_discount($move_in_date, $base_total, $base_total, $stay_days);
         
         $applied_campaigns = array();
         if ($campaign_info['campaign_name']) {
