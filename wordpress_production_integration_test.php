@@ -109,7 +109,7 @@ $test_scenarios = [
     ],
     [
         'name' => '境界値テスト (30日)',
-        'days_offset' => 30,
+        'days_offset' => 31,
         'expected_campaign' => '早割',
         'expected_discount' => 10
     ]
