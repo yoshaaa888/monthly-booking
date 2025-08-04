@@ -577,7 +577,7 @@ jQuery(document).ready(function($) {
         const timeDiff = checkOut.getTime() - checkIn.getTime();
         const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
         
-        return daysDiff;
+        return daysDiff + 1;
     }
     
     function calculateStayMonths(moveInDate, moveOutDate) {

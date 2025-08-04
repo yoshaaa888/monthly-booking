@@ -674,7 +674,7 @@ class MonthlyBooking_Booking_Logic {
     }
     
     /**
-     * Calculate exact days between two dates
+     * Calculate exact days between two dates (inclusive checkout)
      */
     private function calculate_stay_days($move_in_date, $move_out_date) {
         $check_in = new DateTime($move_in_date);
@@ -685,7 +685,7 @@ class MonthlyBooking_Booking_Logic {
         }
         
         $interval = $check_in->diff($check_out);
-        return $interval->days;
+        return $interval->days + 1;
     }
     
     /**
