@@ -71,15 +71,69 @@ class MonthlyBooking {
         $table_name = $wpdb->prefix . 'monthly_options';
         
         $default_options = array(
-            array('option_name' => '調理器具セット', 'price' => 6600, 'is_discount_target' => 1, 'display_order' => 1),
-            array('option_name' => '食器類', 'price' => 3900, 'is_discount_target' => 1, 'display_order' => 2),
-            array('option_name' => '洗剤類', 'price' => 3800, 'is_discount_target' => 1, 'display_order' => 3),
-            array('option_name' => 'タオル類', 'price' => 2900, 'is_discount_target' => 1, 'display_order' => 4),
-            array('option_name' => 'アメニティ類', 'price' => 3500, 'is_discount_target' => 1, 'display_order' => 5),
-            array('option_name' => '寝具カバーセット', 'price' => 4530, 'is_discount_target' => 1, 'display_order' => 6),
-            array('option_name' => '毛布', 'price' => 3950, 'is_discount_target' => 1, 'display_order' => 7),
-            array('option_name' => 'アイロン', 'price' => 6860, 'is_discount_target' => 0, 'display_order' => 8),
-            array('option_name' => '炊飯器', 'price' => 6600, 'is_discount_target' => 0, 'display_order' => 9)
+            array(
+                'option_name' => '調理器具セット', 
+                'option_description' => 'まな板、お玉、フライ返し、包丁、菜箸(2本セット)、片手鍋、フライパン',
+                'price' => 6600, 
+                'is_discount_target' => 1, 
+                'display_order' => 1
+            ),
+            array(
+                'option_name' => '食器類', 
+                'option_description' => 'スープ皿、大皿、小皿、茶碗、箸、スプーン、フォーク、コップ2個セット',
+                'price' => 3900, 
+                'is_discount_target' => 1, 
+                'display_order' => 2
+            ),
+            array(
+                'option_name' => '洗剤類', 
+                'option_description' => 'トイレットペーパー、ウェットティッシュ、食器洗剤、浴室スポンジ、浴室洗剤、トイレ洗剤、ハンドソープ',
+                'price' => 3800, 
+                'is_discount_target' => 1, 
+                'display_order' => 3
+            ),
+            array(
+                'option_name' => 'タオル類', 
+                'option_description' => 'フェイスタオル2枚、バスタオル',
+                'price' => 2900, 
+                'is_discount_target' => 1, 
+                'display_order' => 4
+            ),
+            array(
+                'option_name' => 'アメニティ類', 
+                'option_description' => 'シャンプー、リンス、ボディーソープ',
+                'price' => 3500, 
+                'is_discount_target' => 1, 
+                'display_order' => 5
+            ),
+            array(
+                'option_name' => '寝具カバーセット', 
+                'option_description' => '敷パット、掛布団、枕、各カバー',
+                'price' => 4530, 
+                'is_discount_target' => 1, 
+                'display_order' => 6
+            ),
+            array(
+                'option_name' => '毛布', 
+                'option_description' => '毛布',
+                'price' => 3950, 
+                'is_discount_target' => 1, 
+                'display_order' => 7
+            ),
+            array(
+                'option_name' => 'アイロン', 
+                'option_description' => 'アイロン＋アイロン台セット',
+                'price' => 6860, 
+                'is_discount_target' => 0, 
+                'display_order' => 8
+            ),
+            array(
+                'option_name' => '炊飯器（4合炊き）', 
+                'option_description' => '炊飯器（4合炊き）※メーカー直送',
+                'price' => 6600, 
+                'is_discount_target' => 0, 
+                'display_order' => 9
+            )
         );
         
         foreach ($default_options as $option) {
@@ -90,6 +144,17 @@ class MonthlyBooking {
             
             if (!$existing) {
                 $wpdb->insert($table_name, $option);
+            } else {
+                $wpdb->update(
+                    $table_name,
+                    array(
+                        'option_description' => $option['option_description'],
+                        'price' => $option['price'],
+                        'is_discount_target' => $option['is_discount_target'],
+                        'display_order' => $option['display_order']
+                    ),
+                    array('option_name' => $option['option_name'])
+                );
             }
         }
     }
