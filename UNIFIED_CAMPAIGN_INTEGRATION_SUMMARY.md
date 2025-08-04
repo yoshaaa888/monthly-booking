@@ -13,6 +13,7 @@
 - **Updated campaign-manager.php** to use description-based matching for campaign identification
 - **Updated admin-ui.php** to use unified campaign manager instead of hardcoded conditions
 - **Removed all hardcoded discount processing** as explicitly requested by user
+- **Schema conflicts resolved** by removing incompatible definitions from database_setup.sql
 
 ### 3. Campaign Integration
 - **Updated sample campaigns** to use user-specified naming (即入居割20%, 早割10%)
@@ -48,6 +49,8 @@
 ✅ **Maximum 1 Campaign Rule**: Only highest discount campaign applies with proper sorting  
 ✅ **Database-Driven Logic**: All campaign processing now references wp_monthly_campaigns table exclusively  
 ✅ **Description-Based Logic**: Campaign matching uses campaign name/description for identification
+✅ **Schema Conflicts Resolved**: Incompatible schemas removed from database_setup.sql
+✅ **Schema Conflicts Resolved**: Incompatible schemas removed from database_setup.sql
 
 ## 🧪 Verification
 
