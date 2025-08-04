@@ -99,6 +99,7 @@ class MonthlyBooking_Admin_UI {
      * Enqueue admin scripts and styles
      */
     public function enqueue_admin_scripts($hook) {
+        error_log("Admin hook: $hook");
         if (strpos($hook, 'monthly-booking') === false) {
             return;
         }
@@ -571,7 +572,28 @@ class MonthlyBooking_Admin_UI {
         }
         
         $selected_room_id = isset($_GET['room_id']) ? intval($_GET['room_id']) : 0;
+        
+        error_log("Admin Calendar Debug - Starting room loading process");
         $rooms = $this->get_all_rooms();
+        error_log("Admin Calendar Debug - Rooms loaded: " . count($rooms));
+        
+        if (empty($rooms)) {
+            error_log("Admin Calendar Debug - CRITICAL: No rooms found! Checking database connection...");
+            global $wpdb;
+            $test_query = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}monthly_rooms WHERE is_active = 1");
+            error_log("Admin Calendar Debug - Direct query result: " . $test_query);
+            if ($wpdb->last_error) {
+                error_log("Admin Calendar Debug - Database error: " . $wpdb->last_error);
+            }
+            
+            error_log("Admin Calendar Debug - Using fallback direct query");
+            $rooms_table = $wpdb->prefix . 'monthly_rooms';
+            $rooms = $wpdb->get_results("SELECT id, room_id, display_name, room_name, property_name FROM $rooms_table WHERE is_active = 1 ORDER BY property_name, room_name");
+            error_log("Admin Calendar Debug - Fallback query returned: " . count($rooms) . " rooms");
+        } else {
+            $room_names = array_map(function($r) { return $r->display_name; }, $rooms);
+            error_log("Admin Calendar Debug - Room names: " . implode(', ', $room_names));
+        }
         
         ?>
         <div class="wrap">
@@ -581,7 +603,7 @@ class MonthlyBooking_Admin_UI {
                 <div class="calendar-controls">
                     <div class="room-selector">
                         <label for="room_select"><?php _e('部屋選択', 'monthly-booking'); ?>:</label>
-                        <select id="room_select" name="room_id" onchange="window.location.href='<?php echo admin_url('admin.php?page=monthly-room-booking-calendar&room_id='); ?>' + this.value;">
+                        <select id="room_select" name="room_id" onchange="try { console.log('Room selected:', this.value); var url = '<?php echo admin_url('admin.php?page=monthly-room-booking-calendar&room_id='); ?>' + this.value; console.log('Redirecting to:', url); window.location.href = url; } catch(e) { console.error('Dropdown error:', e); alert('Error selecting room: ' + e.message); }">
                             <option value="0"><?php _e('部屋を選択してください', 'monthly-booking'); ?></option>
                             <?php foreach ($rooms as $room): ?>
                                 <option value="<?php echo esc_attr($room->id); ?>" <?php selected($selected_room_id, $room->id); ?>>
@@ -781,12 +803,22 @@ class MonthlyBooking_Admin_UI {
         
         $rooms_table = $wpdb->prefix . 'monthly_rooms';
         
+        error_log("get_all_rooms Debug - Executing query on table: " . $rooms_table);
+        
         $sql = "SELECT id, room_id, display_name, room_name, property_name 
                 FROM $rooms_table 
                 WHERE is_active = 1 
                 ORDER BY property_name, room_name";
         
-        return $wpdb->get_results($sql);
+        $results = $wpdb->get_results($sql);
+        
+        if ($wpdb->last_error) {
+            error_log("get_all_rooms Debug - SQL Error: " . $wpdb->last_error);
+            return array();
+        }
+        
+        error_log("get_all_rooms Debug - Query successful, returned " . count($results) . " rooms");
+        return $results;
     }
     
     /**

@@ -371,7 +371,7 @@ class MonthlyBooking_Booking_Logic {
         
         foreach ($selected_options as $option_id => $quantity) {
             $option = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM $options_table WHERE id = %d AND is_active = 1",
+                "SELECT * FROM $options_table WHERE option_id = %d AND is_active = 1",
                 intval($option_id)
             ));
             
@@ -533,8 +533,19 @@ class MonthlyBooking_Booking_Logic {
         $bedding_fee = 11000;   // 布団代
         $initial_costs = $cleaning_fee + $key_fee + $bedding_fee;
         
-        $adult_additional_fee = max(0, ($num_adults - 1)) * 1000 * $stay_days;
-        $children_additional_fee = $num_children * 500 * $stay_days;
+        $additional_adults = max(0, ($num_adults - 1));
+        $additional_children = $num_children;
+        
+        $adult_additional_rent = $additional_adults * 900 * $stay_days;
+        $adult_additional_utilities = $additional_adults * 200 * $stay_days;
+        $adult_bedding_fee = $additional_adults * 11000;
+        $adult_additional_fee = $adult_additional_rent + $adult_additional_utilities + $adult_bedding_fee;
+        
+        $children_additional_rent = $additional_children * 450 * $stay_days;
+        $children_additional_utilities = $additional_children * 100 * $stay_days;
+        $children_bedding_fee = $additional_children * 11000;
+        $children_additional_fee = $children_additional_rent + $children_additional_utilities + $children_bedding_fee;
+        
         $person_additional_fee = $adult_additional_fee + $children_additional_fee;
         
         // 5. Options calculation with bundle discounts
@@ -543,9 +554,24 @@ class MonthlyBooking_Booking_Logic {
         $options_discount = $options_data['discount'];
         $options_final = $options_total - $options_discount;
         
-        $subtotal = $total_rent + $total_utilities + $initial_costs + $person_additional_fee + $options_final;
+        // Priority 4: Tax separation calculation
+        $non_taxable_subtotal = $total_rent + $total_utilities + 
+                               $adult_additional_rent + $adult_additional_utilities +
+                               $children_additional_rent + $children_additional_utilities;
         
-        // 6. Campaign discounts (早割・即入居割)
+        $taxable_base_fees = $cleaning_fee + $key_fee + $bedding_fee;
+        $taxable_person_fees = $adult_bedding_fee + $children_bedding_fee;
+        $taxable_subtotal_before_discount = $taxable_base_fees + $taxable_person_fees + $options_total;
+        
+        $taxable_subtotal = $taxable_subtotal_before_discount - $options_discount;
+        
+        $tax_rate = 0.10;
+        $tax_exclusive_amount = $taxable_subtotal / (1 + $tax_rate);
+        $consumption_tax = $taxable_subtotal - $tax_exclusive_amount;
+        
+        $subtotal = $non_taxable_subtotal + $taxable_subtotal;
+        
+        // 6. Campaign discounts (早割・即入居割) - apply to entire subtotal
         $campaign_data = $this->calculate_step3_campaign_discount($move_in_date, $move_out_date, $subtotal);
         
         $final_total = $subtotal - $campaign_data['discount_amount'];
@@ -575,7 +601,13 @@ class MonthlyBooking_Booking_Logic {
             'initial_costs' => $initial_costs,
             
             'adult_additional_fee' => $adult_additional_fee,
+            'adult_additional_rent' => $adult_additional_rent,
+            'adult_additional_utilities' => $adult_additional_utilities,
+            'adult_bedding_fee' => $adult_bedding_fee,
             'children_additional_fee' => $children_additional_fee,
+            'children_additional_rent' => $children_additional_rent,
+            'children_additional_utilities' => $children_additional_utilities,
+            'children_bedding_fee' => $children_bedding_fee,
             'person_additional_fee' => $person_additional_fee,
             
             'options_total' => $options_total,
@@ -594,7 +626,13 @@ class MonthlyBooking_Booking_Logic {
             'final_total' => $final_total,
             'currency' => '¥',
             
-            'tax_note' => __('全て税込価格です', 'monthly-booking')
+            'non_taxable_subtotal' => $non_taxable_subtotal,
+            'taxable_subtotal' => $taxable_subtotal,
+            'tax_exclusive_amount' => $tax_exclusive_amount,
+            'consumption_tax' => $consumption_tax,
+            'tax_rate' => $tax_rate * 100, // Convert to percentage for display
+            
+            'tax_note' => __('非課税項目と課税項目を分離表示', 'monthly-booking')
         );
     }
     
@@ -674,7 +712,7 @@ class MonthlyBooking_Booking_Logic {
     }
     
     /**
-     * Calculate exact days between two dates
+     * Calculate exact days between two dates (inclusive checkout)
      */
     private function calculate_stay_days($move_in_date, $move_out_date) {
         $check_in = new DateTime($move_in_date);
@@ -685,7 +723,7 @@ class MonthlyBooking_Booking_Logic {
         }
         
         $interval = $check_in->diff($check_out);
-        return $interval->days;
+        return $interval->days + 1;
     }
     
     /**
@@ -752,7 +790,7 @@ class MonthlyBooking_Booking_Logic {
         
         $table_name = $wpdb->prefix . 'monthly_rooms';
         return $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM $table_name WHERE id = %d AND is_active = 1",
+            "SELECT * FROM $table_name WHERE room_id = %d AND is_active = 1",
             $room_id
         ));
     }

@@ -75,4 +75,19 @@ jQuery(document).ready(function($) {
         .prop('type', 'text/css')
         .html('.error { border-color: #dc3232 !important; box-shadow: 0 0 2px rgba(220, 50, 50, 0.8); }')
         .appendTo('head');
+    
+    $('#room_select').on('change', function() {
+        const roomId = $(this).val();
+        const baseUrl = window.location.origin + window.location.pathname;
+        const newUrl = baseUrl + '?page=monthly-room-booking-calendar&room_id=' + roomId;
+        
+        console.log('Room dropdown changed:', roomId);
+        console.log('Redirecting to:', newUrl);
+        
+        if (roomId && roomId !== '0') {
+            window.location.href = newUrl;
+        }
+    });
+    
+    console.log('Monthly Booking admin scripts loaded');
 });

@@ -371,7 +371,7 @@ class MonthlyBooking_Booking_Logic {
         
         foreach ($selected_options as $option_id => $quantity) {
             $option = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM $options_table WHERE id = %d AND is_active = 1",
+                "SELECT * FROM $options_table WHERE option_id = %d AND is_active = 1",
                 intval($option_id)
             ));
             
@@ -743,7 +743,7 @@ class MonthlyBooking_Booking_Logic {
         
         $table_name = $wpdb->prefix . 'monthly_rooms';
         return $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM $table_name WHERE id = %d AND is_active = 1",
+            "SELECT * FROM $table_name WHERE room_id = %d AND is_active = 1",
             $room_id
         ));
     }
