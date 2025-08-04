@@ -1025,16 +1025,19 @@ class MonthlyBooking_Admin_UI {
             
             $days_until_checkin = (strtotime($date) - strtotime($today)) / (60 * 60 * 24);
             
-            if (strpos($campaign->campaign_name, '早割') !== false) {
-                if ($days_until_checkin >= 30) {
-                    return array('name' => '早割', 'type' => 'early_booking');
-                }
+            if (!class_exists('MonthlyBooking_Campaign_Manager')) {
+                require_once plugin_dir_path(__FILE__) . 'campaign-manager.php';
             }
             
-            if (strpos($campaign->campaign_name, '即入居') !== false) {
-                if ($days_until_checkin <= 7 && $days_until_checkin >= 0) {
-                    return array('name' => '即入居', 'type' => 'immediate_checkin');
-                }
+            $campaign_manager = new MonthlyBooking_Campaign_Manager();
+            $campaigns = $campaign_manager->get_applicable_campaigns($date);
+            
+            if ($campaigns && !empty($campaigns)) {
+                $campaign = $campaigns[0];
+                return array(
+                    'name' => $campaign['badge'],
+                    'type' => $campaign['type']
+                );
             }
         }
         

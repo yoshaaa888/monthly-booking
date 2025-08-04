@@ -812,21 +812,28 @@ class MonthlyBooking_Booking_Logic {
     /**
      * Calculate Step 3 campaign discounts using new campaign manager
      */
-    private function calculate_step3_campaign_discount($move_in_date, $move_out_date, $base_total) {
+    /**
+     * 統合キャンペーン割引適用関数
+     * 
+     * @param string $move_in_date チェックイン日
+     * @param float $base_total 基本料金合計
+     * @return array 割引情報配列
+     */
+    private function apply_campaign_discount($move_in_date, $base_total, $stay_days = null) {
         if (!class_exists('MonthlyBooking_Campaign_Manager')) {
             require_once plugin_dir_path(__FILE__) . 'campaign-manager.php';
         }
         
         $campaign_manager = new MonthlyBooking_Campaign_Manager();
-        $campaign_info = $campaign_manager->calculate_campaign_discount($move_in_date, $base_total, $base_total);
+        $campaign_info = $campaign_manager->calculate_campaign_discount($move_in_date, $base_total, $base_total, $stay_days);
         
         $applied_campaigns = array();
         if ($campaign_info['campaign_name']) {
             $applied_campaigns[] = array(
                 'name' => $campaign_info['campaign_name'],
                 'description' => $campaign_info['campaign_description'],
-                'discount_type' => 'percentage',
-                'discount_value' => $campaign_info['campaign_type'] === 'early' ? 10 : 20,
+                'discount_type' => $campaign_info['discount_type'],
+                'discount_value' => $campaign_info['discount_value'],
                 'discount_amount' => $campaign_info['discount_amount'],
                 'badge' => $campaign_info['campaign_badge']
             );
@@ -838,6 +845,10 @@ class MonthlyBooking_Booking_Logic {
             'campaign_badge' => $campaign_info['campaign_badge'],
             'campaign_type' => $campaign_info['campaign_type']
         );
+    }
+
+    private function calculate_step3_campaign_discount($move_in_date, $move_out_date, $base_total) {
+        return $this->apply_campaign_discount($move_in_date, $base_total);
     }
     
     /**
