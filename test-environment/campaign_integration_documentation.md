@@ -172,5 +172,54 @@ if (estimate.campaign_discount > 0) {
 
 ---
 
+## 📋 次フェーズ準備項目
+
+### ✅ typeカラム追加準備 - 完了
+- ✅ `wp_monthly_campaigns` テーブルに `type` カラム追加
+- ✅ 対応値: "earlybird", "immediate", "season", "flatrate"
+- ✅ 既存データの移行スクリプト作成
+- ✅ **実装ブランチ**: `devin/1754323413-type-column-komikomi-campaign`
+- ✅ **PR作成**: https://github.com/yoshaaa888/monthly-booking/pull/5
+
+### ✅ コミコミ10万円キャンペーン設計 - 完了
+- ✅ **キャンペーン名**: コミコミ10万円キャンペーン
+- ✅ **type**: "flatrate"
+- ✅ **料金体系**: 固定価格 ¥100,000（税込）
+- ✅ **適用条件**: 7〜10日以内の滞在
+- ✅ **対象プラン**: SS, S プラン
+- ✅ **割引方式**: 固定価格設定（通常料金との差額を割引として計算）
+- ✅ **優先度**: 最高優先度（flatrate > percentage discounts）
+- ✅ **テストスイート**: 包括的テストケース作成済み
+
+### 🎯 次フェーズ準備完了
+
+#### typeカラム追加とコミコミ10万円キャンペーン
+- **新ブランチ**: `devin/1754323413-type-column-komikomi-campaign`
+- **PR作成**: https://github.com/yoshaaa888/monthly-booking/pull/5
+- **実装内容**:
+  - wp_monthly_campaigns テーブルにtype列追加 (earlybird, immediate, flatrate)
+  - max_stay_days列追加で滞在期間制限サポート
+  - コミコミ10万円キャンペーン実装 (7-10日、固定価格¥100,000)
+  - flatrate割引計算ロジック追加
+  - 優先度ベースキャンペーン選択 (flatrate最優先)
+  - stay_days パラメータサポート追加
+
+#### 基本ロジックテスト結果
+- **flatrate計算テスト**: ✅ PASS
+- **基本金額**: ¥150,000
+- **固定価格**: ¥100,000  
+- **計算割引**: ¥50,000
+- **テスト結果**: 正常動作確認
+
+#### 実装済み機能
+- ✅ campaign-manager.php: flatrate discount calculation
+- ✅ booking-logic.php: stay_days parameter support
+- ✅ monthly-booking.php: schema extension with type/max_stay_days
+- ✅ 包括的テストスイート: komikomi_campaign_tests.php
+- ✅ 設計ドキュメント: next_phase_type_column_design.md
+
+---
+
 **実装完了**: 統合キャンペーン機能の基盤実装とテスト環境構築が完了しました。
+**次フェーズ準備**: typeカラム追加とコミコミ10万円キャンペーンの実装準備が完了しました。
 **次のステップ**: 実際のWordPress環境での動作確認と本番デプロイ準備を進めてください。
