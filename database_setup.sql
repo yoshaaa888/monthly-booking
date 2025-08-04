@@ -18,14 +18,18 @@ CREATE TABLE IF NOT EXISTS `wp_monthly_rooms` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `wp_monthly_options` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) NOT NULL,
+  `id` mediumint(9) NOT NULL AUTO_INCREMENT,
+  `option_name` varchar(100) NOT NULL,
+  `option_description` text,
   `price` decimal(10,2) NOT NULL,
-  `is_discount_target` tinyint(1) NOT NULL DEFAULT 1,
-  `description` text,
-  `category` varchar(100),
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
+  `is_discount_target` tinyint(1) DEFAULT 1,
+  `display_order` int(3) DEFAULT 0,
+  `is_active` tinyint(1) DEFAULT 1,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `is_active` (`is_active`),
+  KEY `display_order` (`display_order`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `wp_monthly_campaigns` (
@@ -97,16 +101,16 @@ INSERT INTO `wp_monthly_rooms` (`property_name`, `room_name`, `daily_rent`, `dai
 ('池袋マンスリー', 'Room D-401', 3200.00, 2500.00, 38500.00, 11000.00, 11000.00, 2, '東京都豊島区池袋2-1-1', 'JR池袋駅徒歩4分'),
 ('品川マンスリー', 'Room E-501', 3800.00, 2500.00, 38500.00, 11000.00, 11000.00, 2, '東京都港区港南2-1-1', 'JR品川駅徒歩6分');
 
-INSERT INTO `wp_monthly_options` (`name`, `price`, `is_discount_target`, `description`, `category`) VALUES
-('調理器具セット', 3000.00, 1, '基本的な調理器具一式', 'kitchen'),
-('食器セット', 2000.00, 1, '食器・カトラリー一式', 'kitchen'),
-('タオルセット', 1500.00, 1, 'バスタオル・フェイスタオル', 'bathroom'),
-('シーツセット', 1000.00, 1, 'ベッドシーツ・枕カバー', 'bedroom'),
-('枕セット', 800.00, 1, '枕2個セット', 'bedroom'),
-('ハンガーセット', 600.00, 1, 'ハンガー10本セット', 'closet'),
-('洗剤セット', 500.00, 1, '洗濯洗剤・食器洗剤', 'cleaning'),
-('Wi-Fi', 5000.00, 0, '高速インターネット接続', 'internet'),
-('駐車場', 8000.00, 0, '専用駐車場1台分', 'parking');
+INSERT INTO `wp_monthly_options` (`option_name`, `price`, `is_discount_target`, `option_description`, `display_order`, `is_active`) VALUES
+('調理器具セット', 3000.00, 1, '基本的な調理器具一式', 1, 1),
+('食器セット', 2000.00, 1, '食器・カトラリー一式', 2, 1),
+('タオルセット', 1500.00, 1, 'バスタオル・フェイスタオル', 3, 1),
+('シーツセット', 1000.00, 1, 'ベッドシーツ・枕カバー', 4, 1),
+('枕セット', 800.00, 1, '枕2個セット', 5, 1),
+('ハンガーセット', 600.00, 1, 'ハンガー10本セット', 6, 1),
+('洗剤セット', 500.00, 1, '洗濯洗剤・食器洗剤', 7, 1),
+('Wi-Fi', 5000.00, 0, '高速インターネット接続', 8, 1),
+('駐車場', 8000.00, 0, '専用駐車場1台分', 9, 1);
 
 INSERT INTO `wp_monthly_campaigns` (`name`, `discount_rate`, `condition_type`, `condition_value`, `badge_text`, `is_active`) VALUES
 ('早割キャンペーン', 10.00, 'advance_days', 30, '早割', 1),
