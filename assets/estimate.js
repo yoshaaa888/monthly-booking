@@ -234,16 +234,58 @@ jQuery(document).ready(function($) {
             
             if (estimate.adult_additional_fee > 0) {
                 html += '<div class="cost-subitem">';
-                html += '<span>　├ 大人追加 (' + (estimate.num_adults - 1) + '名 × ¥1,000/日 × ' + estimate.stay_days + '日)</span>';
+                html += '<span>　├ 大人追加 (' + (estimate.num_adults - 1) + '名)</span>';
                 html += '<span>' + formatCurrency(estimate.adult_additional_fee) + '</span>';
                 html += '</div>';
+                
+                if (estimate.adult_additional_rent > 0) {
+                    html += '<div class="cost-subitem-detail">';
+                    html += '<span>　　├ 賃料 (' + (estimate.num_adults - 1) + '名 × ¥900/日 × ' + estimate.stay_days + '日)</span>';
+                    html += '<span>' + formatCurrency(estimate.adult_additional_rent) + '</span>';
+                    html += '</div>';
+                }
+                
+                if (estimate.adult_additional_utilities > 0) {
+                    html += '<div class="cost-subitem-detail">';
+                    html += '<span>　　├ 共益費 (' + (estimate.num_adults - 1) + '名 × ¥200/日 × ' + estimate.stay_days + '日)</span>';
+                    html += '<span>' + formatCurrency(estimate.adult_additional_utilities) + '</span>';
+                    html += '</div>';
+                }
+                
+                if (estimate.adult_bedding_fee > 0) {
+                    html += '<div class="cost-subitem-detail">';
+                    html += '<span>　　└ 布団代 (' + (estimate.num_adults - 1) + '名 × ¥11,000)</span>';
+                    html += '<span>' + formatCurrency(estimate.adult_bedding_fee) + '</span>';
+                    html += '</div>';
+                }
             }
             
             if (estimate.children_additional_fee > 0) {
                 html += '<div class="cost-subitem">';
-                html += '<span>　└ 子ども追加 (' + estimate.num_children + '名 × ¥500/日 × ' + estimate.stay_days + '日)</span>';
+                html += '<span>　└ 子ども追加 (' + estimate.num_children + '名)</span>';
                 html += '<span>' + formatCurrency(estimate.children_additional_fee) + '</span>';
                 html += '</div>';
+                
+                if (estimate.children_additional_rent > 0) {
+                    html += '<div class="cost-subitem-detail">';
+                    html += '<span>　　├ 賃料 (' + estimate.num_children + '名 × ¥450/日 × ' + estimate.stay_days + '日)</span>';
+                    html += '<span>' + formatCurrency(estimate.children_additional_rent) + '</span>';
+                    html += '</div>';
+                }
+                
+                if (estimate.children_additional_utilities > 0) {
+                    html += '<div class="cost-subitem-detail">';
+                    html += '<span>　　├ 共益費 (' + estimate.num_children + '名 × ¥100/日 × ' + estimate.stay_days + '日)</span>';
+                    html += '<span>' + formatCurrency(estimate.children_additional_utilities) + '</span>';
+                    html += '</div>';
+                }
+                
+                if (estimate.children_bedding_fee > 0) {
+                    html += '<div class="cost-subitem-detail">';
+                    html += '<span>　　└ 布団代 (' + estimate.num_children + '名 × ¥11,000)</span>';
+                    html += '<span>' + formatCurrency(estimate.children_bedding_fee) + '</span>';
+                    html += '</div>';
+                }
             }
         }
         

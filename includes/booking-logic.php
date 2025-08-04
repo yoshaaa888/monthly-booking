@@ -533,8 +533,19 @@ class MonthlyBooking_Booking_Logic {
         $bedding_fee = 11000;   // 布団代
         $initial_costs = $cleaning_fee + $key_fee + $bedding_fee;
         
-        $adult_additional_fee = max(0, ($num_adults - 1)) * 1000 * $stay_days;
-        $children_additional_fee = $num_children * 500 * $stay_days;
+        $additional_adults = max(0, ($num_adults - 1));
+        $additional_children = $num_children;
+        
+        $adult_additional_rent = $additional_adults * 900 * $stay_days;
+        $adult_additional_utilities = $additional_adults * 200 * $stay_days;
+        $adult_bedding_fee = $additional_adults * 11000;
+        $adult_additional_fee = $adult_additional_rent + $adult_additional_utilities + $adult_bedding_fee;
+        
+        $children_additional_rent = $additional_children * 450 * $stay_days;
+        $children_additional_utilities = $additional_children * 100 * $stay_days;
+        $children_bedding_fee = $additional_children * 11000;
+        $children_additional_fee = $children_additional_rent + $children_additional_utilities + $children_bedding_fee;
+        
         $person_additional_fee = $adult_additional_fee + $children_additional_fee;
         
         // 5. Options calculation with bundle discounts
@@ -575,7 +586,13 @@ class MonthlyBooking_Booking_Logic {
             'initial_costs' => $initial_costs,
             
             'adult_additional_fee' => $adult_additional_fee,
+            'adult_additional_rent' => $adult_additional_rent,
+            'adult_additional_utilities' => $adult_additional_utilities,
+            'adult_bedding_fee' => $adult_bedding_fee,
             'children_additional_fee' => $children_additional_fee,
+            'children_additional_rent' => $children_additional_rent,
+            'children_additional_utilities' => $children_additional_utilities,
+            'children_bedding_fee' => $children_bedding_fee,
             'person_additional_fee' => $person_additional_fee,
             
             'options_total' => $options_total,
