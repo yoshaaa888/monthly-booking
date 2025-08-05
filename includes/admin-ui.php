@@ -1101,6 +1101,19 @@ class MonthlyBooking_Admin_UI {
             wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }
         
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'monthly_campaigns';
+        
+        if (isset($_POST['action']) && $_POST['action'] === 'create_campaign') {
+            echo '<div class="notice notice-success"><p>' . __('キャンペーンが作成されました（仮実装）', 'monthly-booking') . '</p></div>';
+        }
+        
+        if (isset($_POST['action']) && $_POST['action'] === 'edit_campaign') {
+            echo '<div class="notice notice-success"><p>' . __('キャンペーンが更新されました（仮実装）', 'monthly-booking') . '</p></div>';
+        }
+        
+        $campaigns = $wpdb->get_results("SELECT * FROM $table_name ORDER BY created_at DESC");
+        
         ?>
         <div class="wrap">
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
@@ -1109,11 +1122,228 @@ class MonthlyBooking_Admin_UI {
                 <h2><?php _e('キャンペーン設定', 'monthly-booking'); ?></h2>
                 <p><?php _e('割引キャンペーンの作成・管理を行います。', 'monthly-booking'); ?></p>
                 
-                <div class="notice notice-info">
-                    <p><?php _e('機能実装予定: キャンペーン一覧、新規作成、期間設定、割引率設定', 'monthly-booking'); ?></p>
+                <!-- New Campaign Button -->
+                <div style="margin-bottom: 20px;">
+                    <button type="button" class="button button-primary" onclick="showCampaignModal()"><?php _e('新規作成', 'monthly-booking'); ?></button>
+                </div>
+                
+                <!-- Campaign List Table -->
+                <table class="monthly-booking-table widefat">
+                    <thead>
+                        <tr>
+                            <th><?php _e('キャンペーン名', 'monthly-booking'); ?></th>
+                            <th><?php _e('タイプ', 'monthly-booking'); ?></th>
+                            <th><?php _e('割引率', 'monthly-booking'); ?></th>
+                            <th><?php _e('適用期間', 'monthly-booking'); ?></th>
+                            <th><?php _e('対象プラン', 'monthly-booking'); ?></th>
+                            <th><?php _e('ステータス', 'monthly-booking'); ?></th>
+                            <th><?php _e('操作', 'monthly-booking'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($campaigns)): ?>
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 20px;">
+                                <?php _e('キャンペーンが登録されていません。', 'monthly-booking'); ?>
+                                <br>
+                                <small><?php _e('「新規作成」ボタンからキャンペーンを追加してください。', 'monthly-booking'); ?></small>
+                            </td>
+                        </tr>
+                        <?php else: ?>
+                        <?php foreach ($campaigns as $campaign): ?>
+                        <tr>
+                            <td><strong><?php echo esc_html($campaign->campaign_name); ?></strong></td>
+                            <td>
+                                <?php 
+                                $type_labels = array(
+                                    'immediate' => '即入居割',
+                                    'earlybird' => '早割',
+                                    'flatrate' => 'コミコミ10万円'
+                                );
+                                echo esc_html($type_labels[$campaign->type] ?? $campaign->type);
+                                ?>
+                            </td>
+                            <td>
+                                <?php if ($campaign->discount_type === 'percentage'): ?>
+                                    <?php echo esc_html($campaign->discount_value); ?>%
+                                <?php elseif ($campaign->discount_type === 'fixed'): ?>
+                                    ¥<?php echo esc_html(number_format($campaign->discount_value)); ?>
+                                <?php else: ?>
+                                    ¥<?php echo esc_html(number_format($campaign->discount_value)); ?>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php echo esc_html($campaign->start_date); ?> ～ <?php echo esc_html($campaign->end_date); ?>
+                            </td>
+                            <td><?php echo esc_html($campaign->target_plan); ?></td>
+                            <td>
+                                <span class="campaign-status <?php echo $campaign->is_active ? 'active' : 'inactive'; ?>">
+                                    <?php echo $campaign->is_active ? __('有効', 'monthly-booking') : __('無効', 'monthly-booking'); ?>
+                                </span>
+                            </td>
+                            <td>
+                                <button type="button" class="button button-small" onclick="editCampaign(<?php echo esc_attr($campaign->id); ?>)"><?php _e('編集', 'monthly-booking'); ?></button>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+                
+                <div class="notice notice-info" style="margin-top: 20px;">
+                    <p><strong><?php _e('キャンペーンルール:', 'monthly-booking'); ?></strong></p>
+                    <ul>
+                        <li><?php _e('即入居割: チェックイン7日以内で自動適用', 'monthly-booking'); ?></li>
+                        <li><?php _e('早割: チェックイン30日以上前で自動適用', 'monthly-booking'); ?></li>
+                        <li><?php _e('コミコミ10万円: 7-10日滞在で全込み10万円', 'monthly-booking'); ?></li>
+                        <li><?php _e('最大1つのキャンペーンのみ適用されます', 'monthly-booking'); ?></li>
+                    </ul>
                 </div>
             </div>
         </div>
+        
+        <!-- Campaign Modal -->
+        <div id="campaign-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 5px; width: 500px; max-width: 90%;">
+                <h3 id="modal-title"><?php _e('新規キャンペーン作成', 'monthly-booking'); ?></h3>
+                
+                <form method="post" id="campaign-form">
+                    <input type="hidden" name="action" value="create_campaign" id="form-action">
+                    <input type="hidden" name="campaign_id" value="" id="campaign-id">
+                    
+                    <table class="form-table">
+                        <tr>
+                            <th><label for="campaign_name"><?php _e('キャンペーン名', 'monthly-booking'); ?></label></th>
+                            <td><input type="text" name="campaign_name" id="campaign_name" class="regular-text" required></td>
+                        </tr>
+                        <tr>
+                            <th><label for="campaign_type"><?php _e('タイプ', 'monthly-booking'); ?></label></th>
+                            <td>
+                                <select name="campaign_type" id="campaign_type" required>
+                                    <option value=""><?php _e('選択してください', 'monthly-booking'); ?></option>
+                                    <option value="immediate"><?php _e('即入居割', 'monthly-booking'); ?></option>
+                                    <option value="earlybird"><?php _e('早割', 'monthly-booking'); ?></option>
+                                    <option value="flatrate"><?php _e('コミコミ10万円', 'monthly-booking'); ?></option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><label for="discount_type"><?php _e('割引タイプ', 'monthly-booking'); ?></label></th>
+                            <td>
+                                <select name="discount_type" id="discount_type" required>
+                                    <option value=""><?php _e('選択してください', 'monthly-booking'); ?></option>
+                                    <option value="percentage"><?php _e('パーセンテージ', 'monthly-booking'); ?></option>
+                                    <option value="fixed"><?php _e('固定金額', 'monthly-booking'); ?></option>
+                                    <option value="flatrate"><?php _e('定額料金', 'monthly-booking'); ?></option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><label for="discount_value"><?php _e('割引値', 'monthly-booking'); ?></label></th>
+                            <td><input type="number" name="discount_value" id="discount_value" class="regular-text" min="0" step="0.01" required></td>
+                        </tr>
+                        <tr>
+                            <th><label for="start_date"><?php _e('開始日', 'monthly-booking'); ?></label></th>
+                            <td><input type="date" name="start_date" id="start_date" class="regular-text" required></td>
+                        </tr>
+                        <tr>
+                            <th><label for="end_date"><?php _e('終了日', 'monthly-booking'); ?></label></th>
+                            <td><input type="date" name="end_date" id="end_date" class="regular-text" required></td>
+                        </tr>
+                        <tr>
+                            <th><label for="target_plan"><?php _e('対象プラン', 'monthly-booking'); ?></label></th>
+                            <td>
+                                <select name="target_plan" id="target_plan" required>
+                                    <option value="ALL"><?php _e('全プラン', 'monthly-booking'); ?></option>
+                                    <option value="SS"><?php _e('SSプラン', 'monthly-booking'); ?></option>
+                                    <option value="S"><?php _e('Sプラン', 'monthly-booking'); ?></option>
+                                    <option value="M"><?php _e('Mプラン', 'monthly-booking'); ?></option>
+                                    <option value="L"><?php _e('Lプラン', 'monthly-booking'); ?></option>
+                                    <option value="S,M,L"><?php _e('S/M/Lプラン', 'monthly-booking'); ?></option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><label for="is_active"><?php _e('ステータス', 'monthly-booking'); ?></label></th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="is_active" id="is_active" value="1" checked>
+                                    <?php _e('有効', 'monthly-booking'); ?>
+                                </label>
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <div style="margin-top: 20px; text-align: right;">
+                        <button type="button" class="button" onclick="hideCampaignModal()"><?php _e('キャンセル', 'monthly-booking'); ?></button>
+                        <button type="submit" class="button button-primary" style="margin-left: 10px;"><?php _e('保存（仮）', 'monthly-booking'); ?></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <style>
+        .monthly-booking-table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        .monthly-booking-table th,
+        .monthly-booking-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .monthly-booking-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .campaign-status.active {
+            color: #46b450;
+            font-weight: bold;
+        }
+        .campaign-status.inactive {
+            color: #dc3232;
+            font-weight: bold;
+        }
+        </style>
+        
+        <script>
+        function showCampaignModal() {
+            document.getElementById('modal-title').textContent = '<?php _e('新規キャンペーン作成', 'monthly-booking'); ?>';
+            document.getElementById('form-action').value = 'create_campaign';
+            document.getElementById('campaign-id').value = '';
+            document.getElementById('campaign-form').reset();
+            document.getElementById('is_active').checked = true;
+            document.getElementById('campaign-modal').style.display = 'block';
+        }
+        
+        function editCampaign(campaignId) {
+            document.getElementById('modal-title').textContent = '<?php _e('キャンペーン編集', 'monthly-booking'); ?>';
+            document.getElementById('form-action').value = 'edit_campaign';
+            document.getElementById('campaign-id').value = campaignId;
+            
+            document.getElementById('campaign_name').value = 'サンプルキャンペーン';
+            document.getElementById('campaign_type').value = 'immediate';
+            document.getElementById('discount_type').value = 'percentage';
+            document.getElementById('discount_value').value = '20';
+            document.getElementById('start_date').value = '2025-01-01';
+            document.getElementById('end_date').value = '2099-12-31';
+            document.getElementById('target_plan').value = 'ALL';
+            document.getElementById('is_active').checked = true;
+            
+            document.getElementById('campaign-modal').style.display = 'block';
+        }
+        
+        function hideCampaignModal() {
+            document.getElementById('campaign-modal').style.display = 'none';
+        }
+        
+        document.getElementById('campaign-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                hideCampaignModal();
+            }
+        });
+        </script>
         <?php
     }
     
