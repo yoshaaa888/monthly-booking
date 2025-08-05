@@ -848,7 +848,8 @@ class MonthlyBooking_Booking_Logic {
     }
 
     private function calculate_step3_campaign_discount($move_in_date, $move_out_date, $base_total) {
-        return $this->apply_campaign_discount($move_in_date, $base_total);
+        $stay_days = $this->calculate_stay_days($move_in_date, $move_out_date);
+        return $this->apply_campaign_discount($move_in_date, $base_total, $stay_days);
     }
     
     /**
