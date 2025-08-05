@@ -202,10 +202,25 @@ jQuery(document).ready(function($) {
         html += '<div class="estimate-section">';
         html += '<h4>💰 料金内訳</h4>';
         
-        html += '<div class="cost-item">';
-        html += '<span>日割賃料 (' + formatCurrency(estimate.daily_rent) + '/日 × ' + estimate.stay_days + '日)</span>';
-        html += '<span>' + formatCurrency(estimate.total_rent) + '</span>';
-        html += '</div>';
+        if (estimate.original_daily_rent && estimate.original_daily_rent !== estimate.daily_rent) {
+            html += '<div class="cost-item">';
+            html += '<span>日割賃料（割引前） (' + formatCurrency(estimate.original_daily_rent) + '/日 × ' + estimate.stay_days + '日)</span>';
+            html += '<span>' + formatCurrency(estimate.original_daily_rent * estimate.stay_days) + '</span>';
+            html += '</div>';
+            
+            if (estimate.campaign_details && estimate.campaign_details.campaigns && estimate.campaign_details.campaigns.length > 0) {
+                const campaign = estimate.campaign_details.campaigns[0];
+                html += '<div class="cost-item campaign-discount">';
+                html += '<span>' + campaign.campaign_name + '適用後 (' + formatCurrency(estimate.daily_rent) + '/日 × ' + estimate.stay_days + '日)</span>';
+                html += '<span>' + formatCurrency(estimate.total_rent) + '</span>';
+                html += '</div>';
+            }
+        } else {
+            html += '<div class="cost-item">';
+            html += '<span>日割賃料 (' + formatCurrency(estimate.daily_rent) + '/日 × ' + estimate.stay_days + '日)</span>';
+            html += '<span>' + formatCurrency(estimate.total_rent) + '</span>';
+            html += '</div>';
+        }
         
         html += '<div class="cost-item">';
         html += '<span>共益費 (' + formatCurrency(estimate.daily_utilities) + '/日 × ' + estimate.stay_days + '日)</span>';

@@ -522,6 +522,21 @@ class MonthlyBooking_Booking_Logic {
         $daily_rent = ($room_info && $room_info->daily_rent) ? $room_info->daily_rent : $this->get_default_daily_rent($plan);
         $debug_info[] = "daily_rent=$daily_rent, room_info daily_rent=" . ($room_info ? $room_info->daily_rent : 'null');
         
+        if (!class_exists('MonthlyBooking_Campaign_Manager')) {
+            require_once plugin_dir_path(__FILE__) . 'campaign-manager.php';
+        }
+        
+        $campaign_manager = new MonthlyBooking_Campaign_Manager();
+        $applicable_campaigns = $campaign_manager->get_applicable_campaigns($move_in_date, $stay_days);
+        
+        if ($applicable_campaigns && !empty($applicable_campaigns)) {
+            $campaign = $applicable_campaigns[0];
+            if ($campaign['discount_type'] === 'percentage') {
+                $original_daily_rent = $daily_rent;
+                $daily_rent = $daily_rent * (1 - ($campaign['discount_value'] / 100));
+                $debug_info[] = "Daily rent discount applied: {$campaign['name']} ({$campaign['discount_value']}%) - reduced from ¥$original_daily_rent to ¥$daily_rent";
+            }
+        }
         
         $total_rent = $daily_rent * $stay_days;
         
@@ -591,6 +606,7 @@ class MonthlyBooking_Booking_Logic {
             'num_children' => $num_children,
             
             'daily_rent' => $daily_rent,
+            'original_daily_rent' => isset($original_daily_rent) ? $original_daily_rent : $daily_rent,
             'total_rent' => $total_rent,
             'daily_utilities' => $daily_utilities,
             'total_utilities' => $total_utilities,
