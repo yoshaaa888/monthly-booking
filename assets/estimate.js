@@ -269,7 +269,7 @@ jQuery(document).ready(function($) {
                 
                 if (estimate.adult_bedding_fee > 0) {
                     html += '<div class="cost-subitem-detail">';
-                    html += '<span>　　└ 布団代 (' + (estimate.num_adults - 1) + '名 × ¥11,000)</span>';
+                    html += '<span>　　└ 布団代 (' + (estimate.num_adults - 1) + '名 × ¥1,100/日 × ' + estimate.stay_days + '日)</span>';
                     html += '<span>' + formatCurrency(estimate.adult_bedding_fee) + '</span>';
                     html += '</div>';
                 }
@@ -297,7 +297,7 @@ jQuery(document).ready(function($) {
                 
                 if (estimate.children_bedding_fee > 0) {
                     html += '<div class="cost-subitem-detail">';
-                    html += '<span>　　└ 布団代 (' + estimate.num_children + '名 × ¥11,000)</span>';
+                    html += '<span>　　└ 布団代 (' + estimate.num_children + '名 × ¥1,100/日 × ' + estimate.stay_days + '日)</span>';
                     html += '<span>' + formatCurrency(estimate.children_bedding_fee) + '</span>';
                     html += '</div>';
                 }

@@ -563,12 +563,12 @@ class MonthlyBooking_Booking_Logic {
         
         $adult_additional_rent = $additional_adults * 900 * $stay_days;
         $adult_additional_utilities = $additional_adults * 200 * $stay_days;
-        $adult_bedding_fee = $additional_adults * 11000;
+        $adult_bedding_fee = $additional_adults * 1100 * $stay_days;
         $adult_additional_fee = $adult_additional_rent + $adult_additional_utilities + $adult_bedding_fee;
         
         $children_additional_rent = $additional_children * 450 * $stay_days;
         $children_additional_utilities = $additional_children * 100 * $stay_days;
-        $children_bedding_fee = $additional_children * 11000;
+        $children_bedding_fee = $additional_children * 1100 * $stay_days;
         $children_additional_fee = $children_additional_rent + $children_additional_utilities + $children_bedding_fee;
         
         $person_additional_fee = $adult_additional_fee + $children_additional_fee;

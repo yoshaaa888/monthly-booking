@@ -328,7 +328,6 @@ jQuery(document).ready(function($) {
                 }
             },
             error: function() {
-                console.error('Network error loading campaign assignments');
             }
         });
     }
@@ -349,7 +348,6 @@ jQuery(document).ready(function($) {
                 }
             },
             error: function() {
-                console.error('Network error loading campaigns');
             }
         });
     }
@@ -484,7 +482,7 @@ jQuery(document).ready(function($) {
                 }
             },
             error: function() {
-                alert('Network error loading assignment data.');
+                alert('割り当てデータの読み込みに失敗しました。');
             }
         });
     }
