@@ -548,25 +548,36 @@ class MonthlyBooking_Booking_Logic {
         
         $total_rent = $daily_rent * $stay_days;
         
-        $daily_utilities = ($plan === 'SS') ? 2500 : 2000;
+        require_once(plugin_dir_path(__FILE__) . 'fee-manager.php');
+        $fee_manager = Monthly_Booking_Fee_Manager::get_instance();
+        
+        $daily_utilities = ($plan === 'SS') 
+            ? $fee_manager->get_fee('utilities_ss_daily', 2500)
+            : $fee_manager->get_fee('utilities_other_daily', 2000);
         $total_utilities = $daily_utilities * $stay_days;
         
-        $cleaning_fee = 38500;  // 清掃費
-        $key_fee = 11000;       // 鍵手数料
-        $bedding_fee = 11000;   // 布団代
+        $cleaning_fee = $fee_manager->get_fee('cleaning_fee', 38500);
+        $key_fee = $fee_manager->get_fee('key_fee', 11000);
+        $bedding_fee = $fee_manager->get_fee('bedding_fee_daily', 1100) * $stay_days;
         $initial_costs = $cleaning_fee + $key_fee + $bedding_fee;
         
         $additional_adults = max(0, ($num_adults - 1));
         $additional_children = $num_children;
         
-        $adult_additional_rent = $additional_adults * 900 * $stay_days;
-        $adult_additional_utilities = $additional_adults * 200 * $stay_days;
-        $adult_bedding_fee = $additional_adults * 1100 * $stay_days;
+        $adult_rent_daily = $fee_manager->get_fee('additional_adult_rent', 900);
+        $adult_utilities_daily = $fee_manager->get_fee('additional_adult_utilities', 200);
+        $children_rent_daily = $fee_manager->get_fee('additional_child_rent', 450);
+        $children_utilities_daily = $fee_manager->get_fee('additional_child_utilities', 100);
+        $bedding_daily = $fee_manager->get_fee('bedding_fee_daily', 1100);
+        
+        $adult_additional_rent = $additional_adults * $adult_rent_daily * $stay_days;
+        $adult_additional_utilities = $additional_adults * $adult_utilities_daily * $stay_days;
+        $adult_bedding_fee = $additional_adults * $bedding_daily * $stay_days;
         $adult_additional_fee = $adult_additional_rent + $adult_additional_utilities + $adult_bedding_fee;
         
-        $children_additional_rent = $additional_children * 450 * $stay_days;
-        $children_additional_utilities = $additional_children * 100 * $stay_days;
-        $children_bedding_fee = $additional_children * 1100 * $stay_days;
+        $children_additional_rent = $additional_children * $children_rent_daily * $stay_days;
+        $children_additional_utilities = $additional_children * $children_utilities_daily * $stay_days;
+        $children_bedding_fee = $additional_children * $bedding_daily * $stay_days;
         $children_additional_fee = $children_additional_rent + $children_additional_utilities + $children_bedding_fee;
         
         $person_additional_fee = $adult_additional_fee + $children_additional_fee;
@@ -823,14 +834,10 @@ class MonthlyBooking_Booking_Logic {
      * Get default daily rent for plan if no room specified
      */
     private function get_default_daily_rent($plan) {
-        $default_rents = array(
-            'SS' => 2500,
-            'S'  => 2000,
-            'M'  => 1900,
-            'L'  => 1800
-        );
+        require_once(plugin_dir_path(__FILE__) . 'fee-manager.php');
+        $fee_manager = Monthly_Booking_Fee_Manager::get_instance();
         
-        return isset($default_rents[$plan]) ? $default_rents[$plan] : 2000;
+        return $fee_manager->get_default_daily_rent($plan);
     }
     
     /**
@@ -1063,7 +1070,24 @@ class MonthlyBooking_Booking_Logic {
             $discount += $additional_discount;
         }
         
-        return min($discount, 2000);
+        require_once(plugin_dir_path(__FILE__) . 'fee-manager.php');
+        $fee_manager = Monthly_Booking_Fee_Manager::get_instance();
+        
+        $base_discount = $fee_manager->get_fee('option_discount_base', 500);
+        $additional_discount_per_item = $fee_manager->get_fee('option_discount_additional', 300);
+        $max_discount = $fee_manager->get_fee('option_discount_max', 2000);
+        
+        $discount = 0;
+        
+        if ($count == 2) {
+            $discount = $base_discount;
+        } elseif ($count >= 3) {
+            $additional_options = $count - 2;
+            $additional_discount = $additional_options * $additional_discount_per_item;
+            $discount = $base_discount + $additional_discount;
+        }
+        
+        return min($discount, $max_discount);
     }
     
     /**

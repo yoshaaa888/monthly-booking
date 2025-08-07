@@ -87,6 +87,15 @@ class MonthlyBooking_Admin_UI {
         
         add_submenu_page(
             'monthly-room-booking',
+            __('料金設定', 'monthly-booking'),
+            __('料金設定', 'monthly-booking'),
+            'manage_options',
+            'monthly-booking-fee-settings',
+            array($this, 'render_fee_settings_page')
+        );
+        
+        add_submenu_page(
+            'monthly-room-booking',
             __('プラグイン設定', 'monthly-booking'),
             __('プラグイン設定', 'monthly-booking'),
             'manage_options',
@@ -1621,5 +1630,171 @@ class MonthlyBooking_Admin_UI {
         $value = isset($options['cleaning_days']) ? $options['cleaning_days'] : '3';
         echo '<input type="number" name="monthly_booking_options[cleaning_days]" value="' . esc_attr($value) . '" min="1" max="7" />';
         echo '<p class="description">' . __('Number of days required for cleaning between bookings.', 'monthly-booking') . '</p>';
+    }
+    
+    public function render_fee_settings_page() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('権限がありません。', 'monthly-booking'));
+        }
+        
+        require_once(plugin_dir_path(__FILE__) . 'fee-manager.php');
+        $fee_manager = Monthly_Booking_Fee_Manager::get_instance();
+        
+        if (isset($_POST['submit'])) {
+            check_admin_referer('monthly_booking_fee_settings', 'monthly_booking_fee_nonce');
+            
+            if (isset($_POST['monthly_booking_fees'])) {
+                $updated_count = $fee_manager->update_fees($_POST['monthly_booking_fees']);
+                
+                if ($updated_count > 0) {
+                    echo '<div class="notice notice-success"><p>' . 
+                         sprintf(__('%d件の料金設定を保存しました。', 'monthly-booking'), $updated_count) . 
+                         '</p></div>';
+                } else {
+                    echo '<div class="notice notice-error"><p>' . 
+                         __('料金設定の保存に失敗しました。', 'monthly-booking') . 
+                         '</p></div>';
+                }
+            }
+        }
+        
+        $all_fees = $fee_manager->get_all_fees();
+        $fees_by_category = array();
+        
+        foreach ($all_fees as $fee) {
+            $fees_by_category[$fee->category][] = $fee;
+        }
+        
+        $category_labels = array(
+            'basic_fees' => __('基本料金', 'monthly-booking'),
+            'utilities' => __('光熱費', 'monthly-booking'),
+            'person_fees' => __('追加人数料金', 'monthly-booking'),
+            'default_rates' => __('デフォルト日額賃料', 'monthly-booking'),
+            'discount_limits' => __('オプション割引設定', 'monthly-booking')
+        );
+        
+        $unit_labels = array(
+            'fixed' => __('円（一括）', 'monthly-booking'),
+            'daily' => __('円/日', 'monthly-booking'),
+            'monthly' => __('円/月', 'monthly-booking')
+        );
+        
+        ?>
+        <div class="wrap">
+            <h1><?php _e('料金設定', 'monthly-booking'); ?></h1>
+            
+            <div class="monthly-booking-fee-settings">
+                <form method="post" action="">
+                    <?php wp_nonce_field('monthly_booking_fee_settings', 'monthly_booking_fee_nonce'); ?>
+                    
+                    <?php foreach ($fees_by_category as $category => $fees): ?>
+                    <div class="fee-category-section">
+                        <h2><?php echo isset($category_labels[$category]) ? $category_labels[$category] : esc_html($category); ?></h2>
+                        <table class="form-table">
+                            <tbody>
+                                <?php foreach ($fees as $fee): ?>
+                                <tr>
+                                    <th scope="row">
+                                        <label for="<?php echo esc_attr($fee->setting_key); ?>">
+                                            <?php echo esc_html($fee->setting_name); ?>
+                                        </label>
+                                    </th>
+                                    <td>
+                                        <input type="number" 
+                                               id="<?php echo esc_attr($fee->setting_key); ?>" 
+                                               name="monthly_booking_fees[<?php echo esc_attr($fee->setting_key); ?>]" 
+                                               value="<?php echo esc_attr($fee->setting_value); ?>" 
+                                               step="1" 
+                                               min="0" 
+                                               class="regular-text" />
+                                        <span class="unit-label">
+                                            <?php echo isset($unit_labels[$fee->unit_type]) ? $unit_labels[$fee->unit_type] : esc_html($fee->unit_type); ?>
+                                        </span>
+                                        <?php if (!empty($fee->description)): ?>
+                                        <p class="description"><?php echo esc_html($fee->description); ?></p>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <?php endforeach; ?>
+                    
+                    <div class="fee-settings-actions">
+                        <?php submit_button(__('設定を保存', 'monthly-booking'), 'primary', 'submit', false); ?>
+                        <button type="button" class="button button-secondary" id="reset-defaults">
+                            <?php _e('デフォルト値に戻す', 'monthly-booking'); ?>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <style>
+        .fee-category-section {
+            background: #fff;
+            border: 1px solid #ccd0d4;
+            border-radius: 4px;
+            margin: 20px 0;
+            padding: 20px;
+        }
+
+        .fee-category-section h2 {
+            margin-top: 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .unit-label {
+            margin-left: 10px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .fee-settings-actions {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+
+        .fee-settings-actions .button {
+            margin-right: 10px;
+        }
+        </style>
+        
+        <script>
+        document.getElementById('reset-defaults').addEventListener('click', function() {
+            if (confirm('<?php _e('デフォルト値に戻しますか？この操作は元に戻せません。', 'monthly-booking'); ?>')) {
+                var inputs = document.querySelectorAll('input[type="number"]');
+                var defaults = {
+                    'cleaning_fee': 38500,
+                    'key_fee': 11000,
+                    'bedding_fee_daily': 1100,
+                    'utilities_ss_daily': 2500,
+                    'utilities_other_daily': 2000,
+                    'additional_adult_rent': 900,
+                    'additional_adult_utilities': 200,
+                    'additional_child_rent': 450,
+                    'additional_child_utilities': 100,
+                    'default_rent_ss': 2500,
+                    'default_rent_s': 2000,
+                    'default_rent_m': 1900,
+                    'default_rent_l': 1800,
+                    'option_discount_max': 2000,
+                    'option_discount_base': 500,
+                    'option_discount_additional': 300
+                };
+                
+                inputs.forEach(function(input) {
+                    var key = input.name.replace('monthly_booking_fees[', '').replace(']', '');
+                    if (defaults[key]) {
+                        input.value = defaults[key];
+                    }
+                });
+            }
+        });
+        </script>
+        <?php
     }
 }
