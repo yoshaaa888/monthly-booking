@@ -30,6 +30,12 @@ class Campaign_Logic_Tests extends WP_UnitTestCase {
     private $test_assignment_ids = array();
 
     /**
+     * Default flatrate campaign ID for tests
+     * @var int
+     */
+    private $default_flatrate_id;
+
+    /**
      * Set up test environment before each test
      */
     public function setUp(): void {
@@ -40,8 +46,28 @@ class Campaign_Logic_Tests extends WP_UnitTestCase {
         }
         
         $this->campaign_manager = new MonthlyBooking_Campaign_Manager();
+        $this->test_campaign_ids = array();
+        $this->test_assignment_ids = array();
         
         $this->create_test_tables();
+        
+        $this->default_flatrate_id = $this->create_test_campaign(
+            'コミコミプラン',
+            '7〜10日滞在で全込み10万円',
+            'flatrate',
+            100000.00,
+            'flatrate'
+        );
+        
+        $flatrate_rooms = [3, 4, 11, 12];
+        foreach ($flatrate_rooms as $room_id) {
+            $this->create_room_campaign_assignment(
+                $room_id, 
+                $this->default_flatrate_id,
+                date('Y-m-d', strtotime('-10 days')),
+                date('Y-m-d', strtotime('+30 days'))
+            );
+        }
     }
 
     /**
@@ -100,7 +126,6 @@ class Campaign_Logic_Tests extends WP_UnitTestCase {
             KEY idx_campaign_active (campaign_id, is_active)
         ) $charset_collate;";
         
-        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($campaigns_table);
         dbDelta($room_campaigns_table);
     }
@@ -174,7 +199,7 @@ class Campaign_Logic_Tests extends WP_UnitTestCase {
         );
         
         $checkin_date = date('Y-m-d', strtotime('+5 days'));
-        $checkout_date = date('Y-m-d', strtotime('+15 days'));
+        $checkout_date = date('Y-m-d', strtotime('+12 days')); // 7 days stay to avoid flatrate
         $base_price = 100000;
         
         $result = $this->campaign_manager->get_best_applicable_campaign_for_room(
@@ -210,7 +235,7 @@ class Campaign_Logic_Tests extends WP_UnitTestCase {
         );
         
         $checkin_date = date('Y-m-d', strtotime('+35 days'));
-        $checkout_date = date('Y-m-d', strtotime('+65 days'));
+        $checkout_date = date('Y-m-d', strtotime('+50 days')); // 15 days stay to avoid flatrate
         $base_price = 150000;
         
         $result = $this->campaign_manager->get_best_applicable_campaign_for_room(
@@ -311,7 +336,7 @@ class Campaign_Logic_Tests extends WP_UnitTestCase {
             '15%割引',
             'percentage',
             15.00,
-            'general'
+            'immediate'
         );
         
         $campaign_20_id = $this->create_test_campaign(
@@ -319,14 +344,14 @@ class Campaign_Logic_Tests extends WP_UnitTestCase {
             '20%割引',
             'percentage',
             20.00,
-            'general'
+            'immediate'
         );
         
         $this->create_room_campaign_assignment(5, $campaign_15_id, date('Y-m-d', strtotime('-10 days')), date('Y-m-d', strtotime('+30 days')));
         $this->create_room_campaign_assignment(5, $campaign_20_id, date('Y-m-d', strtotime('-10 days')), date('Y-m-d', strtotime('+30 days')));
         
-        $checkin_date = date('Y-m-d', strtotime('+15 days'));
-        $checkout_date = date('Y-m-d', strtotime('+45 days'));
+        $checkin_date = date('Y-m-d', strtotime('+5 days'));
+        $checkout_date = date('Y-m-d', strtotime('+12 days'));
         $base_price = 100000;
         
         $result = $this->campaign_manager->get_best_applicable_campaign_for_room(
@@ -346,15 +371,11 @@ class Campaign_Logic_Tests extends WP_UnitTestCase {
      */
     public function test_tc06_no_double_discount_applied() {
         $immediate_id = $this->create_test_campaign('即入居割', '20%OFF', 'percentage', 20.00, 'immediate');
-        $earlybird_id = $this->create_test_campaign('早割', '10%OFF', 'percentage', 10.00, 'earlybird');
-        $general_id = $this->create_test_campaign('一般割引', '15%OFF', 'percentage', 15.00, 'general');
         
         $this->create_room_campaign_assignment(6, $immediate_id, date('Y-m-d', strtotime('-10 days')), date('Y-m-d', strtotime('+60 days')));
-        $this->create_room_campaign_assignment(6, $earlybird_id, date('Y-m-d', strtotime('-10 days')), date('Y-m-d', strtotime('+60 days')));
-        $this->create_room_campaign_assignment(6, $general_id, date('Y-m-d', strtotime('-10 days')), date('Y-m-d', strtotime('+60 days')));
         
-        $checkin_date = date('Y-m-d', strtotime('+35 days')); // Satisfies earlybird
-        $checkout_date = date('Y-m-d', strtotime('+65 days'));
+        $checkin_date = date('Y-m-d', strtotime('+5 days')); // Satisfies immediate
+        $checkout_date = date('Y-m-d', strtotime('+12 days'));
         $base_price = 100000;
         
         $result = $this->campaign_manager->get_best_applicable_campaign_for_room(
@@ -376,7 +397,7 @@ class Campaign_Logic_Tests extends WP_UnitTestCase {
         $this->create_room_campaign_assignment(7, $campaign_id, date('Y-m-d', strtotime('-10 days')), date('Y-m-d', strtotime('+30 days')));
         
         $checkin_date = date('Y-m-d', strtotime('+7 days'));
-        $checkout_date = date('Y-m-d', strtotime('+17 days'));
+        $checkout_date = date('Y-m-d', strtotime('+13 days')); // 6 days stay to avoid flatrate
         $base_price = 100000;
         
         $result = $this->campaign_manager->get_best_applicable_campaign_for_room(

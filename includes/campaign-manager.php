@@ -295,7 +295,7 @@ class MonthlyBooking_Campaign_Manager {
         $checkin = new DateTime($checkin_date);
         $days_until_checkin = $today->diff($checkin)->days;
         
-        if ($checkin < $today) {
+        if ($days_until_checkin < 0) {
             return null;
         }
         
@@ -518,18 +518,19 @@ class MonthlyBooking_Campaign_Manager {
         ));
         
         if (empty($room_campaigns)) {
-            $stay_days = $this->calculate_stay_days($checkin_date, $checkout_date);
-            return $this->get_applicable_campaigns($checkin_date, $stay_days);
+            return null;
         }
         
         $eligible_campaigns = array();
-        $today = new DateTime();
+        $today = strtotime('today midnight');
+        $checkin_day = strtotime($checkin_date);
+        $days_until_checkin = floor(($checkin_day - $today) / (60 * 60 * 24));
+        
         $checkin = new DateTime($checkin_date);
         $checkout = new DateTime($checkout_date);
-        $days_until_checkin = $today->diff($checkin)->days;
         $stay_days = $checkin->diff($checkout)->days;
         
-        if ($checkin < $today) {
+        if ($days_until_checkin < 0) {
             return null;
         }
         
