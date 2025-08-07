@@ -14,7 +14,6 @@ $sql = "SELECT id, room_id, display_name, room_name, property_name
 $rooms = $wpdb->get_results($sql);
 
 echo "Rooms query result:\n";
-var_dump($rooms);
 
 echo "\nGenerated HTML dropdown options:\n";
 echo '<select id="room_select" name="room_id">' . "\n";

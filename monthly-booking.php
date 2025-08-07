@@ -526,6 +526,193 @@ class MonthlyBooking {
             KEY is_active (is_active)
         ) $charset_collate;";
         dbDelta($sql);
+        
+        $table_name = $wpdb->prefix . 'monthly_fee_settings';
+        $sql = "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            setting_key varchar(50) NOT NULL,
+            setting_name varchar(100) NOT NULL,
+            setting_value decimal(10,2) NOT NULL,
+            unit_type enum('fixed', 'daily', 'monthly') NOT NULL DEFAULT 'fixed',
+            category varchar(30) NOT NULL,
+            description text,
+            is_active tinyint(1) NOT NULL DEFAULT 1,
+            display_order int(11) NOT NULL DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY setting_key (setting_key),
+            KEY category (category),
+            KEY display_order (display_order),
+            KEY is_active (is_active)
+        ) $charset_collate;";
+        dbDelta($sql);
+        
+        $this->insert_default_fee_settings();
+    }
+    
+    private function insert_default_fee_settings() {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'monthly_fee_settings';
+        
+        $default_fees = array(
+            array(
+                'setting_key' => 'cleaning_fee',
+                'setting_name' => '清掃費',
+                'setting_value' => 38500.00,
+                'unit_type' => 'fixed',
+                'category' => 'basic_fees',
+                'description' => 'チェックアウト時の清掃費用',
+                'display_order' => 1
+            ),
+            array(
+                'setting_key' => 'key_fee',
+                'setting_name' => '鍵手数料',
+                'setting_value' => 11000.00,
+                'unit_type' => 'fixed',
+                'category' => 'basic_fees',
+                'description' => '鍵の受け渡し手数料',
+                'display_order' => 2
+            ),
+            array(
+                'setting_key' => 'bedding_fee_daily',
+                'setting_name' => '布団代（1日あたり）',
+                'setting_value' => 1100.00,
+                'unit_type' => 'daily',
+                'category' => 'basic_fees',
+                'description' => '追加布団の1日あたり料金',
+                'display_order' => 3
+            ),
+            array(
+                'setting_key' => 'utilities_ss_daily',
+                'setting_name' => '光熱費（SSプラン・1日）',
+                'setting_value' => 2500.00,
+                'unit_type' => 'daily',
+                'category' => 'utilities',
+                'description' => 'SSプラン滞在時の1日あたり光熱費',
+                'display_order' => 4
+            ),
+            array(
+                'setting_key' => 'utilities_other_daily',
+                'setting_name' => '光熱費（S/M/Lプラン・1日）',
+                'setting_value' => 2000.00,
+                'unit_type' => 'daily',
+                'category' => 'utilities',
+                'description' => 'S/M/Lプラン滞在時の1日あたり光熱費',
+                'display_order' => 5
+            ),
+            array(
+                'setting_key' => 'additional_adult_rent',
+                'setting_name' => '追加大人・賃料（1日）',
+                'setting_value' => 900.00,
+                'unit_type' => 'daily',
+                'category' => 'person_fees',
+                'description' => '追加大人1名あたりの1日賃料',
+                'display_order' => 6
+            ),
+            array(
+                'setting_key' => 'additional_adult_utilities',
+                'setting_name' => '追加大人・光熱費（1日）',
+                'setting_value' => 200.00,
+                'unit_type' => 'daily',
+                'category' => 'person_fees',
+                'description' => '追加大人1名あたりの1日光熱費',
+                'display_order' => 7
+            ),
+            array(
+                'setting_key' => 'additional_child_rent',
+                'setting_name' => '追加子ども・賃料（1日）',
+                'setting_value' => 450.00,
+                'unit_type' => 'daily',
+                'category' => 'person_fees',
+                'description' => '追加子ども1名あたりの1日賃料',
+                'display_order' => 8
+            ),
+            array(
+                'setting_key' => 'additional_child_utilities',
+                'setting_name' => '追加子ども・光熱費（1日）',
+                'setting_value' => 100.00,
+                'unit_type' => 'daily',
+                'category' => 'person_fees',
+                'description' => '追加子ども1名あたりの1日光熱費',
+                'display_order' => 9
+            ),
+            array(
+                'setting_key' => 'default_rent_ss',
+                'setting_name' => 'デフォルト日額賃料（SSプラン）',
+                'setting_value' => 2500.00,
+                'unit_type' => 'daily',
+                'category' => 'default_rates',
+                'description' => 'SSプランのデフォルト日額賃料',
+                'display_order' => 10
+            ),
+            array(
+                'setting_key' => 'default_rent_s',
+                'setting_name' => 'デフォルト日額賃料（Sプラン）',
+                'setting_value' => 2000.00,
+                'unit_type' => 'daily',
+                'category' => 'default_rates',
+                'description' => 'Sプランのデフォルト日額賃料',
+                'display_order' => 11
+            ),
+            array(
+                'setting_key' => 'default_rent_m',
+                'setting_name' => 'デフォルト日額賃料（Mプラン）',
+                'setting_value' => 1900.00,
+                'unit_type' => 'daily',
+                'category' => 'default_rates',
+                'description' => 'Mプランのデフォルト日額賃料',
+                'display_order' => 12
+            ),
+            array(
+                'setting_key' => 'default_rent_l',
+                'setting_name' => 'デフォルト日額賃料（Lプラン）',
+                'setting_value' => 1800.00,
+                'unit_type' => 'daily',
+                'category' => 'default_rates',
+                'description' => 'Lプランのデフォルト日額賃料',
+                'display_order' => 13
+            ),
+            array(
+                'setting_key' => 'option_discount_max',
+                'setting_name' => 'オプション割引上限額',
+                'setting_value' => 2000.00,
+                'unit_type' => 'fixed',
+                'category' => 'discount_limits',
+                'description' => 'オプション割引の最大金額',
+                'display_order' => 14
+            ),
+            array(
+                'setting_key' => 'option_discount_base',
+                'setting_name' => 'オプション基本割引（2個）',
+                'setting_value' => 500.00,
+                'unit_type' => 'fixed',
+                'category' => 'discount_limits',
+                'description' => '2個選択時の基本割引額',
+                'display_order' => 15
+            ),
+            array(
+                'setting_key' => 'option_discount_additional',
+                'setting_name' => 'オプション追加割引（3個以上）',
+                'setting_value' => 300.00,
+                'unit_type' => 'fixed',
+                'category' => 'discount_limits',
+                'description' => '3個以上選択時の追加割引額（1個あたり）',
+                'display_order' => 16
+            )
+        );
+        
+        foreach ($default_fees as $fee) {
+            $existing = $wpdb->get_row($wpdb->prepare(
+                "SELECT id FROM $table_name WHERE setting_key = %s",
+                $fee['setting_key']
+            ));
+            
+            if (!$existing) {
+                $wpdb->insert($table_name, $fee);
+            }
+        }
     }
 }
 

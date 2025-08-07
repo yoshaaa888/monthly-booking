@@ -234,8 +234,6 @@ jQuery(document).ready(function($) {
         const baseUrl = window.location.origin + window.location.pathname;
         const newUrl = baseUrl + '?page=monthly-room-booking-calendar&room_id=' + roomId;
         
-        console.log('Room dropdown changed:', roomId);
-        console.log('Redirecting to:', newUrl);
         
         if (roomId && roomId !== '0') {
             window.location.href = newUrl;
@@ -284,7 +282,7 @@ jQuery(document).ready(function($) {
     
     $(document).on('click', '.delete-assignment', function() {
         const assignmentId = $(this).data('assignment-id');
-        if (confirm('Are you sure you want to delete this campaign assignment?')) {
+        if (confirm(__('Are you sure you want to delete this campaign assignment?', 'monthly-booking'))) {
             deleteCampaignAssignment(assignmentId);
         }
     });
@@ -451,7 +449,7 @@ jQuery(document).ready(function($) {
                 }
             },
             error: function() {
-                showValidationErrors('Network error occurred while saving.');
+                showValidationErrors(__('Network error occurred while saving.', 'monthly-booking'));
             }
         });
     }
@@ -478,11 +476,11 @@ jQuery(document).ready(function($) {
                     $('#modal-title').text('Edit Campaign Assignment');
                     showCampaignModal();
                 } else {
-                    alert('Failed to load assignment data: ' + response.data);
+                    alert(__('Failed to load assignment data: ', 'monthly-booking') + response.data);
                 }
             },
             error: function() {
-                alert('割り当てデータの読み込みに失敗しました。');
+                alert(__('割り当てデータの読み込みに失敗しました。', 'monthly-booking'));
             }
         });
     }
@@ -500,11 +498,11 @@ jQuery(document).ready(function($) {
                 if (response.success) {
                     loadCampaignAssignments();
                 } else {
-                    alert('Failed to delete assignment: ' + response.data);
+                    alert(__('Failed to delete assignment: ', 'monthly-booking') + response.data);
                 }
             },
             error: function() {
-                alert('Network error occurred while deleting.');
+                alert(__('Network error occurred while deleting.', 'monthly-booking'));
             }
         });
     }
@@ -525,11 +523,11 @@ jQuery(document).ready(function($) {
                 if (response.success) {
                     loadCampaignAssignments();
                 } else {
-                    alert('Failed to toggle status: ' + response.data);
+                    alert(__('Failed to toggle status: ', 'monthly-booking') + response.data);
                 }
             },
             error: function() {
-                alert('Network error occurred while toggling status.');
+                alert(__('Network error occurred while toggling status.', 'monthly-booking'));
             }
         });
     }
@@ -538,12 +536,12 @@ jQuery(document).ready(function($) {
         hideValidationErrors();
         
         if (!$('#campaign-select').val()) {
-            showValidationErrors('Please select a campaign.');
+            showValidationErrors(__('Please select a campaign.', 'monthly-booking'));
             return false;
         }
         
         if (!$('#start-date').val() || !$('#end-date').val()) {
-            showValidationErrors('Please select both start and end dates.');
+            showValidationErrors(__('Please select both start and end dates.', 'monthly-booking'));
             return false;
         }
         
@@ -559,7 +557,7 @@ jQuery(document).ready(function($) {
         const endDate = new Date($('#end-date').val());
         
         if (startDate >= endDate) {
-            showValidationErrors('End date must be after start date.');
+            showValidationErrors(__('End date must be after start date.', 'monthly-booking'));
             return false;
         }
         
@@ -608,5 +606,4 @@ jQuery(document).ready(function($) {
         $('#validation-errors').hide();
     }
     
-    console.log('Monthly Booking admin scripts loaded');
 });
