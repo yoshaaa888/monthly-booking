@@ -473,6 +473,119 @@ class MonthlyBooking_Admin_UI {
                     </table>
                 </div>
                 
+                <!-- Campaign Assignment Section -->
+                <div class="form-section">
+                    <h3><?php _e('Campaign Assignment', 'monthly-booking'); ?></h3>
+                    
+                    <!-- Campaign Assignment Table -->
+                    <div id="campaign-assignments-container">
+                        <table class="wp-list-table widefat fixed striped" id="campaign-assignments-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col"><?php _e('Campaign', 'monthly-booking'); ?></th>
+                                    <th scope="col"><?php _e('Period', 'monthly-booking'); ?></th>
+                                    <th scope="col"><?php _e('Duration', 'monthly-booking'); ?></th>
+                                    <th scope="col"><?php _e('Status', 'monthly-booking'); ?></th>
+                                    <th scope="col"><?php _e('Actions', 'monthly-booking'); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody id="campaign-assignments-tbody">
+                                <!-- Assignments will be loaded via AJAX -->
+                            </tbody>
+                        </table>
+                        
+                        <div id="no-assignments-message" style="display: none;">
+                            <p><?php _e('No campaign assignments found for this room.', 'monthly-booking'); ?></p>
+                        </div>
+                    </div>
+                    
+                    <!-- Add Assignment Button -->
+                    <p class="submit">
+                        <button type="button" id="add-campaign-assignment" class="button button-secondary">
+                            <?php _e('Add Campaign Assignment', 'monthly-booking'); ?>
+                        </button>
+                    </p>
+                </div>
+                
+                <!-- Campaign Assignment Modal -->
+                <div id="campaign-assignment-modal" class="monthly-booking-modal" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h2 id="modal-title"><?php _e('Add Campaign Assignment', 'monthly-booking'); ?></h2>
+                            <span class="close-modal">&times;</span>
+                        </div>
+                        
+                        <div class="modal-body">
+                            <form id="campaign-assignment-form">
+                                <input type="hidden" id="assignment-id" name="assignment_id" value="">
+                                <input type="hidden" id="room-id" name="room_id" value="<?php echo esc_attr($property_id); ?>">
+                                
+                                <table class="form-table">
+                                    <tr>
+                                        <th scope="row">
+                                            <label for="campaign-select"><?php _e('Campaign', 'monthly-booking'); ?></label>
+                                        </th>
+                                        <td>
+                                            <select id="campaign-select" name="campaign_id" required>
+                                                <option value=""><?php _e('Select Campaign', 'monthly-booking'); ?></option>
+                                                <!-- Options loaded via AJAX -->
+                                            </select>
+                                            <p class="description"><?php _e('Select the campaign to assign to this room.', 'monthly-booking'); ?></p>
+                                        </td>
+                                    </tr>
+                                    
+                                    <tr>
+                                        <th scope="row">
+                                            <label for="start-date"><?php _e('Start Date', 'monthly-booking'); ?></label>
+                                        </th>
+                                        <td>
+                                            <input type="date" id="start-date" name="start_date" required>
+                                            <p class="description"><?php _e('Campaign application start date.', 'monthly-booking'); ?></p>
+                                        </td>
+                                    </tr>
+                                    
+                                    <tr>
+                                        <th scope="row">
+                                            <label for="end-date"><?php _e('End Date', 'monthly-booking'); ?></label>
+                                        </th>
+                                        <td>
+                                            <input type="date" id="end-date" name="end_date" required>
+                                            <p class="description"><?php _e('Campaign application end date.', 'monthly-booking'); ?></p>
+                                        </td>
+                                    </tr>
+                                    
+                                    <tr>
+                                        <th scope="row">
+                                            <label for="is-active"><?php _e('Status', 'monthly-booking'); ?></label>
+                                        </th>
+                                        <td>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" id="is-active" name="is_active" value="1" checked>
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                            <span class="toggle-label"><?php _e('Active', 'monthly-booking'); ?></span>
+                                            <p class="description"><?php _e('Enable or disable this campaign assignment.', 'monthly-booking'); ?></p>
+                                        </td>
+                                    </tr>
+                                </table>
+                                
+                                <div id="validation-errors" class="notice notice-error" style="display: none;">
+                                    <p></p>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <div class="modal-footer">
+                            <button type="button" id="save-assignment" class="button button-primary">
+                                <?php _e('Save Assignment', 'monthly-booking'); ?>
+                            </button>
+                            <button type="button" class="button cancel-modal">
+                                <?php _e('Cancel', 'monthly-booking'); ?>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
                 <p class="submit">
                     <input type="submit" name="submit_property" class="button-primary" value="<?php echo $is_edit ? __('Update Property', 'monthly-booking') : __('Add Property', 'monthly-booking'); ?>">
                     <a href="<?php echo admin_url('admin.php?page=monthly-room-booking'); ?>" class="button"><?php _e('Cancel', 'monthly-booking'); ?></a>

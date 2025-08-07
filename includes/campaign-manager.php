@@ -16,6 +16,14 @@ class MonthlyBooking_Campaign_Manager {
         add_action('wp_ajax_update_campaign', array($this, 'ajax_update_campaign'));
         add_action('wp_ajax_delete_campaign', array($this, 'ajax_delete_campaign'));
         add_action('wp_ajax_toggle_campaign', array($this, 'ajax_toggle_campaign'));
+        
+        add_action('wp_ajax_save_campaign_assignment', array($this, 'ajax_save_campaign_assignment'));
+        add_action('wp_ajax_delete_campaign_assignment', array($this, 'ajax_delete_campaign_assignment'));
+        add_action('wp_ajax_check_campaign_period_overlap', array($this, 'ajax_check_campaign_period_overlap'));
+        add_action('wp_ajax_get_room_campaign_assignments', array($this, 'ajax_get_room_campaign_assignments'));
+        add_action('wp_ajax_get_active_campaigns', array($this, 'ajax_get_active_campaigns'));
+        add_action('wp_ajax_get_campaign_assignment', array($this, 'ajax_get_campaign_assignment'));
+        add_action('wp_ajax_toggle_assignment_status', array($this, 'ajax_toggle_assignment_status'));
     }
     
     /**
@@ -467,5 +475,294 @@ class MonthlyBooking_Campaign_Manager {
         
         // Return the badge of the first applicable campaign
         return $campaigns[0]['badge'];
+    }
+    
+    /**
+     * Save campaign assignment via AJAX
+     */
+    public function ajax_save_campaign_assignment() {
+        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Insufficient permissions.', 'monthly-booking'));
+        }
+        
+        $assignment_id = sanitize_text_field($_POST['assignment_id']);
+        $room_id = intval($_POST['room_id']);
+        $campaign_id = intval($_POST['campaign_id']);
+        $start_date = sanitize_text_field($_POST['start_date']);
+        $end_date = sanitize_text_field($_POST['end_date']);
+        $is_active = intval($_POST['is_active']);
+        
+        $validation_result = $this->validate_campaign_assignment($room_id, $campaign_id, $start_date, $end_date, $assignment_id);
+        if (is_wp_error($validation_result)) {
+            wp_send_json_error($validation_result->get_error_message());
+        }
+        
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'monthly_room_campaigns';
+        
+        $data = array(
+            'room_id' => $room_id,
+            'campaign_id' => $campaign_id,
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+            'is_active' => $is_active,
+            'updated_at' => current_time('mysql')
+        );
+        
+        if ($assignment_id) {
+            $result = $wpdb->update($table_name, $data, array('id' => $assignment_id));
+        } else {
+            $data['created_at'] = current_time('mysql');
+            $result = $wpdb->insert($table_name, $data);
+            $assignment_id = $wpdb->insert_id;
+        }
+        
+        if ($result !== false) {
+            wp_send_json_success(array('assignment_id' => $assignment_id));
+        } else {
+            wp_send_json_error(__('Failed to save campaign assignment.', 'monthly-booking'));
+        }
+    }
+    
+    /**
+     * Delete campaign assignment via AJAX
+     */
+    public function ajax_delete_campaign_assignment() {
+        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Insufficient permissions.', 'monthly-booking'));
+        }
+        
+        $assignment_id = intval($_POST['assignment_id']);
+        
+        if (!$assignment_id) {
+            wp_send_json_error(__('Invalid assignment ID.', 'monthly-booking'));
+        }
+        
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'monthly_room_campaigns';
+        
+        $result = $wpdb->delete($table_name, array('id' => $assignment_id));
+        
+        if ($result !== false) {
+            wp_send_json_success();
+        } else {
+            wp_send_json_error(__('Failed to delete campaign assignment.', 'monthly-booking'));
+        }
+    }
+    
+    /**
+     * Check for campaign period overlap via AJAX
+     */
+    public function ajax_check_campaign_period_overlap() {
+        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        
+        $room_id = intval($_POST['room_id']);
+        $start_date = sanitize_text_field($_POST['start_date']);
+        $end_date = sanitize_text_field($_POST['end_date']);
+        $exclude_assignment_id = intval($_POST['assignment_id']);
+        
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'monthly_room_campaigns';
+        
+        $sql = "SELECT COUNT(*) FROM $table_name 
+                WHERE room_id = %d 
+                AND is_active = 1 
+                AND (
+                    (%s BETWEEN start_date AND end_date) OR 
+                    (%s BETWEEN start_date AND end_date) OR 
+                    (start_date BETWEEN %s AND %s)
+                )";
+        
+        $params = array($room_id, $start_date, $end_date, $start_date, $end_date);
+        
+        if ($exclude_assignment_id) {
+            $sql .= " AND id != %d";
+            $params[] = $exclude_assignment_id;
+        }
+        
+        $overlap_count = $wpdb->get_var($wpdb->prepare($sql, $params));
+        
+        if ($overlap_count > 0) {
+            wp_send_json_error(__('Period overlaps with existing campaign assignment.', 'monthly-booking'));
+        } else {
+            wp_send_json_success();
+        }
+    }
+    
+    /**
+     * Get room campaign assignments via AJAX
+     */
+    public function ajax_get_room_campaign_assignments() {
+        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        
+        $room_id = intval($_POST['room_id']);
+        
+        global $wpdb;
+        $assignments_table = $wpdb->prefix . 'monthly_room_campaigns';
+        $campaigns_table = $wpdb->prefix . 'monthly_campaigns';
+        
+        $sql = "SELECT a.*, c.campaign_name, c.discount_type, c.discount_value 
+                FROM $assignments_table a 
+                LEFT JOIN $campaigns_table c ON a.campaign_id = c.id 
+                WHERE a.room_id = %d 
+                ORDER BY a.start_date DESC";
+        
+        $assignments = $wpdb->get_results($wpdb->prepare($sql, $room_id));
+        
+        wp_send_json_success($assignments);
+    }
+    
+    /**
+     * Get active campaigns via AJAX
+     */
+    public function ajax_get_active_campaigns() {
+        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'monthly_campaigns';
+        
+        $campaigns = $wpdb->get_results(
+            "SELECT id, campaign_name, discount_type, discount_value 
+             FROM $table_name 
+             WHERE is_active = 1 
+             ORDER BY campaign_name"
+        );
+        
+        wp_send_json_success($campaigns);
+    }
+    
+    /**
+     * Get single campaign assignment via AJAX
+     */
+    public function ajax_get_campaign_assignment() {
+        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        
+        $assignment_id = intval($_POST['assignment_id']);
+        
+        if (!$assignment_id) {
+            wp_send_json_error(__('Invalid assignment ID.', 'monthly-booking'));
+        }
+        
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'monthly_room_campaigns';
+        
+        $assignment = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table_name WHERE id = %d", 
+            $assignment_id
+        ));
+        
+        if ($assignment) {
+            wp_send_json_success($assignment);
+        } else {
+            wp_send_json_error(__('Assignment not found.', 'monthly-booking'));
+        }
+    }
+    
+    /**
+     * Toggle assignment status via AJAX
+     */
+    public function ajax_toggle_assignment_status() {
+        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Insufficient permissions.', 'monthly-booking'));
+        }
+        
+        $assignment_id = intval($_POST['assignment_id']);
+        $is_active = intval($_POST['is_active']);
+        
+        if (!$assignment_id) {
+            wp_send_json_error(__('Invalid assignment ID.', 'monthly-booking'));
+        }
+        
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'monthly_room_campaigns';
+        
+        $result = $wpdb->update(
+            $table_name,
+            array(
+                'is_active' => $is_active,
+                'updated_at' => current_time('mysql')
+            ),
+            array('id' => $assignment_id)
+        );
+        
+        if ($result !== false) {
+            wp_send_json_success();
+        } else {
+            wp_send_json_error(__('Failed to toggle assignment status.', 'monthly-booking'));
+        }
+    }
+    
+    /**
+     * Validate campaign assignment data
+     */
+    private function validate_campaign_assignment($room_id, $campaign_id, $start_date, $end_date, $assignment_id = null) {
+        if (!$room_id || !$campaign_id || !$start_date || !$end_date) {
+            return new WP_Error('missing_fields', __('All fields are required.', 'monthly-booking'));
+        }
+        
+        $start_timestamp = strtotime($start_date);
+        $end_timestamp = strtotime($end_date);
+        
+        if (!$start_timestamp || !$end_timestamp) {
+            return new WP_Error('invalid_date', __('Invalid date format.', 'monthly-booking'));
+        }
+        
+        if ($start_timestamp >= $end_timestamp) {
+            return new WP_Error('invalid_range', __('End date must be after start date.', 'monthly-booking'));
+        }
+        
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'monthly_room_campaigns';
+        
+        $sql = "SELECT COUNT(*) FROM $table_name 
+                WHERE room_id = %d 
+                AND is_active = 1 
+                AND (
+                    (%s BETWEEN start_date AND end_date) OR 
+                    (%s BETWEEN start_date AND end_date) OR 
+                    (start_date BETWEEN %s AND %s)
+                )";
+        
+        $params = array($room_id, $start_date, $end_date, $start_date, $end_date);
+        
+        if ($assignment_id) {
+            $sql .= " AND id != %d";
+            $params[] = $assignment_id;
+        }
+        
+        $overlap_count = $wpdb->get_var($wpdb->prepare($sql, $params));
+        
+        if ($overlap_count > 0) {
+            return new WP_Error('period_overlap', __('Period overlaps with existing campaign assignment.', 'monthly-booking'));
+        }
+        
+        $rooms_table = $wpdb->prefix . 'monthly_rooms';
+        $campaigns_table = $wpdb->prefix . 'monthly_campaigns';
+        
+        $room_exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $rooms_table WHERE room_id = %d", 
+            $room_id
+        ));
+        
+        $campaign_exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $campaigns_table WHERE id = %d AND is_active = 1", 
+            $campaign_id
+        ));
+        
+        if (!$room_exists) {
+            return new WP_Error('invalid_room', __('Room not found.', 'monthly-booking'));
+        }
+        
+        if (!$campaign_exists) {
+            return new WP_Error('invalid_campaign', __('Campaign not found or inactive.', 'monthly-booking'));
+        }
+        
+        return true;
     }
 }

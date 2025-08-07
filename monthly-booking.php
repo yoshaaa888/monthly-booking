@@ -506,6 +506,26 @@ class MonthlyBooking {
             UNIQUE KEY booking_option (booking_id, option_id)
         ) $charset_collate;";
         dbDelta($sql);
+        
+        $table_name = $wpdb->prefix . 'monthly_room_campaigns';
+        $sql = "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            room_id mediumint(9) NOT NULL,
+            campaign_id mediumint(9) NOT NULL,
+            start_date date NOT NULL,
+            end_date date NOT NULL,
+            is_active tinyint(1) DEFAULT 1,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY room_campaign_period (room_id, start_date, end_date),
+            KEY room_id (room_id),
+            KEY campaign_id (campaign_id),
+            KEY start_date (start_date),
+            KEY end_date (end_date),
+            KEY is_active (is_active)
+        ) $charset_collate;";
+        dbDelta($sql);
     }
 }
 
