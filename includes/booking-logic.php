@@ -434,14 +434,12 @@ class MonthlyBooking_Booking_Logic {
         ));
         
         if (is_wp_error($response)) {
-            error_log('Monthly Booking: External accounting system error - ' . $response->get_error_message());
             return array('success' => false, 'error' => $response->get_error_message());
         }
         
         $response_code = wp_remote_retrieve_response_code($response);
         $response_body = wp_remote_retrieve_body($response);
         
-        error_log('Monthly Booking: External accounting system response - Code: ' . $response_code . ', Body: ' . $response_body);
         
         return array(
             'success' => $response_code >= 200 && $response_code < 300,

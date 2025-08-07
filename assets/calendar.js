@@ -89,7 +89,6 @@ jQuery(document).ready(function($) {
                 }
             },
             error: function() {
-                console.log('Failed to load booking data');
             }
         });
     }
