@@ -1644,7 +1644,14 @@ class MonthlyBooking_Admin_UI {
             check_admin_referer('monthly_booking_fee_settings', 'monthly_booking_fee_nonce');
             
             if (isset($_POST['monthly_booking_fees'])) {
-                $updated_count = $fee_manager->update_fees($_POST['monthly_booking_fees']);
+                $sanitized_fees = array();
+                foreach ($_POST['monthly_booking_fees'] as $key => $value) {
+                    $sanitized_value = floatval($value);
+                    if ($sanitized_value >= 0 && $sanitized_value <= 9999999) {
+                        $sanitized_fees[sanitize_key($key)] = $sanitized_value;
+                    }
+                }
+                $updated_count = $fee_manager->update_fees($sanitized_fees);
                 
                 if ($updated_count > 0) {
                     echo '<div class="notice notice-success"><p>' . 
@@ -1706,6 +1713,7 @@ class MonthlyBooking_Admin_UI {
                                                value="<?php echo esc_attr($fee->setting_value); ?>" 
                                                step="1" 
                                                min="0" 
+                                               max="9999999"
                                                class="regular-text" />
                                         <span class="unit-label">
                                             <?php echo isset($unit_labels[$fee->unit_type]) ? $unit_labels[$fee->unit_type] : esc_html($fee->unit_type); ?>

@@ -67,10 +67,15 @@ class Monthly_Booking_Fee_Manager {
         global $wpdb;
         $table_name = $wpdb->prefix . 'monthly_fee_settings';
         
+        $sanitized_value = floatval($value);
+        if ($sanitized_value < 0 || $sanitized_value > 9999999) {
+            return false;
+        }
+        
         $result = $wpdb->update(
             $table_name,
             array(
-                'setting_value' => floatval($value),
+                'setting_value' => $sanitized_value,
                 'updated_at' => current_time('mysql')
             ),
             array('setting_key' => $setting_key),
