@@ -533,7 +533,6 @@ jQuery(document).ready(function($) {
                 }
             },
             error: function() {
-                console.error('Failed to load search filters');
             }
         });
     }
