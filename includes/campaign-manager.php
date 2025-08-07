@@ -478,6 +478,138 @@ class MonthlyBooking_Campaign_Manager {
     }
     
     /**
+     * Get best applicable campaign for a specific room and period
+     * 
+     * @param int $room_id Room ID
+     * @param string $checkin_date Check-in date in Y-m-d format
+     * @param string $checkout_date Check-out date in Y-m-d format
+     * @param float $base_price Base price for discount calculation
+     * @return array|null Best campaign object or null if no applicable campaign
+     */
+    public function get_best_applicable_campaign_for_room($room_id, $checkin_date, $checkout_date, $base_price) {
+        if (empty($room_id) || empty($checkin_date) || empty($checkout_date)) {
+            return null;
+        }
+        
+        global $wpdb;
+        $assignments_table = $wpdb->prefix . 'monthly_room_campaigns';
+        $campaigns_table = $wpdb->prefix . 'monthly_campaigns';
+        
+        $sql = "SELECT c.*, a.start_date as assignment_start, a.end_date as assignment_end
+                FROM $assignments_table a 
+                INNER JOIN $campaigns_table c ON a.campaign_id = c.id 
+                WHERE a.room_id = %d 
+                AND a.is_active = 1 
+                AND c.is_active = 1
+                AND (
+                    (%s BETWEEN a.start_date AND a.end_date) OR 
+                    (%s BETWEEN a.start_date AND a.end_date) OR 
+                    (a.start_date BETWEEN %s AND %s)
+                )
+                ORDER BY c.type, c.discount_value DESC";
+        
+        $room_campaigns = $wpdb->get_results($wpdb->prepare(
+            $sql, 
+            $room_id, 
+            $checkin_date, 
+            $checkout_date, 
+            $checkin_date, 
+            $checkout_date
+        ));
+        
+        if (empty($room_campaigns)) {
+            $stay_days = $this->calculate_stay_days($checkin_date, $checkout_date);
+            return $this->get_applicable_campaigns($checkin_date, $stay_days);
+        }
+        
+        $eligible_campaigns = array();
+        $today = new DateTime();
+        $checkin = new DateTime($checkin_date);
+        $checkout = new DateTime($checkout_date);
+        $days_until_checkin = $today->diff($checkin)->days;
+        $stay_days = $checkin->diff($checkout)->days;
+        
+        if ($checkin < $today) {
+            return null;
+        }
+        
+        foreach ($room_campaigns as $campaign) {
+            $is_eligible = true;
+            
+            if ($campaign->type === 'flatrate' && ($stay_days < 7 || $stay_days > 10)) {
+                $is_eligible = false;
+            }
+            
+            if ($campaign->type === 'immediate' && $days_until_checkin > 7) {
+                $is_eligible = false;
+            }
+            
+            if ($campaign->type === 'earlybird' && $days_until_checkin < 30) {
+                $is_eligible = false;
+            }
+            
+            if ($is_eligible) {
+                $discount_amount = 0;
+                if ($campaign->discount_type === 'percentage') {
+                    $discount_amount = $base_price * ($campaign->discount_value / 100);
+                } elseif ($campaign->discount_type === 'fixed') {
+                    $discount_amount = $campaign->discount_value;
+                } elseif ($campaign->discount_type === 'flatrate') {
+                    $discount_amount = max(0, $base_price - $campaign->discount_value);
+                }
+                
+                $eligible_campaigns[] = array(
+                    'id' => $campaign->id,
+                    'name' => $campaign->campaign_name,
+                    'type' => $campaign->type,
+                    'discount_type' => $campaign->discount_type,
+                    'discount_value' => $campaign->discount_value,
+                    'badge' => $this->get_campaign_badge_by_type($campaign->type),
+                    'description' => $campaign->campaign_description,
+                    'days_until_checkin' => $days_until_checkin,
+                    'priority' => $campaign->type === 'flatrate' ? 999999 : $discount_amount,
+                    'discount_amount' => $discount_amount
+                );
+            }
+        }
+        
+        if (empty($eligible_campaigns)) {
+            return null;
+        }
+        
+        usort($eligible_campaigns, function($a, $b) {
+            return $b['priority'] <=> $a['priority'];
+        });
+        
+        return array($eligible_campaigns[0]);
+    }
+    
+    /**
+     * Calculate stay days between two dates
+     */
+    private function calculate_stay_days($checkin_date, $checkout_date) {
+        $checkin = new DateTime($checkin_date);
+        $checkout = new DateTime($checkout_date);
+        return $checkin->diff($checkout)->days;
+    }
+    
+    /**
+     * Get campaign badge by type
+     */
+    private function get_campaign_badge_by_type($type) {
+        switch ($type) {
+            case 'flatrate':
+                return 'コミコミ10万円';
+            case 'immediate':
+                return '即入居';
+            case 'earlybird':
+                return '早割';
+            default:
+                return null;
+        }
+    }
+    
+    /**
      * Save campaign assignment via AJAX
      */
     public function ajax_save_campaign_assignment() {

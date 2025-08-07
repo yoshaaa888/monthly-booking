@@ -527,7 +527,17 @@ class MonthlyBooking_Booking_Logic {
         }
         
         $campaign_manager = new MonthlyBooking_Campaign_Manager();
-        $applicable_campaigns = $campaign_manager->get_applicable_campaigns($move_in_date, $stay_days);
+        
+        if ($room_id) {
+            $applicable_campaigns = $campaign_manager->get_best_applicable_campaign_for_room(
+                $room_id, 
+                $move_in_date, 
+                $move_out_date, 
+                $daily_rent * $stay_days
+            );
+        } else {
+            $applicable_campaigns = $campaign_manager->get_applicable_campaigns($move_in_date, $stay_days);
+        }
         
         if ($applicable_campaigns && !empty($applicable_campaigns)) {
             $campaign = $applicable_campaigns[0];
@@ -862,10 +872,69 @@ class MonthlyBooking_Booking_Logic {
             'campaign_type' => $campaign_info['campaign_type']
         );
     }
+    
+    /**
+     * Apply room-specific campaign discount
+     */
+    private function apply_room_campaign_discount($room_id, $move_in_date, $move_out_date, $base_total, $stay_days = null) {
+        if (!class_exists('MonthlyBooking_Campaign_Manager')) {
+            require_once plugin_dir_path(__FILE__) . 'campaign-manager.php';
+        }
+        
+        $campaign_manager = new MonthlyBooking_Campaign_Manager();
+        $applicable_campaigns = $campaign_manager->get_best_applicable_campaign_for_room(
+            $room_id, 
+            $move_in_date, 
+            $move_out_date, 
+            $base_total
+        );
+        
+        if (!$applicable_campaigns || empty($applicable_campaigns)) {
+            $campaign_info = $campaign_manager->calculate_campaign_discount($move_in_date, $base_total, $base_total, $stay_days);
+        } else {
+            $campaign = $applicable_campaigns[0];
+            $campaign_info = array(
+                'discount_amount' => $campaign['discount_amount'],
+                'campaign_name' => $campaign['name'],
+                'campaign_badge' => $campaign['badge'],
+                'campaign_type' => $campaign['type'],
+                'campaign_description' => $campaign['description'],
+                'discount_type' => $campaign['discount_type'],
+                'discount_value' => $campaign['discount_value'],
+                'days_until_checkin' => $campaign['days_until_checkin']
+            );
+        }
+        
+        $applied_campaigns = array();
+        if ($campaign_info['campaign_name']) {
+            $applied_campaigns[] = array(
+                'name' => $campaign_info['campaign_name'],
+                'description' => $campaign_info['campaign_description'],
+                'discount_type' => $campaign_info['discount_type'],
+                'discount_value' => $campaign_info['discount_value'],
+                'discount_amount' => $campaign_info['discount_amount'],
+                'badge' => $campaign_info['campaign_badge']
+            );
+        }
+        
+        return array(
+            'discount_amount' => $campaign_info['discount_amount'],
+            'campaigns' => $applied_campaigns,
+            'campaign_badge' => $campaign_info['campaign_badge'],
+            'campaign_type' => $campaign_info['campaign_type']
+        );
+    }
 
     private function calculate_step3_campaign_discount($move_in_date, $move_out_date, $base_total) {
         $stay_days = $this->calculate_stay_days($move_in_date, $move_out_date);
-        return $this->apply_campaign_discount($move_in_date, $base_total, $stay_days);
+        
+        $room_id = isset($this->current_room_id) ? $this->current_room_id : null;
+        
+        if ($room_id) {
+            return $this->apply_room_campaign_discount($room_id, $move_in_date, $move_out_date, $base_total, $stay_days);
+        } else {
+            return $this->apply_campaign_discount($move_in_date, $base_total, $stay_days);
+        }
     }
     
     /**
