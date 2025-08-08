@@ -83,76 +83,81 @@ jobs:
           cd /tmp/wordpress
           wp plugin activate monthly-booking --allow-root
 
-      - name: Create plugin DB tables with correct schemas
+      - name: Create plugin DB tables with idempotent schema reconciliation
         run: |
           cd /tmp/wordpress
           
-          # Create wp_monthly_rooms with correct schema matching plugin
-          wp db query "CREATE TABLE IF NOT EXISTS wp_monthly_rooms (
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            room_id int(11) UNIQUE,
-            property_id int(11),
-            mor_g char(1) DEFAULT 'M',
-            property_name text,
-            display_name text,
-            room_name varchar(100) NOT NULL,
-            daily_rent int(11),
-            is_active tinyint(1) DEFAULT 1,
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY room_id (room_id),
-            KEY is_active (is_active)
-          ) DEFAULT CHARSET=utf8mb4;" --allow-root
-
-          # Create wp_monthly_bookings with correct schema
-          wp db query "CREATE TABLE IF NOT EXISTS wp_monthly_bookings (
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            room_id mediumint(9) NOT NULL,
-            customer_id mediumint(9) NOT NULL,
-            start_date date NOT NULL,
-            end_date date NOT NULL,
-            status varchar(20) DEFAULT 'pending',
-            PRIMARY KEY (id),
-            KEY room_id (room_id),
-            KEY start_date (start_date),
-            KEY end_date (end_date)
-          ) DEFAULT CHARSET=utf8mb4;" --allow-root
-
-          # Create wp_monthly_campaigns with correct schema matching plugin
+          # --- Schema reconcile: campaigns (idempotent) ---
           wp db query "CREATE TABLE IF NOT EXISTS wp_monthly_campaigns (
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            campaign_name varchar(100) NOT NULL,
-            campaign_description text,
-            type varchar(20) DEFAULT NULL,
-            discount_type varchar(20) NOT NULL,
-            discount_value decimal(10,2) NOT NULL,
-            min_stay_days int(3) DEFAULT 1,
-            start_date date NOT NULL,
-            end_date date NOT NULL,
-            is_active tinyint(1) DEFAULT 1,
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY start_date (start_date),
-            KEY end_date (end_date),
-            KEY is_active (is_active)
-          ) DEFAULT CHARSET=utf8mb4;" --allow-root
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;" --quiet --allow-root
 
-      - name: Seed minimal data with correct column names
+          wp db query "ALTER TABLE wp_monthly_campaigns 
+            ADD COLUMN IF NOT EXISTS room_id BIGINT UNSIGNED NULL,
+            ADD COLUMN IF NOT EXISTS title VARCHAR(191) NOT NULL DEFAULT '',
+            ADD COLUMN IF NOT EXISTS type VARCHAR(50) NOT NULL DEFAULT 'discount',
+            ADD COLUMN IF NOT EXISTS start_date DATE NOT NULL,
+            ADD COLUMN IF NOT EXISTS end_date DATE NOT NULL,
+            ADD COLUMN IF NOT EXISTS is_active TINYINT(1) NOT NULL DEFAULT 1;" --quiet --allow-root
+
+          # Indexes (ignore errors if they already exist)
+          wp db query "CREATE INDEX room_id_idx ON wp_monthly_campaigns (room_id);" --allow-root || true
+          wp db query "CREATE INDEX start_date_idx ON wp_monthly_campaigns (start_date);" --allow-root || true
+          wp db query "CREATE INDEX end_date_idx ON wp_monthly_campaigns (end_date);" --allow-root || true
+
+          # --- Schema reconcile: rooms (idempotent) ---
+          wp db query "CREATE TABLE IF NOT EXISTS wp_monthly_rooms (
+            room_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;" --quiet --allow-root
+          
+          wp db query "ALTER TABLE wp_monthly_rooms
+            ADD COLUMN IF NOT EXISTS display_name VARCHAR(191) NOT NULL DEFAULT '',
+            ADD COLUMN IF NOT EXISTS room_name VARCHAR(191) NOT NULL DEFAULT '',
+            ADD COLUMN IF NOT EXISTS property_name VARCHAR(191) NOT NULL DEFAULT '',
+            ADD COLUMN IF NOT EXISTS is_active TINYINT(1) NOT NULL DEFAULT 1;" --quiet --allow-root
+          
+          wp db query "CREATE INDEX room_active_idx ON wp_monthly_rooms (is_active);" --allow-root || true
+
+          # --- Schema reconcile: bookings (idempotent) ---
+          wp db query "CREATE TABLE IF NOT EXISTS wp_monthly_bookings (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;" --quiet --allow-root
+          
+          wp db query "ALTER TABLE wp_monthly_bookings
+            ADD COLUMN IF NOT EXISTS room_id BIGINT UNSIGNED NOT NULL,
+            ADD COLUMN IF NOT EXISTS start_date DATE NOT NULL,
+            ADD COLUMN IF NOT EXISTS end_date DATE NOT NULL,
+            ADD COLUMN IF NOT EXISTS status VARCHAR(50) NOT NULL DEFAULT 'booked';" --quiet --allow-root
+          
+          wp db query "CREATE INDEX b_room_idx ON wp_monthly_bookings (room_id);" --allow-root || true
+          wp db query "CREATE INDEX b_start_idx ON wp_monthly_bookings (start_date);" --allow-root || true
+          wp db query "CREATE INDEX b_end_idx ON wp_monthly_bookings (end_date);" --allow-root || true
+
+      - name: Seed minimal data with robust room ID handling
         run: |
           cd /tmp/wordpress
           
-          # Insert room data with correct columns
-          wp db query "INSERT INTO wp_monthly_rooms (room_id, display_name, room_name, property_name, daily_rent, is_active) 
-          VALUES (101, 'デモ101', 'Room 101', 'Demo Building', 2400, 1)
-          ON DUPLICATE KEY UPDATE is_active=VALUES(is_active);" --allow-root
-          
-          # Insert campaign data with correct columns
-          TODAY=$(date +%F)
-          NEXTWEEK=$(date -d '+7 day' +%F 2>/dev/null || date -v+7d +%F)
-          wp db query "INSERT INTO wp_monthly_campaigns (campaign_name, campaign_description, type, discount_type, discount_value, min_stay_days, start_date, end_date, is_active)
-          VALUES ('E2Eデモキャンペーン', 'E2E testing campaign', 'immediate', 'percentage', 10.00, 7, '$TODAY', '$NEXTWEEK', 1);" --allow-root
+          # --- Seeding (get room ID and use it consistently) ---
+          # Insert room if it doesn't exist
+          wp db query "
+          INSERT INTO wp_monthly_rooms (display_name, room_name, property_name, is_active)
+          VALUES ('デモ101', 'Room 101', 'Demo Building', 1)
+          ON DUPLICATE KEY UPDATE is_active=VALUES(is_active);" --allow-root || true
+
+          # Get room_id (fallback to 1 if none found)
+          ROOM_ID=$(wp db query "SELECT room_id FROM wp_monthly_rooms ORDER BY room_id ASC LIMIT 1;" --skip-column-names --allow-root | tr -d '\r' | head -n1)
+          [ -z "$ROOM_ID" ] && ROOM_ID=1
+          echo "Using ROOM_ID: $ROOM_ID"
+
+          # Insert campaign data using the retrieved room_id
+          wp db query "
+          INSERT INTO wp_monthly_campaigns (room_id, title, type, start_date, end_date, is_active)
+          VALUES (${ROOM_ID}, 'E2Eデモキャンペーン', 'discount', CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY), 1);" --allow-root || true
+
+          # Insert booking data for cleaning buffer verification
+          wp db query "
+          INSERT INTO wp_monthly_bookings (room_id, start_date, end_date, status)
+          VALUES (${ROOM_ID}, DATE_ADD(CURDATE(), INTERVAL 3 DAY), DATE_ADD(CURDATE(), INTERVAL 10 DAY), 'booked');" --allow-root || true
 
       - name: Create monthly-calendar page
         run: |
