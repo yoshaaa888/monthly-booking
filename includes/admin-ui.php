@@ -700,6 +700,11 @@ class MonthlyBooking_Admin_UI {
             global $wpdb;
             $rooms_table = $wpdb->prefix . 'monthly_rooms';
             $rooms = $wpdb->get_results("SELECT id, room_id, display_name, room_name, property_name FROM $rooms_table WHERE is_active = 1 ORDER BY property_name, room_name");
+            
+            if (empty($rooms)) {
+                echo '<div class="notice notice-error"><p>' . __('表示できる部屋がありません。先に部屋を登録してください。', 'monthly-booking') . '</p></div>';
+                return;
+            }
         }
         
         ?>
