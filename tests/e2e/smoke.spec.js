@@ -7,6 +7,16 @@ test.describe('Calendar Smoke Test', () => {
     console.info('baseURL=', page.context()._options.baseURL);
     
     try {
+      console.info('Testing base URL accessibility...');
+      await page.goto('/');
+      console.info('Base URL accessible');
+    } catch (error) {
+      console.error('Base URL not accessible:', error.message);
+      throw new Error(`Base URL ${page.context()._options.baseURL} is not accessible: ${error.message}`);
+    }
+    
+    try {
+      console.info('Navigating to /monthly-calendar/...');
       await page.goto('/monthly-calendar/');
       await page.waitForLoadState('networkidle', { timeout: 10000 });
       
