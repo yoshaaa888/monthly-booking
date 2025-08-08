@@ -94,81 +94,28 @@ jobs:
           cd "$WP_DIR"
           wp plugin activate monthly-booking --allow-root
 
-      - name: Create plugin DB tables with correct schemas
+      - name: Seed minimal test data for E2E tests
         run: |
           set -euo pipefail
           WP_DIR="$RUNNER_TEMP/wp"
           cd "$WP_DIR"
           
-          # Create wp_monthly_rooms with correct schema matching plugin
-          wp db query "CREATE TABLE IF NOT EXISTS wp_monthly_rooms (
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            room_id int(11) UNIQUE,
-            property_id int(11),
-            mor_g char(1) DEFAULT 'M',
-            property_name text,
-            display_name text,
-            room_name varchar(100) NOT NULL,
-            daily_rent int(11),
-            is_active tinyint(1) DEFAULT 1,
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY room_id (room_id),
-            KEY is_active (is_active)
-          ) DEFAULT CHARSET=utf8mb4;" --allow-root
-
-          # Create wp_monthly_campaigns with correct schema (no room_id column)
-          wp db query "CREATE TABLE IF NOT EXISTS wp_monthly_campaigns (
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            campaign_name varchar(100) NOT NULL,
-            campaign_description text,
-            type varchar(20) DEFAULT NULL,
-            discount_type varchar(20) NOT NULL,
-            discount_value decimal(10,2) NOT NULL,
-            min_stay_days int(3) DEFAULT 1,
-            start_date date NOT NULL,
-            end_date date NOT NULL,
-            is_active tinyint(1) DEFAULT 1,
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY start_date (start_date),
-            KEY end_date (end_date),
-            KEY is_active (is_active)
-          ) DEFAULT CHARSET=utf8mb4;" --allow-root
-
-          # Create wp_monthly_bookings with correct schema
-          wp db query "CREATE TABLE IF NOT EXISTS wp_monthly_bookings (
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            room_id int(11) NOT NULL,
-            start_date date NOT NULL,
-            end_date date NOT NULL,
-            status varchar(50) DEFAULT 'confirmed',
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY room_id (room_id),
-            KEY start_date (start_date),
-            KEY end_date (end_date)
-          ) DEFAULT CHARSET=utf8mb4;" --allow-root
-
-      - name: Seed minimal data with correct column names
-        run: |
-          set -euo pipefail
-          WP_DIR="$RUNNER_TEMP/wp"
-          cd "$WP_DIR"
+          # Wait for plugin activation to complete table creation
+          sleep 2
+          
+          # Verify tables exist before seeding
+          wp db query "SHOW TABLES LIKE 'wp_monthly_%';" --allow-root
           
           # Clear existing data for deterministic tests
-          wp db query "TRUNCATE TABLE wp_monthly_bookings;" --allow-root
-          wp db query "TRUNCATE TABLE wp_monthly_campaigns;" --allow-root
-          wp db query "TRUNCATE TABLE wp_monthly_rooms;" --allow-root
+          wp db query "TRUNCATE TABLE wp_monthly_bookings;" --allow-root || true
+          wp db query "TRUNCATE TABLE wp_monthly_campaigns;" --allow-root || true
+          wp db query "TRUNCATE TABLE wp_monthly_rooms;" --allow-root || true
           
-          # Insert room data with correct columns (room_id, not id as primary)
+          # Insert room data using plugin's schema
           wp db query "INSERT INTO wp_monthly_rooms (room_id, display_name, room_name, property_name, daily_rent, is_active) 
           VALUES (101, 'デモ101', 'Room 101', 'Demo Building', 2400, 1);" --allow-root
           
-          # Insert campaign data with correct columns (campaign_name, not room_id)
+          # Insert campaign data using plugin's schema  
           wp db query "INSERT INTO wp_monthly_campaigns (campaign_name, campaign_description, type, discount_type, discount_value, min_stay_days, start_date, end_date, is_active)
           VALUES ('E2Eデモキャンペーン', 'E2E testing campaign', 'immediate', 'percentage', 10.00, 7, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY), 1);" --allow-root
           
