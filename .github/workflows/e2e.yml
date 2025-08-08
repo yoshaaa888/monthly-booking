@@ -18,11 +18,16 @@ jobs:
     env:
       NODE_VERSION: '20'
       CAL_URL: http://localhost:8888
-      WP_DIR: ${{ runner.temp }}/wp
+      # WP_DIR: ${{ runner.temp }}/wp # <-- この行を削除しました
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # ▼▼▼▼▼ ここに新しいステップを追加しました ▼▼▼▼▼
+      - name: Set WP_DIR environment variable
+        run: echo "WP_DIR=${{ runner.temp }}/wp" >> $GITHUB_ENV
+      # ▲▲▲▲▲ ここまで ▲▲▲▲▲
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -62,7 +67,7 @@ jobs:
         run: |
           wp-env run cli "wp plugin activate monthly-booking" || true
           wp-env run cli "wp plugin list"
-
+      
       - name: Create calendar page with shortcode
         run: |
           set -e
@@ -76,8 +81,6 @@ jobs:
           wp-env run cli "wp rewrite flush --hard"
 
       # ───────── （任意）シード：テーブルは dbDelta に任せる ─────────
-      # ここでは、テーブルに必須な最小データがある場合のみ INSERT。
-      # スキーマ差異で失敗しても CI が止まらないよう "|| true" 付き。
       - name: Optional seed minimal data (non-fatal)
         run: |
           set +e
