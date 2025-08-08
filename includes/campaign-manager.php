@@ -173,6 +173,18 @@ class MonthlyBooking_Campaign_Manager {
             return new WP_Error('invalid_name', __('Campaign name is required.', 'monthly-booking'));
         }
         
+        global $wpdb;
+        $campaigns_table = $wpdb->prefix . 'monthly_campaigns';
+        $existing_campaign = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM $campaigns_table WHERE name = %s AND id != %d",
+            $data['name'],
+            isset($data['campaign_id']) ? intval($data['campaign_id']) : 0
+        ));
+        
+        if ($existing_campaign) {
+            return new WP_Error('duplicate_name', __('キャンペーン名が既に存在します。別の名前を選択してください。', 'monthly-booking'));
+        }
+        
         if (!in_array($data['discount_type'], array('percentage', 'fixed'))) {
             return new WP_Error('invalid_discount_type', __('Invalid discount type.', 'monthly-booking'));
         }
@@ -194,6 +206,13 @@ class MonthlyBooking_Campaign_Manager {
         
         if ($start >= $end) {
             return new WP_Error('invalid_date_range', __('End date must be after start date.', 'monthly-booking'));
+        }
+        
+        $max_date = new DateTime();
+        $max_date->add(new DateInterval('P180D'));
+        
+        if ($end > $max_date) {
+            return new WP_Error('invalid_end_date', __('終了日は今日から180日以内に設定してください。', 'monthly-booking'));
         }
         
         return true;

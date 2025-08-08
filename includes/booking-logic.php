@@ -120,9 +120,8 @@ class MonthlyBooking_Booking_Logic {
         $interval = $start->diff($end);
         $days = $interval->days;
         
-        $options = get_option('monthly_booking_options');
-        $base_price = isset($options['default_price']) ? floatval($options['default_price']) : 100000;
-        $cleaning_days = isset($options['cleaning_days']) ? intval($options['cleaning_days']) : 3;
+        $base_price = 100000;
+        $cleaning_days = 3;
         
         $months = ceil($days / 30);
         $base_total = $base_price * $months;

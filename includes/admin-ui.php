@@ -120,13 +120,6 @@ class MonthlyBooking_Admin_UI {
         );
     }
     
-    /**
-     * Register plugin settings
-     */
-    public function register_settings() {
-        register_setting('monthly_booking_settings', 'monthly_booking_options');
-        
-    }
     
     /**
      * Admin page: 物件マスタ管理 (Property Master Management)
@@ -685,7 +678,7 @@ class MonthlyBooking_Admin_UI {
                 <div class="calendar-controls">
                     <div class="room-selector">
                         <label for="room_select"><?php _e('部屋選択', 'monthly-booking'); ?>:</label>
-                        <select id="room_select" name="room_id" onchange="try { var url = '<?php echo admin_url('admin.php?page=monthly-room-booking-calendar&room_id='); ?>' + this.value; window.location.href = url; } catch(e) { alert('<?php _e('Error selecting room: ', 'monthly-booking'); ?>' + e.message); }"></select>
+                        <select id="room_select" name="room_id" onchange="try { var url = '<?php echo admin_url('admin.php?page=monthly-room-booking-calendar&room_id='); ?>' + this.value; window.location.href = url; } catch(e) { alert('<?php _e('Error selecting room: ', 'monthly-booking'); ?>' + e.message); }">
                             <option value="0"><?php _e('部屋を選択してください', 'monthly-booking'); ?></option>
                             <?php foreach ($rooms as $room): ?>
                                 <option value="<?php echo esc_attr($room->room_id); ?>" <?php selected($selected_room_id, $room->room_id); ?>>
