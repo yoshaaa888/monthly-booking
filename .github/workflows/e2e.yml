@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref_name != 'main' }}
 
 jobs:
   e2e:
@@ -25,6 +25,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Debug workflow file
+        if: always() && github.ref_name != 'main'
         run: echo "Checking workflow file content" && head -n 50 .github/workflows/e2e.yml
 
       # ▼▼▼▼▼ ここに新しいステップを追加しました ▼▼▼▼▼
@@ -87,8 +88,8 @@ jobs:
       - name: Optional seed minimal data (non-fatal)
         run: |
           set +e
-          # 例：部屋1件（カラム名はプラグイン側スキーマに合わせること）
-          wp-env run cli wp db query "INSERT INTO wp_monthly_rooms (display_name, room_name, property_name, is_active) VALUES ('E2Eデモ101', 'Room 101', 'Demo Building', 1);" || true
+          # Load seed data from external SQL file
+          wp-env run cli wp db query < tests/fixtures/seed.sql || true
 
       # ───────── /monthly-calendar/ にアクセスして致命的エラー検知 ─────────
       - name: Calendar page health check (detect db errors)

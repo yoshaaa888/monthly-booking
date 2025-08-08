@@ -12,7 +12,7 @@ module.exports = defineConfig({
     ['json', { outputFile: 'test-results/results.json' }]
   ],
   use: {
-    baseURL: process.env.CAL_URL || 'http://t-monthlycampaign.local',
+    baseURL: process.env.CAL_URL || 'http://localhost:8888',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
