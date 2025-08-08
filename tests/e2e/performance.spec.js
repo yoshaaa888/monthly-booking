@@ -50,7 +50,7 @@ test.describe('Calendar Performance Tests', () => {
     expect(dayCount).toBeLessThan(200);
     
     const jsHeapSize = await page.evaluate(() => {
-      return (performance as any).memory ? (performance as any).memory.usedJSHeapSize : 0;
+      return performance.memory ? performance.memory.usedJSHeapSize : 0;
     });
     
     if (jsHeapSize > 0) {
