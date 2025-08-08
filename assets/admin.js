@@ -325,7 +325,10 @@ jQuery(document).ready(function($) {
                     console.error('Failed to load campaign assignments:', response.data);
                 }
             },
-            error: function() {
+            error: function(xhr, status, error) {
+                console.error('キャンペーン割り当ての読み込みに失敗しました:', error);
+                $('#campaign-assignments-table').hide();
+                $('#no-assignments-message').show().find('p').text(__('キャンペーン割り当ての読み込みに失敗しました。ページを再読み込みしてください。', 'monthly-booking'));
             }
         });
     }
@@ -345,7 +348,9 @@ jQuery(document).ready(function($) {
                     console.error('Failed to load campaigns:', response.data);
                 }
             },
-            error: function() {
+            error: function(xhr, status, error) {
+                console.error('アクティブキャンペーンの読み込みに失敗しました:', error);
+                $('#campaign-select').html('<option value="">' + __('キャンペーンの読み込みに失敗しました', 'monthly-booking') + '</option>');
             }
         });
     }
@@ -606,4 +611,24 @@ jQuery(document).ready(function($) {
         $('#validation-errors').hide();
     }
     
+});
+
+$(document).ready(function() {
+    if ($('#room_select option').length <= 1) {
+        $('.calendar-controls').after('<div class="notice notice-warning"><p>' + __('部屋データが見つかりません。管理者にお問い合わせください。', 'monthly-booking') + '</p></div>');
+    }
+    
+    $('#room_select').on('change', function() {
+        try {
+            const roomId = $(this).val();
+            if (roomId && roomId !== '0') {
+                const baseUrl = window.location.origin + window.location.pathname;
+                const newUrl = baseUrl + '?page=monthly-room-booking-calendar&room_id=' + roomId;
+                window.location.href = newUrl;
+            }
+        } catch (error) {
+            console.error('部屋選択エラー:', error);
+            alert(__('部屋選択でエラーが発生しました: ', 'monthly-booking') + error.message);
+        }
+    });
 });

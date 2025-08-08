@@ -1,0 +1,30 @@
+{
+  "name": "monthly-booking-tests",
+  "version": "1.0.0",
+  "description": "Playwright tests for Monthly Booking WordPress plugin",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:journey-normal": "playwright test journey_test_normal.spec.js",
+    "test:journey-campaign": "playwright test journey_test_campaign.spec.js",
+    "test:db-verification": "playwright test db_verification.spec.js",
+    "test:all": "playwright test --reporter=html",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "report": "playwright show-report"
+  },
+  "keywords": [
+    "playwright",
+    "wordpress",
+    "testing",
+    "monthly-booking"
+  ],
+  "author": "Monthly Booking Team",
+  "license": "GPL-2.0",
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  },
+  "dependencies": {
+    "mysql2": "^3.6.0"
+  }
+}

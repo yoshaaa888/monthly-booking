@@ -3,7 +3,7 @@
  * Plugin Name: Monthly Room Booking
  * Plugin URI: https://github.com/yoshaaa888/monthly-booking
  * Description: A WordPress plugin for managing monthly room bookings with property management, calendar display, pricing logic, and campaign management.
- * Version: 1.5.7
+ * Version: 1.6.0
  * Author: Yoshi
  * License: GPL v2 or later
  * Text Domain: monthly-booking
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('MONTHLY_BOOKING_VERSION', '1.5.7');
+define('MONTHLY_BOOKING_VERSION', '1.6.0');
 define('MONTHLY_BOOKING_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MONTHLY_BOOKING_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -36,6 +36,7 @@ class MonthlyBooking {
         }
         
         $this->init_frontend();
+        $this->init_ajax_handlers();
     }
     
     private function include_files() {
@@ -43,6 +44,8 @@ class MonthlyBooking {
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/calendar-render.php';
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/booking-logic.php';
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/campaign-manager.php';
+        require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/calendar-api.php';
+        require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/calendar-utils.php';
     }
     
     private function init_admin() {
@@ -50,9 +53,19 @@ class MonthlyBooking {
     }
     
     private function init_frontend() {
-        new MonthlyBooking_Calendar_Render();
+        $calendar_render = new MonthlyBooking_Calendar_Render();
+        
+        add_shortcode('monthly_booking_estimate', array($calendar_render, 'render_estimate_shortcode'));
+        add_shortcode('monthly_booking_calendar', array($calendar_render, 'render_calendar_shortcode'));
+        add_shortcode('monthly_booking_admin', array($calendar_render, 'render_admin_shortcode'));
+        
         new MonthlyBooking_Booking_Logic();
         new MonthlyBooking_Campaign_Manager();
+    }
+    
+    private function init_ajax_handlers() {
+        add_action('wp_ajax_mbp_load_calendar', array($this, 'ajax_load_calendar'));
+        add_action('wp_ajax_nopriv_mbp_load_calendar', array($this, 'ajax_load_calendar'));
     }
     
     public function activate() {
@@ -344,7 +357,6 @@ class MonthlyBooking {
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
-            KEY room_id (room_id),
             KEY property_id (property_id),
             KEY mor_g (mor_g),
             KEY station1 (station1),
@@ -551,6 +563,26 @@ class MonthlyBooking {
         $this->insert_default_fee_settings();
     }
     
+    public function ajax_load_calendar() {
+        check_ajax_referer('mbp_calendar_nonce', 'nonce');
+        
+        $room_id = intval($_POST['room_id']);
+        
+        if (!$room_id) {
+            wp_send_json_error('Invalid room ID');
+            return;
+        }
+        
+        if (!class_exists('MonthlyBooking_Calendar_Render')) {
+            require_once plugin_dir_path(__FILE__) . 'includes/calendar-render.php';
+        }
+        
+        $calendar_render = new MonthlyBooking_Calendar_Render();
+        $calendar_html = $calendar_render->render_6_month_calendar($room_id);
+        
+        wp_send_json_success($calendar_html);
+    }
+    
     private function insert_default_fee_settings() {
         global $wpdb;
         
@@ -637,42 +669,6 @@ class MonthlyBooking {
                 'category' => 'person_fees',
                 'description' => '追加子ども1名あたりの1日光熱費',
                 'display_order' => 9
-            ),
-            array(
-                'setting_key' => 'default_rent_ss',
-                'setting_name' => 'デフォルト日額賃料（SSプラン）',
-                'setting_value' => 2500.00,
-                'unit_type' => 'daily',
-                'category' => 'default_rates',
-                'description' => 'SSプランのデフォルト日額賃料',
-                'display_order' => 10
-            ),
-            array(
-                'setting_key' => 'default_rent_s',
-                'setting_name' => 'デフォルト日額賃料（Sプラン）',
-                'setting_value' => 2000.00,
-                'unit_type' => 'daily',
-                'category' => 'default_rates',
-                'description' => 'Sプランのデフォルト日額賃料',
-                'display_order' => 11
-            ),
-            array(
-                'setting_key' => 'default_rent_m',
-                'setting_name' => 'デフォルト日額賃料（Mプラン）',
-                'setting_value' => 1900.00,
-                'unit_type' => 'daily',
-                'category' => 'default_rates',
-                'description' => 'Mプランのデフォルト日額賃料',
-                'display_order' => 12
-            ),
-            array(
-                'setting_key' => 'default_rent_l',
-                'setting_name' => 'デフォルト日額賃料（Lプラン）',
-                'setting_value' => 1800.00,
-                'unit_type' => 'daily',
-                'category' => 'default_rates',
-                'description' => 'Lプランのデフォルト日額賃料',
-                'display_order' => 13
             ),
             array(
                 'setting_key' => 'option_discount_max',

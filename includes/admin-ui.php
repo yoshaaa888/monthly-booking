@@ -14,7 +14,6 @@ class MonthlyBooking_Admin_UI {
     public function __construct() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
-        add_action('admin_init', array($this, 'register_settings'));
     }
     
     /**
@@ -94,14 +93,6 @@ class MonthlyBooking_Admin_UI {
             array($this, 'render_fee_settings_page')
         );
         
-        add_submenu_page(
-            'monthly-room-booking',
-            __('プラグイン設定', 'monthly-booking'),
-            __('プラグイン設定', 'monthly-booking'),
-            'manage_options',
-            'monthly-room-booking-settings',
-            array($this, 'admin_page_plugin_settings')
-        );
     }
     
     /**
@@ -128,35 +119,6 @@ class MonthlyBooking_Admin_UI {
         );
     }
     
-    /**
-     * Register plugin settings
-     */
-    public function register_settings() {
-        register_setting('monthly_booking_settings', 'monthly_booking_options');
-        
-        add_settings_section(
-            'monthly_booking_general',
-            __('General Settings', 'monthly-booking'),
-            array($this, 'settings_section_callback'),
-            'monthly_booking_settings'
-        );
-        
-        add_settings_field(
-            'default_price',
-            __('Default Monthly Price', 'monthly-booking'),
-            array($this, 'default_price_callback'),
-            'monthly_booking_settings',
-            'monthly_booking_general'
-        );
-        
-        add_settings_field(
-            'cleaning_days',
-            __('Cleaning Period (days)', 'monthly-booking'),
-            array($this, 'cleaning_days_callback'),
-            'monthly_booking_settings',
-            'monthly_booking_general'
-        );
-    }
     
     /**
      * Admin page: 物件マスタ管理 (Property Master Management)
@@ -700,6 +662,11 @@ class MonthlyBooking_Admin_UI {
             global $wpdb;
             $rooms_table = $wpdb->prefix . 'monthly_rooms';
             $rooms = $wpdb->get_results("SELECT id, room_id, display_name, room_name, property_name FROM $rooms_table WHERE is_active = 1 ORDER BY property_name, room_name");
+            
+            if (empty($rooms)) {
+                echo '<div class="notice notice-error"><p>' . __('表示できる部屋がありません。先に部屋を登録してください。', 'monthly-booking') . '</p></div>';
+                return;
+            }
         }
         
         ?>
@@ -710,7 +677,7 @@ class MonthlyBooking_Admin_UI {
                 <div class="calendar-controls">
                     <div class="room-selector">
                         <label for="room_select"><?php _e('部屋選択', 'monthly-booking'); ?>:</label>
-                        <select id="room_select" name="room_id" onchange="try { var url = '<?php echo admin_url('admin.php?page=monthly-room-booking-calendar&room_id='); ?>' + this.value; window.location.href = url; } catch(e) { alert('<?php _e('Error selecting room: ', 'monthly-booking'); ?>' + e.message); }"></select>
+                        <select id="room_select" name="room_id" onchange="try { var url = '<?php echo admin_url('admin.php?page=monthly-room-booking-calendar&room_id='); ?>' + this.value; window.location.href = url; } catch(e) { alert('<?php _e('Error selecting room: ', 'monthly-booking'); ?>' + e.message); }">
                             <option value="0"><?php _e('部屋を選択してください', 'monthly-booking'); ?></option>
                             <?php foreach ($rooms as $room): ?>
                                 <option value="<?php echo esc_attr($room->room_id); ?>" <?php selected($selected_room_id, $room->room_id); ?>>
@@ -1163,8 +1130,18 @@ class MonthlyBooking_Admin_UI {
                 <h2><?php _e('予約登録', 'monthly-booking'); ?></h2>
                 <p><?php _e('新規予約の登録・既存予約の編集を行います。', 'monthly-booking'); ?></p>
                 
-                <div class="notice notice-info">
-                    <p><?php _e('機能実装予定: 予約フォーム、ゲスト情報入力、料金計算、予約確認', 'monthly-booking'); ?></p>
+                <div class="notice notice-info" style="padding: 20px; margin: 20px 0;">
+                    <h3 style="margin-top: 0;"><?php _e('🚧 開発中の機能', 'monthly-booking'); ?></h3>
+                    <p style="font-size: 16px; line-height: 1.6;">
+                        <?php _e('この「予約登録」機能は、将来のアップデートで実装が予定されています。', 'monthly-booking'); ?>
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        <strong><?php _e('現在ご利用いただける機能:', 'monthly-booking'); ?></strong><br>
+                        • <?php _e('物件マスタ管理 - 部屋情報の登録・編集', 'monthly-booking'); ?><br>
+                        • <?php _e('キャンペーン設定 - 割引キャンペーンの作成・管理', 'monthly-booking'); ?><br>
+                        • <?php _e('料金設定 - 基本料金・オプション料金の設定', 'monthly-booking'); ?><br>
+                        • <?php _e('予約カレンダー - 部屋別の予約状況確認', 'monthly-booking'); ?>
+                    </p>
                 </div>
             </div>
         </div>
@@ -1306,75 +1283,102 @@ class MonthlyBooking_Admin_UI {
         
         <!-- Campaign Modal -->
         <div id="campaign-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
-            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 5px; width: 500px; max-width: 90%;">
-                <h3 id="modal-title"><?php _e('新規キャンペーン作成', 'monthly-booking'); ?></h3>
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; width: 600px; max-width: 90%; max-height: 90%; overflow-y: auto;">
+                <h3 id="modal-title" style="margin-top: 0; border-bottom: 2px solid #0073aa; padding-bottom: 10px; color: #0073aa;"><?php _e('新規キャンペーン作成', 'monthly-booking'); ?></h3>
                 
                 <form method="post" id="campaign-form">
                     <input type="hidden" name="action" value="create_campaign" id="form-action">
                     <input type="hidden" name="campaign_id" value="" id="campaign-id">
                     
-                    <table class="form-table">
-                        <tr>
-                            <th><label for="campaign_name"><?php _e('キャンペーン名', 'monthly-booking'); ?></label></th>
-                            <td><input type="text" name="campaign_name" id="campaign_name" class="regular-text" required></td>
-                        </tr>
-                        <tr>
-                            <th><label for="campaign_type"><?php _e('タイプ', 'monthly-booking'); ?></label></th>
-                            <td>
-                                <select name="campaign_type" id="campaign_type" required>
-                                    <option value=""><?php _e('選択してください', 'monthly-booking'); ?></option>
-                                    <option value="immediate"><?php _e('即入居割', 'monthly-booking'); ?></option>
-                                    <option value="earlybird"><?php _e('早割', 'monthly-booking'); ?></option>
-                                    <option value="flatrate"><?php _e('コミコミ10万円', 'monthly-booking'); ?></option>
-                                </select>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th><label for="discount_type"><?php _e('割引タイプ', 'monthly-booking'); ?></label></th>
-                            <td>
-                                <select name="discount_type" id="discount_type" required>
-                                    <option value=""><?php _e('選択してください', 'monthly-booking'); ?></option>
-                                    <option value="percentage"><?php _e('パーセンテージ', 'monthly-booking'); ?></option>
-                                    <option value="fixed"><?php _e('固定金額', 'monthly-booking'); ?></option>
-                                    <option value="flatrate"><?php _e('定額料金', 'monthly-booking'); ?></option>
-                                </select>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th><label for="discount_value"><?php _e('割引値', 'monthly-booking'); ?></label></th>
-                            <td><input type="number" name="discount_value" id="discount_value" class="regular-text" min="0" step="0.01" required></td>
-                        </tr>
-                        <tr>
-                            <th><label for="start_date"><?php _e('開始日', 'monthly-booking'); ?></label></th>
-                            <td><input type="date" name="start_date" id="start_date" class="regular-text" required></td>
-                        </tr>
-                        <tr>
-                            <th><label for="end_date"><?php _e('終了日', 'monthly-booking'); ?></label></th>
-                            <td><input type="date" name="end_date" id="end_date" class="regular-text" required></td>
-                        </tr>
-                        <tr>
-                            <th><label for="target_plan"><?php _e('対象プラン', 'monthly-booking'); ?></label></th>
-                            <td>
-                                <select name="target_plan" id="target_plan" required>
-                                    <option value="ALL"><?php _e('全プラン', 'monthly-booking'); ?></option>
-                                    <option value="SS"><?php _e('SSプラン', 'monthly-booking'); ?></option>
-                                    <option value="S"><?php _e('Sプラン', 'monthly-booking'); ?></option>
-                                    <option value="M"><?php _e('Mプラン', 'monthly-booking'); ?></option>
-                                    <option value="L"><?php _e('Lプラン', 'monthly-booking'); ?></option>
-                                    <option value="S,M,L"><?php _e('S/M/Lプラン', 'monthly-booking'); ?></option>
-                                </select>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th><label for="is_active"><?php _e('ステータス', 'monthly-booking'); ?></label></th>
-                            <td>
-                                <label>
-                                    <input type="checkbox" name="is_active" id="is_active" value="1" checked>
-                                    <?php _e('有効', 'monthly-booking'); ?>
-                                </label>
-                            </td>
-                        </tr>
-                    </table>
+                    <!-- 基本情報セクション -->
+                    <div class="campaign-section">
+                        <h4 class="section-title"><?php _e('基本情報', 'monthly-booking'); ?></h4>
+                        <table class="form-table">
+                            <tr>
+                                <th><label for="campaign_name"><?php _e('キャンペーン名', 'monthly-booking'); ?></label></th>
+                                <td><input type="text" name="campaign_name" id="campaign_name" class="regular-text" required placeholder="<?php _e('例：新春特別キャンペーン', 'monthly-booking'); ?>"></td>
+                            </tr>
+                            <tr>
+                                <th><label for="campaign_type"><?php _e('キャンペーンタイプ', 'monthly-booking'); ?></label></th>
+                                <td>
+                                    <select name="campaign_type" id="campaign_type" required>
+                                        <option value=""><?php _e('選択してください', 'monthly-booking'); ?></option>
+                                        <option value="immediate"><?php _e('即入居割（7日以内チェックイン）', 'monthly-booking'); ?></option>
+                                        <option value="earlybird"><?php _e('早割（30日以上前予約）', 'monthly-booking'); ?></option>
+                                        <option value="flatrate"><?php _e('コミコミ10万円（7-10日滞在）', 'monthly-booking'); ?></option>
+                                    </select>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <!-- 割引設定セクション -->
+                    <div class="campaign-section">
+                        <h4 class="section-title"><?php _e('割引設定', 'monthly-booking'); ?></h4>
+                        <table class="form-table">
+                            <tr>
+                                <th><label for="discount_type"><?php _e('割引方式', 'monthly-booking'); ?></label></th>
+                                <td>
+                                    <select name="discount_type" id="discount_type" required>
+                                        <option value=""><?php _e('選択してください', 'monthly-booking'); ?></option>
+                                        <option value="percentage"><?php _e('パーセンテージ割引（%）', 'monthly-booking'); ?></option>
+                                        <option value="fixed"><?php _e('固定金額割引（円）', 'monthly-booking'); ?></option>
+                                        <option value="flatrate"><?php _e('定額料金設定（円）', 'monthly-booking'); ?></option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label for="discount_value"><?php _e('割引値', 'monthly-booking'); ?></label></th>
+                                <td>
+                                    <input type="number" name="discount_value" id="discount_value" class="regular-text" min="0" step="0.01" required>
+                                    <span id="discount-unit" class="description"></span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <!-- 適用条件セクション -->
+                    <div class="campaign-section">
+                        <h4 class="section-title"><?php _e('適用条件', 'monthly-booking'); ?></h4>
+                        <table class="form-table">
+                            <tr>
+                                <th><label for="start_date"><?php _e('開始日', 'monthly-booking'); ?></label></th>
+                                <td>
+                                    <input type="date" name="start_date" id="start_date" class="regular-text" required min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
+                                    <p class="description"><?php _e('本日から180日後まで設定可能です', 'monthly-booking'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label for="end_date"><?php _e('終了日', 'monthly-booking'); ?></label></th>
+                                <td>
+                                    <input type="date" name="end_date" id="end_date" class="regular-text" required max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
+                                    <p class="description"><?php _e('最大180日後まで設定可能です', 'monthly-booking'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label for="target_plan"><?php _e('対象プラン', 'monthly-booking'); ?></label></th>
+                                <td>
+                                    <select name="target_plan" id="target_plan" required>
+                                        <option value="ALL"><?php _e('全プラン対象', 'monthly-booking'); ?></option>
+                                        <option value="SS"><?php _e('SSプラン（7-29日）', 'monthly-booking'); ?></option>
+                                        <option value="S"><?php _e('Sプラン（30-89日）', 'monthly-booking'); ?></option>
+                                        <option value="M"><?php _e('Mプラン（90-179日）', 'monthly-booking'); ?></option>
+                                        <option value="L"><?php _e('Lプラン（180日以上）', 'monthly-booking'); ?></option>
+                                        <option value="S,M,L"><?php _e('S/M/Lプラン（30日以上）', 'monthly-booking'); ?></option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label for="is_active"><?php _e('ステータス', 'monthly-booking'); ?></label></th>
+                                <td>
+                                    <label style="display: flex; align-items: center;">
+                                        <input type="checkbox" name="is_active" id="is_active" value="1" checked style="margin-right: 8px;">
+                                        <span><?php _e('キャンペーンを有効にする', 'monthly-booking'); ?></span>
+                                    </label>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
                     
                     <div style="margin-top: 20px; text-align: right;">
                         <button type="button" class="button" onclick="hideCampaignModal()"><?php _e('キャンセル', 'monthly-booking'); ?></button>
@@ -1407,6 +1411,42 @@ class MonthlyBooking_Admin_UI {
             color: #dc3232;
             font-weight: bold;
         }
+        
+        .campaign-section {
+            background: #f9f9f9;
+            border: 1px solid #e1e1e1;
+            border-radius: 4px;
+            margin: 15px 0;
+            padding: 15px;
+        }
+        
+        .campaign-section .section-title {
+            margin: 0 0 10px 0;
+            padding: 0 0 8px 0;
+            border-bottom: 1px solid #ddd;
+            color: #23282d;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .campaign-section .form-table {
+            margin-bottom: 0;
+        }
+        
+        .campaign-section .form-table th {
+            width: 150px;
+            padding: 10px 0;
+        }
+        
+        .campaign-section .form-table td {
+            padding: 10px 0;
+        }
+        
+        #discount-unit {
+            margin-left: 8px;
+            font-weight: bold;
+            color: #0073aa;
+        }
         </style>
         
         <script>
@@ -1416,6 +1456,7 @@ class MonthlyBooking_Admin_UI {
             document.getElementById('campaign-id').value = '';
             document.getElementById('campaign-form').reset();
             document.getElementById('is_active').checked = true;
+            updateDiscountUnit();
             document.getElementById('campaign-modal').style.display = 'block';
         }
         
@@ -1428,8 +1469,8 @@ class MonthlyBooking_Admin_UI {
             document.getElementById('campaign_type').value = 'immediate';
             document.getElementById('discount_type').value = 'percentage';
             document.getElementById('discount_value').value = '20';
-            document.getElementById('start_date').value = '2025-01-01';
-            document.getElementById('end_date').value = '2099-12-31';
+            document.getElementById('start_date').value = '<?php echo date('Y-m-d'); ?>';
+            document.getElementById('end_date').value = '<?php echo date('Y-m-d', strtotime('+30 days')); ?>';
             document.getElementById('target_plan').value = 'ALL';
             document.getElementById('is_active').checked = true;
             
@@ -1439,6 +1480,27 @@ class MonthlyBooking_Admin_UI {
         function hideCampaignModal() {
             document.getElementById('campaign-modal').style.display = 'none';
         }
+        
+        function updateDiscountUnit() {
+            var discountType = document.getElementById('discount_type').value;
+            var unitSpan = document.getElementById('discount-unit');
+            
+            switch(discountType) {
+                case 'percentage':
+                    unitSpan.textContent = '<?php _e('（例：20 = 20%割引）', 'monthly-booking'); ?>';
+                    break;
+                case 'fixed':
+                    unitSpan.textContent = '<?php _e('（例：5000 = 5,000円割引）', 'monthly-booking'); ?>';
+                    break;
+                case 'flatrate':
+                    unitSpan.textContent = '<?php _e('（例：100000 = 10万円定額）', 'monthly-booking'); ?>';
+                    break;
+                default:
+                    unitSpan.textContent = '';
+            }
+        }
+        
+        document.getElementById('discount_type').addEventListener('change', updateDiscountUnit);
         
         document.getElementById('campaign-modal').addEventListener('click', function(e) {
             if (e.target === this) {
@@ -1560,28 +1622,6 @@ class MonthlyBooking_Admin_UI {
         <?php
     }
     
-    /**
-     * Admin page: プラグイン設定 (Plugin Settings)
-     */
-    public function admin_page_plugin_settings() {
-        if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
-        }
-        
-        ?>
-        <div class="wrap">
-            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-            
-            <form method="post" action="options.php">
-                <?php
-                settings_fields('monthly_booking_settings');
-                do_settings_sections('monthly_booking_settings');
-                submit_button();
-                ?>
-            </form>
-        </div>
-        <?php
-    }
     
     /**
      * Display bookings table
@@ -1611,26 +1651,6 @@ class MonthlyBooking_Admin_UI {
         }
     }
     
-    /**
-     * Settings callbacks
-     */
-    public function settings_section_callback() {
-        echo '<p>' . __('Configure general settings for the Monthly Booking plugin.', 'monthly-booking') . '</p>';
-    }
-    
-    public function default_price_callback() {
-        $options = get_option('monthly_booking_options');
-        $value = isset($options['default_price']) ? $options['default_price'] : '100000';
-        echo '<input type="number" name="monthly_booking_options[default_price]" value="' . esc_attr($value) . '" min="0" step="1000" />';
-        echo '<p class="description">' . __('Default monthly rental price in yen.', 'monthly-booking') . '</p>';
-    }
-    
-    public function cleaning_days_callback() {
-        $options = get_option('monthly_booking_options');
-        $value = isset($options['cleaning_days']) ? $options['cleaning_days'] : '3';
-        echo '<input type="number" name="monthly_booking_options[cleaning_days]" value="' . esc_attr($value) . '" min="1" max="7" />';
-        echo '<p class="description">' . __('Number of days required for cleaning between bookings.', 'monthly-booking') . '</p>';
-    }
     
     public function render_fee_settings_page() {
         if (!current_user_can('manage_options')) {
@@ -1644,7 +1664,14 @@ class MonthlyBooking_Admin_UI {
             check_admin_referer('monthly_booking_fee_settings', 'monthly_booking_fee_nonce');
             
             if (isset($_POST['monthly_booking_fees'])) {
-                $updated_count = $fee_manager->update_fees($_POST['monthly_booking_fees']);
+                $sanitized_fees = array();
+                foreach ($_POST['monthly_booking_fees'] as $key => $value) {
+                    $sanitized_value = floatval($value);
+                    if ($sanitized_value >= 0 && $sanitized_value <= 9999999) {
+                        $sanitized_fees[sanitize_key($key)] = $sanitized_value;
+                    }
+                }
+                $updated_count = $fee_manager->update_fees($sanitized_fees);
                 
                 if ($updated_count > 0) {
                     echo '<div class="notice notice-success"><p>' . 
@@ -1669,7 +1696,6 @@ class MonthlyBooking_Admin_UI {
             'basic_fees' => __('基本料金', 'monthly-booking'),
             'utilities' => __('光熱費', 'monthly-booking'),
             'person_fees' => __('追加人数料金', 'monthly-booking'),
-            'default_rates' => __('デフォルト日額賃料', 'monthly-booking'),
             'discount_limits' => __('オプション割引設定', 'monthly-booking')
         );
         
@@ -1706,6 +1732,7 @@ class MonthlyBooking_Admin_UI {
                                                value="<?php echo esc_attr($fee->setting_value); ?>" 
                                                step="1" 
                                                min="0" 
+                                               max="9999999"
                                                class="regular-text" />
                                         <span class="unit-label">
                                             <?php echo isset($unit_labels[$fee->unit_type]) ? $unit_labels[$fee->unit_type] : esc_html($fee->unit_type); ?>
@@ -1777,10 +1804,6 @@ class MonthlyBooking_Admin_UI {
                     'additional_adult_utilities': 200,
                     'additional_child_rent': 450,
                     'additional_child_utilities': 100,
-                    'default_rent_ss': 2500,
-                    'default_rent_s': 2000,
-                    'default_rent_m': 1900,
-                    'default_rent_l': 1800,
                     'option_discount_max': 2000,
                     'option_discount_base': 500,
                     'option_discount_additional': 300

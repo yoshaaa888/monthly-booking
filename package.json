@@ -1,0 +1,19 @@
+{
+  "name": "monthly-booking-tests",
+  "version": "1.0.0",
+  "description": "Automated tests for Monthly Booking WordPress plugin",
+  "scripts": {
+    "test:e2e": "playwright test --reporter=list,html",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
+    "test:setup": "node test-environment/setup-test-data.js",
+    "test:cleanup": "node test-environment/cleanup-test-data.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "mysql2": "^3.6.0"
+  },
+  "keywords": ["wordpress", "booking", "calendar", "testing"],
+  "author": "Devin AI",
+  "license": "GPL-2.0"
+}
