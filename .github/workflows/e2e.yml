@@ -24,8 +24,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Debug workflow content
-        run: echo "Workflow file loaded successfully"
+      - name: Debug workflow file
+        run: echo "Checking workflow file content" && head -n 50 .github/workflows/e2e.yml
 
       # ▼▼▼▼▼ ここに新しいステップを追加しました ▼▼▼▼▼
       - name: Set WP_DIR environment variable
