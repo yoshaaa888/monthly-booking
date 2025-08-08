@@ -517,8 +517,12 @@ class MonthlyBooking_Booking_Logic {
         $debug_info[] = "calculate_stay_days returned $stay_days days";
         
         $room_info = $this->get_room_info_for_estimate($room_id);
-        $daily_rent = ($room_info && $room_info->daily_rent) ? $room_info->daily_rent : $this->get_default_daily_rent($plan);
-        $debug_info[] = "daily_rent=$daily_rent, room_info daily_rent=" . ($room_info ? $room_info->daily_rent : 'null');
+        if (!$room_info || !$room_info->daily_rent) {
+            wp_send_json_error(__('部屋情報が見つかりません。部屋を選択してください。', 'monthly-booking'));
+            return;
+        }
+        $daily_rent = $room_info->daily_rent;
+        $debug_info[] = "daily_rent=$daily_rent, room_info daily_rent=" . $room_info->daily_rent;
         
         if (!class_exists('MonthlyBooking_Campaign_Manager')) {
             require_once plugin_dir_path(__FILE__) . 'campaign-manager.php';
@@ -830,15 +834,6 @@ class MonthlyBooking_Booking_Logic {
         ));
     }
     
-    /**
-     * Get default daily rent for plan if no room specified
-     */
-    private function get_default_daily_rent($plan) {
-        require_once(plugin_dir_path(__FILE__) . 'fee-manager.php');
-        $fee_manager = Monthly_Booking_Fee_Manager::get_instance();
-        
-        return $fee_manager->get_default_daily_rent($plan);
-    }
     
     /**
      * Calculate Step 3 campaign discounts using new campaign manager

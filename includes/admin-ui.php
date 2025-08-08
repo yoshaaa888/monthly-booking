@@ -1676,7 +1676,6 @@ class MonthlyBooking_Admin_UI {
             'basic_fees' => __('基本料金', 'monthly-booking'),
             'utilities' => __('光熱費', 'monthly-booking'),
             'person_fees' => __('追加人数料金', 'monthly-booking'),
-            'default_rates' => __('デフォルト日額賃料', 'monthly-booking'),
             'discount_limits' => __('オプション割引設定', 'monthly-booking')
         );
         
@@ -1785,10 +1784,6 @@ class MonthlyBooking_Admin_UI {
                     'additional_adult_utilities': 200,
                     'additional_child_rent': 450,
                     'additional_child_utilities': 100,
-                    'default_rent_ss': 2500,
-                    'default_rent_s': 2000,
-                    'default_rent_m': 1900,
-                    'default_rent_l': 1800,
                     'option_discount_max': 2000,
                     'option_discount_base': 500,
                     'option_discount_additional': 300

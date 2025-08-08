@@ -112,27 +112,4 @@ class Monthly_Booking_Fee_Manager {
         $this->fee_cache = array();
     }
     
-    /**
-     * デフォルト日額賃料を取得（プラン別）
-     */
-    public function get_default_daily_rent($plan) {
-        $plan_key_map = array(
-            'SS' => 'default_rent_ss',
-            'S'  => 'default_rent_s',
-            'M'  => 'default_rent_m',
-            'L'  => 'default_rent_l'
-        );
-        
-        $default_values = array(
-            'SS' => 2500,
-            'S'  => 2000,
-            'M'  => 1900,
-            'L'  => 1800
-        );
-        
-        $setting_key = isset($plan_key_map[$plan]) ? $plan_key_map[$plan] : 'default_rent_s';
-        $default_value = isset($default_values[$plan]) ? $default_values[$plan] : 2000;
-        
-        return $this->get_fee($setting_key, $default_value);
-    }
 }
