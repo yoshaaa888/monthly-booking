@@ -11,10 +11,11 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-node@v3
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
       with:
-        node-version: 18
+        node-version: 20
+        cache: 'npm'
     
     - name: Install dependencies
       run: npm ci
@@ -30,19 +31,24 @@ jobs:
     
     - name: Health check WordPress
       run: |
+        echo "CAL_URL=$CAL_URL"
         echo "Waiting for WordPress to be ready..."
         for i in {1..12}; do
-          if curl -fsSL "http://localhost:8888" > /dev/null 2>&1; then
-            echo "WordPress is ready!"
+          if curl -fsSL "$CAL_URL" > /dev/null 2>&1; then
+            echo "WordPress is ready at $CAL_URL!"
             break
           fi
-          echo "Attempt $i/12: WordPress not ready, waiting 5 seconds..."
+          echo "Attempt $i/12: WordPress not ready at $CAL_URL, waiting 5 seconds..."
           sleep 5
         done
-        curl -fsSL "http://localhost:8888" || (echo "WordPress failed to start" && exit 1)
+        curl -fsSL "$CAL_URL" || (echo "WordPress failed to start at $CAL_URL" && exit 1)
+      env:
+        CAL_URL: http://localhost:8888
     
     - name: Run Playwright tests
-      run: npm run test:e2e
+      run: |
+        echo "CAL_URL=$CAL_URL"
+        npm run test:e2e
       env:
         CAL_URL: http://localhost:8888
     
@@ -50,12 +56,12 @@ jobs:
       if: always()
       with:
         name: playwright-report
-        path: playwright-report/
-        retention-days: 30
+        path: playwright-report/**
+        retention-days: 7
     
     - uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-results
-        path: test-results/
-        retention-days: 30
+        path: test-results/**
+        retention-days: 7
