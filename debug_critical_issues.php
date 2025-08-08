@@ -14,11 +14,9 @@ if (strpos($admin_ui_content, '<select id="room_select"') !== false &&
     strpos($admin_ui_content, '</select>') !== false) {
     echo "✅ PASS: Room selection dropdown HTML structure is correct\n";
     
-    $select_start = strpos($admin_ui_content, '<select id="room_select"');
-    $select_end = strpos($admin_ui_content, '</select>', $select_start);
-    
-    if ($select_start !== false && $select_end !== false && $select_end > $select_start) {
-        echo "✅ PASS: Select tag is properly closed\n";
+    $select_pattern = '/<select[^>]*id="room_select"[^>]*>.*?<\/select>/s';
+    if (preg_match($select_pattern, $admin_ui_content)) {
+        echo "✅ PASS: Select tag is properly closed with options inside\n";
     } else {
         echo "❌ FAIL: Select tag structure issue\n";
     }
@@ -27,11 +25,27 @@ if (strpos($admin_ui_content, '<select id="room_select"') !== false &&
 }
 
 echo "\nTest 2: Default Rates Section Removal\n";
-if (strpos($admin_ui_content, 'default_rates') === false && 
-    strpos($admin_ui_content, 'デフォルト日額賃料') === false) {
-    echo "✅ PASS: No default rates references found in admin UI\n";
-} else {
-    echo "❌ FAIL: Default rates references still exist\n";
+$all_files = [
+    '/home/ubuntu/repos/monthly-booking/includes/admin-ui.php',
+    '/home/ubuntu/repos/monthly-booking/includes/fee-manager.php',
+    '/home/ubuntu/repos/monthly-booking/includes/booking-logic.php'
+];
+
+$default_rates_found = false;
+foreach ($all_files as $file) {
+    if (file_exists($file)) {
+        $content = file_get_contents($file);
+        if (strpos($content, 'default_rates') !== false || 
+            strpos($content, 'デフォルト日額賃料') !== false ||
+            strpos($content, 'default_rent') !== false) {
+            echo "❌ FAIL: Default rates references found in " . basename($file) . "\n";
+            $default_rates_found = true;
+        }
+    }
+}
+
+if (!$default_rates_found) {
+    echo "✅ PASS: No default rates references found in any file\n";
 }
 
 echo "\nTest 3: Campaign Duplicate Name Validation\n";
@@ -52,11 +66,10 @@ if (strpos($campaign_manager_content, 'P180D') !== false &&
 }
 
 echo "\nTest 4: Plugin Settings Removal\n";
-if (strpos($admin_ui_content, 'register_settings') === false && 
-    strpos($admin_ui_content, 'monthly_booking_options') === false) {
-    echo "✅ PASS: Plugin settings registration removed from admin UI\n";
+if (strpos($admin_ui_content, 'register_settings') === false) {
+    echo "✅ PASS: register_settings method removed from admin UI\n";
 } else {
-    echo "❌ FAIL: Plugin settings references still exist in admin UI\n";
+    echo "❌ FAIL: register_settings method still exists in admin UI\n";
 }
 
 $booking_logic_content = file_get_contents('/home/ubuntu/repos/monthly-booking/includes/booking-logic.php');
@@ -66,8 +79,25 @@ if (strpos($booking_logic_content, "get_option('monthly_booking_options')") === 
     echo "❌ FAIL: Plugin options references still exist in booking logic\n";
 }
 
-echo "\nTest 5: Database Room Data Availability\n";
-echo "✅ INFO: Room data test requires WordPress environment - manual verification needed\n";
+echo "\nTest 5: Comprehensive File Search\n";
+$search_terms = ['default_rates', 'デフォルト日額賃料', 'monthly_booking_options', 'register_settings'];
+foreach ($search_terms as $term) {
+    $found_files = [];
+    foreach ($all_files as $file) {
+        if (file_exists($file)) {
+            $content = file_get_contents($file);
+            if (strpos($content, $term) !== false) {
+                $found_files[] = basename($file);
+            }
+        }
+    }
+    
+    if (empty($found_files)) {
+        echo "✅ PASS: '$term' not found in any file\n";
+    } else {
+        echo "❌ FAIL: '$term' found in: " . implode(', ', $found_files) . "\n";
+    }
+}
 
 echo "\n=== Summary ===\n";
 echo "✅ Room dropdown HTML structure fixed\n";
