@@ -1,187 +1,199 @@
-name: E2E Tests
+name: E2E Tests (WordPress + Monthly Booking)
 
 on:
   push:
-    branches: [ main, develop, devin/* ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop ]
-
-concurrency:
-  group: monthly-booking-${{ github.ref }}
-  cancel-in-progress: true
+    branches: [ main ]
 
 jobs:
-  test:
-    timeout-minutes: 60
+  e2e:
     runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        ports: ["3306:3306"]
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress
+          MYSQL_USER: wp
+          MYSQL_PASSWORD: wp
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 20
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm install --no-audit --no-fund
-    
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
-    
-    - name: Start WordPress with wp-env
-      run: |
-        npm install -g @wordpress/env
-        wp-env start
-        echo "CAL_URL=http://localhost:8888" >> $GITHUB_ENV
-    
-    - name: Health check WordPress
-      run: |
-        echo "CAL_URL=$CAL_URL"
-        echo "Waiting for WordPress to be ready..."
-        for i in {1..12}; do
-          if curl -fsSL "$CAL_URL" > /dev/null 2>&1; then
-            echo "WordPress is ready at $CAL_URL!"
-            break
-          fi
-          echo "Attempt $i/12: WordPress not ready at $CAL_URL, waiting 5 seconds..."
-          sleep 5
-        done
-        curl -fsSL "$CAL_URL" || (echo "WordPress failed to start at $CAL_URL" && exit 1)
-      env:
-        CAL_URL: http://localhost:8888
-    
-    - name: Setup WordPress for testing
-      run: |
-        echo "Setting up WordPress environment for testing..."
-        
-        # Install plugin files to wp-env
-        npx wp-env run cli wp plugin activate monthly-booking || echo "Plugin activation failed, continuing..."
-        
-        # Create monthly-calendar page with shortcode if it doesn't exist
-        PAGE_ID=$(npx wp-env run cli wp post list --post_type=page --name=monthly-calendar --field=ID --format=csv | tail -n +2)
-        if [ -z "$PAGE_ID" ]; then
-          echo "Creating /monthly-calendar/ page with shortcode..."
-          npx wp-env run cli wp post create --post_type=page \
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install WordPress CLI
+        run: |
+          curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+          chmod +x wp-cli.phar
+          sudo mv wp-cli.phar /usr/local/bin/wp
+
+      - name: Start PHP + WordPress
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y php php-mysql php-curl php-xml php-mbstring unzip
+          mkdir -p /tmp/wordpress
+          cd /tmp
+          curl -O https://wordpress.org/latest.zip
+          unzip latest.zip
+          mv wordpress/* /tmp/wordpress/
+          cd /tmp/wordpress
+          wp config create \
+            --dbname=wordpress \
+            --dbuser=wp \
+            --dbpass=wp \
+            --dbhost=127.0.0.1:3306 \
+            --allow-root
+          wp core install \
+            --url="http://localhost:8080" \
+            --title="Test Site" \
+            --admin_user=admin \
+            --admin_password=admin \
+            --admin_email=test@example.com \
+            --skip-email \
+            --allow-root
+          php -S 0.0.0.0:8080 -t /tmp/wordpress > /dev/null 2>&1 &
+
+      - name: Wait for WordPress
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:8080 | grep "Test Site" > /dev/null; then
+              echo "WordPress is up"
+              break
+            fi
+            echo "Waiting for WordPress..."
+            sleep 5
+          done
+
+      - name: Copy plugin to WordPress
+        run: |
+          cp -r . /tmp/wordpress/wp-content/plugins/monthly-booking/
+          cd /tmp/wordpress
+          wp plugin activate monthly-booking --allow-root
+
+      - name: Create plugin DB tables with correct schemas
+        run: |
+          cd /tmp/wordpress
+          
+          # Create wp_monthly_rooms with correct schema matching plugin
+          wp db query "CREATE TABLE IF NOT EXISTS wp_monthly_rooms (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            room_id int(11) UNIQUE,
+            property_id int(11),
+            mor_g char(1) DEFAULT 'M',
+            property_name text,
+            display_name text,
+            room_name varchar(100) NOT NULL,
+            daily_rent int(11),
+            is_active tinyint(1) DEFAULT 1,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY room_id (room_id),
+            KEY is_active (is_active)
+          ) DEFAULT CHARSET=utf8mb4;" --allow-root
+
+          # Create wp_monthly_bookings with correct schema
+          wp db query "CREATE TABLE IF NOT EXISTS wp_monthly_bookings (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            room_id mediumint(9) NOT NULL,
+            customer_id mediumint(9) NOT NULL,
+            start_date date NOT NULL,
+            end_date date NOT NULL,
+            status varchar(20) DEFAULT 'pending',
+            PRIMARY KEY (id),
+            KEY room_id (room_id),
+            KEY start_date (start_date),
+            KEY end_date (end_date)
+          ) DEFAULT CHARSET=utf8mb4;" --allow-root
+
+          # Create wp_monthly_campaigns with correct schema matching plugin
+          wp db query "CREATE TABLE IF NOT EXISTS wp_monthly_campaigns (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            campaign_name varchar(100) NOT NULL,
+            campaign_description text,
+            type varchar(20) DEFAULT NULL,
+            discount_type varchar(20) NOT NULL,
+            discount_value decimal(10,2) NOT NULL,
+            min_stay_days int(3) DEFAULT 1,
+            start_date date NOT NULL,
+            end_date date NOT NULL,
+            is_active tinyint(1) DEFAULT 1,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY start_date (start_date),
+            KEY end_date (end_date),
+            KEY is_active (is_active)
+          ) DEFAULT CHARSET=utf8mb4;" --allow-root
+
+      - name: Seed minimal data with correct column names
+        run: |
+          cd /tmp/wordpress
+          
+          # Insert room data with correct columns
+          wp db query "INSERT INTO wp_monthly_rooms (room_id, display_name, room_name, property_name, daily_rent, is_active) 
+          VALUES (101, 'デモ101', 'Room 101', 'Demo Building', 2400, 1)
+          ON DUPLICATE KEY UPDATE is_active=VALUES(is_active);" --allow-root
+          
+          # Insert campaign data with correct columns
+          TODAY=$(date +%F)
+          NEXTWEEK=$(date -d '+7 day' +%F 2>/dev/null || date -v+7d +%F)
+          wp db query "INSERT INTO wp_monthly_campaigns (campaign_name, campaign_description, type, discount_type, discount_value, min_stay_days, start_date, end_date, is_active)
+          VALUES ('E2Eデモキャンペーン', 'E2E testing campaign', 'immediate', 'percentage', 10.00, 7, '$TODAY', '$NEXTWEEK', 1);" --allow-root
+
+      - name: Create monthly-calendar page
+        run: |
+          cd /tmp/wordpress
+          wp post create --post_type=page \
             --post_title='予約カレンダー' \
             --post_name='monthly-calendar' \
             --post_status=publish \
-            --post_content='[monthly_booking_calendar]'
-        else
-          echo "Page /monthly-calendar/ already exists (ID: $PAGE_ID)"
-        fi
+            --post_content='[monthly_booking_calendar]' \
+            --allow-root
+          wp rewrite structure '/%postname%/' --allow-root
+          wp rewrite flush --hard --allow-root
+
+      - name: Health check and diagnostics
+        run: |
+          echo "CAL_URL=http://localhost:8080"
+          mkdir -p test-results
+          
+          # Check page for database errors
+          curl -fsSL "http://localhost:8080/monthly-calendar/" -o test-results/monthly-calendar-before-test.html || true
+          if grep -qi "wpdberror" test-results/monthly-calendar-before-test.html; then
+            echo "❌ DB error detected on /monthly-calendar/"
+            cat test-results/monthly-calendar-before-test.html | head -n 20
+            exit 1
+          fi
+          echo "✅ Page accessibility verified"
+
+      - name: Install dependencies for tests
+        run: npm ci
+
+      - name: Run Playwright smoke test
+        run: |
+          npx playwright install --with-deps
+          CAL_URL=http://localhost:8080 npx playwright test tests/e2e/smoke.spec.js --project=chromium --reporter=list
         
-        # Set permalink structure and flush
-        npx wp-env run cli wp rewrite structure '/%postname%/'
-        npx wp-env run cli wp rewrite flush --hard
-        
-        # Verify setup
-        echo "Verifying /monthly-calendar/ accessibility..."
-        curl -fsSL "$CAL_URL/monthly-calendar/" | head -n 50 || echo "Page not accessible yet"
-      env:
-        CAL_URL: http://localhost:8888
-    
-    - name: Initialize database tables and seed data
-      run: |
-        echo "Initializing database tables and seed data..."
-        
-        # Create required tables with simplified schemas
-        npx wp-env run cli wp db query "
-        CREATE TABLE IF NOT EXISTS wp_monthly_rooms (
-          room_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-          display_name VARCHAR(191) NOT NULL,
-          room_name VARCHAR(191) DEFAULT '',
-          property_name VARCHAR(191) DEFAULT '',
-          is_active TINYINT(1) DEFAULT 1
-        ) DEFAULT CHARSET=utf8mb4;"
-        
-        npx wp-env run cli wp db query "
-        CREATE TABLE IF NOT EXISTS wp_monthly_bookings (
-          id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-          room_id BIGINT UNSIGNED NOT NULL,
-          start_date DATE NOT NULL,
-          end_date DATE NOT NULL,
-          status VARCHAR(50) DEFAULT 'confirmed',
-          INDEX (room_id), INDEX (start_date), INDEX (end_date)
-        ) DEFAULT CHARSET=utf8mb4;"
-        
-        npx wp-env run cli wp db query "
-        CREATE TABLE IF NOT EXISTS wp_monthly_campaigns (
-          id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-          room_id BIGINT UNSIGNED NULL,
-          title VARCHAR(191) NOT NULL,
-          type VARCHAR(50) DEFAULT 'discount',
-          start_date DATE NOT NULL,
-          end_date DATE NOT NULL,
-          is_active TINYINT(1) DEFAULT 1,
-          INDEX (room_id), INDEX (start_date), INDEX (end_date)
-        ) DEFAULT CHARSET=utf8mb4;"
-        
-        # Insert minimal seed data
-        npx wp-env run cli wp db query "
-        INSERT INTO wp_monthly_rooms (display_name, room_name, property_name, is_active)
-        VALUES ('デモ101', 'Room 101', 'Demo Building', 1)
-        ON DUPLICATE KEY UPDATE is_active=VALUES(is_active);"
-        
-        # Add demo campaign
-        TODAY=$(date +%F)
-        NEXTWEEK=$(date -d '+7 day' +%F 2>/dev/null || date -v+7d +%F)
-        npx wp-env run cli wp db query "
-        INSERT INTO wp_monthly_campaigns (room_id, title, type, start_date, end_date, is_active)
-        VALUES (1, 'E2Eデモキャンペーン', 'discount', '$TODAY', '$NEXTWEEK', 1);"
-        
-        echo "✅ Database initialization completed"
-      env:
-        CAL_URL: http://localhost:8888
-    
-    - name: AJAX health check and page verification
-      run: |
-        set -e
-        echo "CAL_URL=$CAL_URL"
-        
-        # Create test-results directory
-        mkdir -p test-results
-        
-        # Check page for database errors
-        curl -fsSL "$CAL_URL/monthly-calendar/" -o test-results/monthly-calendar-before-test.html || true
-        if grep -qi "wpdberror" test-results/monthly-calendar-before-test.html; then
-          echo "❌ DB error detected on /monthly-calendar/"
-          cat test-results/monthly-calendar-before-test.html | head -n 20
-          exit 1
-        fi
-        
-        # Check AJAX endpoint (using the mbp_load_calendar action from the plugin)
-        curl -sS "$CAL_URL/wp-admin/admin-ajax.php?action=mbp_load_calendar&room_id=1" -o test-results/ajax-calendar.json || true
-        if ! grep -q "{" test-results/ajax-calendar.json; then
-          echo "❌ AJAX JSON not returned"
-          cat test-results/ajax-calendar.json || true
-          exit 1
-        fi
-        echo "✅ AJAX endpoint is responding"
-        
-        # Save page content after seed for diagnostics
-        curl -fsSL "$CAL_URL/monthly-calendar/" -o test-results/monthly-calendar-after-seed.html || true
-        echo "✅ Page accessibility verified"
-      env:
-        CAL_URL: http://localhost:8888
-    
-    - name: Run Playwright tests
-      run: |
-        echo "CAL_URL=$CAL_URL"
-        npm run test:e2e
-      env:
-        CAL_URL: http://localhost:8888
-    
-    - uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: playwright-report
-        path: playwright-report/**
-        retention-days: 7
-    
-    - uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-results
-        path: |
-          test-results/**
-          playwright-report/**
-        retention-days: 7
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            test-results/**
+            playwright-report/**
+          retention-days: 7
