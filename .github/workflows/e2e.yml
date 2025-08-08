@@ -24,8 +24,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Debug: print current workflow
-        run: sed -n '1,160p' .github/workflows/e2e.yml
+      - name: Debug workflow content
+        run: echo "Workflow file loaded successfully"
 
       # ▼▼▼▼▼ ここに新しいステップを追加しました ▼▼▼▼▼
       - name: Set WP_DIR environment variable
