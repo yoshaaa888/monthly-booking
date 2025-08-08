@@ -49,6 +49,36 @@ jobs:
       env:
         CAL_URL: http://localhost:8888
     
+    - name: Setup WordPress for testing
+      run: |
+        echo "Setting up WordPress environment for testing..."
+        
+        # Install plugin files to wp-env
+        npx wp-env run cli wp plugin activate monthly-booking || echo "Plugin activation failed, continuing..."
+        
+        # Create monthly-calendar page with shortcode if it doesn't exist
+        PAGE_ID=$(npx wp-env run cli wp post list --post_type=page --name=monthly-calendar --field=ID --format=csv | tail -n +2)
+        if [ -z "$PAGE_ID" ]; then
+          echo "Creating /monthly-calendar/ page with shortcode..."
+          npx wp-env run cli wp post create --post_type=page \
+            --post_title='予約カレンダー' \
+            --post_name='monthly-calendar' \
+            --post_status=publish \
+            --post_content='[monthly_booking_calendar]'
+        else
+          echo "Page /monthly-calendar/ already exists (ID: $PAGE_ID)"
+        fi
+        
+        # Set permalink structure and flush
+        npx wp-env run cli wp rewrite structure '/%postname%/'
+        npx wp-env run cli wp rewrite flush --hard
+        
+        # Verify setup
+        echo "Verifying /monthly-calendar/ accessibility..."
+        curl -fsSL "$CAL_URL/monthly-calendar/" | head -n 50 || echo "Page not accessible yet"
+      env:
+        CAL_URL: http://localhost:8888
+    
     - name: Run Playwright tests
       run: |
         echo "CAL_URL=$CAL_URL"
