@@ -36,6 +36,7 @@ class MonthlyBooking {
         }
         
         $this->init_frontend();
+        $this->init_ajax_handlers();
     }
     
     private function include_files() {
@@ -43,6 +44,8 @@ class MonthlyBooking {
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/calendar-render.php';
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/booking-logic.php';
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/campaign-manager.php';
+        require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/calendar-api.php';
+        require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/calendar-utils.php';
     }
     
     private function init_admin() {
@@ -50,9 +53,19 @@ class MonthlyBooking {
     }
     
     private function init_frontend() {
-        new MonthlyBooking_Calendar_Render();
+        $calendar_render = new MonthlyBooking_Calendar_Render();
+        
+        add_shortcode('monthly_booking_estimate', array($calendar_render, 'render_estimate_shortcode'));
+        add_shortcode('monthly_booking_calendar', array($calendar_render, 'render_calendar_shortcode'));
+        add_shortcode('monthly_booking_admin', array($calendar_render, 'render_admin_shortcode'));
+        
         new MonthlyBooking_Booking_Logic();
         new MonthlyBooking_Campaign_Manager();
+    }
+    
+    private function init_ajax_handlers() {
+        add_action('wp_ajax_mbp_load_calendar', array($this, 'ajax_load_calendar'));
+        add_action('wp_ajax_nopriv_mbp_load_calendar', array($this, 'ajax_load_calendar'));
     }
     
     public function activate() {
@@ -549,6 +562,26 @@ class MonthlyBooking {
         dbDelta($sql);
         
         $this->insert_default_fee_settings();
+    }
+    
+    public function ajax_load_calendar() {
+        check_ajax_referer('mbp_calendar_nonce', 'nonce');
+        
+        $room_id = intval($_POST['room_id']);
+        
+        if (!$room_id) {
+            wp_send_json_error('Invalid room ID');
+            return;
+        }
+        
+        if (!class_exists('MonthlyBooking_Calendar_Render')) {
+            require_once plugin_dir_path(__FILE__) . 'includes/calendar-render.php';
+        }
+        
+        $calendar_render = new MonthlyBooking_Calendar_Render();
+        $calendar_html = $calendar_render->render_6_month_calendar($room_id);
+        
+        wp_send_json_success($calendar_html);
     }
     
     private function insert_default_fee_settings() {

@@ -322,7 +322,7 @@ class MonthlyBooking_Campaign_Manager {
         
         if ($stay_days && $stay_days >= 7 && $stay_days <= 10) {
             $campaign = $this->get_campaign_by_type('flatrate');
-            if ($campaign) {
+            if ($campaign && isset($campaign->id)) {
                 $eligible_campaigns[] = array(
                     'id' => $campaign->id,
                     'name' => $campaign->campaign_name,
@@ -339,7 +339,7 @@ class MonthlyBooking_Campaign_Manager {
         
         if ($days_until_checkin <= 7) {
             $campaign = $this->get_campaign_by_type('immediate');
-            if ($campaign) {
+            if ($campaign && isset($campaign->id)) {
                 $eligible_campaigns[] = array(
                     'id' => $campaign->id,
                     'name' => $campaign->campaign_name,
@@ -356,7 +356,7 @@ class MonthlyBooking_Campaign_Manager {
         
         if ($days_until_checkin >= 30) {
             $campaign = $this->get_campaign_by_type('earlybird');
-            if ($campaign) {
+            if ($campaign && isset($campaign->id)) {
                 $eligible_campaigns[] = array(
                     'id' => $campaign->id,
                     'name' => $campaign->campaign_name,

@@ -68,18 +68,212 @@ class MonthlyBooking_Calendar_Render {
      */
     public function render_calendar_shortcode($atts) {
         $atts = shortcode_atts(array(
-            'property_id' => 1,
-            'months' => 12
+            'room_id' => '',
+            'months' => 6
         ), $atts, 'monthly_booking_calendar');
         
+        if (!class_exists('MonthlyBooking_Calendar_API')) {
+            require_once plugin_dir_path(__FILE__) . 'calendar-api.php';
+        }
+        
+        if (!class_exists('MonthlyBooking_Calendar_Utils')) {
+            require_once plugin_dir_path(__FILE__) . 'calendar-utils.php';
+        }
+        
+        $api = new MonthlyBooking_Calendar_API();
+        $rooms = $api->mbp_get_rooms();
+        $selected_room_id = $atts['room_id'];
+        
+        if (!$selected_room_id && !empty($rooms)) {
+            $selected_room_id = $rooms[0]->id;
+        }
+        
+        ob_start();
+        
+        ?>
+        <div class="monthly-booking-calendar-container">
+            <div class="monthly-booking-calendar">
+                <div class="calendar-header">
+                    <h3><?php _e('予約カレンダー', 'monthly-booking'); ?></h3>
+                    
+                    <?php if (!$atts['room_id'] && !empty($rooms)): ?>
+                    <div class="room-selection">
+                        <label for="room-selector"><?php _e('部屋を選択:', 'monthly-booking'); ?></label>
+                        <select id="room-selector" class="room-selector">
+                            <?php foreach ($rooms as $room): ?>
+                                <option value="<?php echo esc_attr($room->id); ?>" 
+                                        <?php selected($room->id, $selected_room_id); ?>>
+                                    <?php echo esc_html($room->name ? $room->name : $room->room_name); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                
+                <div class="calendar-content" data-room-id="<?php echo esc_attr($selected_room_id); ?>">
+                    <?php echo $this->render_6_month_calendar($selected_room_id); ?>
+                </div>
+                
+                <div class="calendar-legend">
+                    <div class="legend-item">
+                        <span class="legend-color legend-available"></span>
+                        <span><?php _e('空室 (〇)', 'monthly-booking'); ?></span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color legend-booked"></span>
+                        <span><?php _e('予約済み/清掃期間 (×)', 'monthly-booking'); ?></span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color legend-campaign"></span>
+                        <span><?php _e('キャンペーン対象 (△)', 'monthly-booking'); ?></span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color legend-today"></span>
+                        <span><?php _e('今日', 'monthly-booking'); ?></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <script type="text/javascript">
+        jQuery(document).ready(function($) {
+            $('.room-selector').on('change', function() {
+                var roomId = $(this).val();
+                var calendarContent = $('.calendar-content');
+                
+                calendarContent.attr('data-room-id', roomId);
+                calendarContent.html('<div class="loading"><?php _e("読み込み中...", "monthly-booking"); ?></div>');
+                
+                $.ajax({
+                    url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                    type: 'POST',
+                    data: {
+                        action: 'mbp_load_calendar',
+                        room_id: roomId,
+                        nonce: '<?php echo wp_create_nonce('mbp_calendar_nonce'); ?>'
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            calendarContent.html(response.data);
+                        } else {
+                            calendarContent.html('<div class="error"><?php _e("カレンダーの読み込みに失敗しました。", "monthly-booking"); ?></div>');
+                        }
+                    },
+                    error: function() {
+                        calendarContent.html('<div class="error"><?php _e("エラーが発生しました。ページを再読み込みしてください。", "monthly-booking"); ?></div>');
+                    }
+                });
+            });
+        });
+        </script>
+        <?php
+        
+        return ob_get_clean();
+    }
+    
+    /**
+     * Render 6-month calendar for a specific room
+     */
+    public function render_6_month_calendar($room_id) {
+        if (!$room_id) {
+            return '<div class="no-room-selected">' . __('部屋が選択されていません。', 'monthly-booking') . '</div>';
+        }
+        
+        if (!class_exists('MonthlyBooking_Calendar_API')) {
+            require_once plugin_dir_path(__FILE__) . 'calendar-api.php';
+        }
+        
+        if (!class_exists('MonthlyBooking_Calendar_Utils')) {
+            require_once plugin_dir_path(__FILE__) . 'calendar-utils.php';
+        }
+        
+        $api = new MonthlyBooking_Calendar_API();
+        $today = MonthlyBooking_Calendar_Utils::get_wp_timezone_date('today')->format('Y-m-d');
+        $end_date = MonthlyBooking_Calendar_Utils::get_wp_timezone_date('+180 days')->format('Y-m-d');
+        
+        $bookings = $api->mbp_get_bookings($room_id, $today, $end_date);
+        $campaign_days = $api->mbp_get_campaign_days($room_id, $today, $end_date);
+        
+        if (empty($campaign_days)) {
+            $global_campaigns = $api->get_global_campaigns($today, $end_date);
+            $campaign_days = $global_campaigns;
+        }
+        
+        $dates = MonthlyBooking_Calendar_Utils::generate_6_month_dates($today);
+        $months = MonthlyBooking_Calendar_Utils::group_dates_by_month($dates);
+        
+        ob_start();
+        
+        foreach ($months as $month_data) {
+            echo $this->render_month_grid($month_data, $bookings, $campaign_days, $today);
+        }
+        
+        return ob_get_clean();
+    }
+    
+    /**
+     * Render individual month grid
+     */
+    private function render_month_grid($month_data, $bookings, $campaign_days, $today) {
         ob_start();
         ?>
-        <div class="monthly-booking-calendar" data-property-id="<?php echo esc_attr($atts['property_id']); ?>">
-            <div class="calendar-header">
-                <h3><?php _e('Availability Calendar', 'monthly-booking'); ?></h3>
+        <div class="calendar-month" data-month="<?php echo esc_attr($month_data['year'] . '-' . sprintf('%02d', $month_data['month'])); ?>">
+            <div class="month-header">
+                <h4><?php echo esc_html($month_data['month_name']); ?></h4>
             </div>
+            
             <div class="calendar-grid">
-                <?php echo $this->render_calendar_months(intval($atts['months'])); ?>
+                <div class="calendar-day-header"><?php _e('日', 'monthly-booking'); ?></div>
+                <div class="calendar-day-header"><?php _e('月', 'monthly-booking'); ?></div>
+                <div class="calendar-day-header"><?php _e('火', 'monthly-booking'); ?></div>
+                <div class="calendar-day-header"><?php _e('水', 'monthly-booking'); ?></div>
+                <div class="calendar-day-header"><?php _e('木', 'monthly-booking'); ?></div>
+                <div class="calendar-day-header"><?php _e('金', 'monthly-booking'); ?></div>
+                <div class="calendar-day-header"><?php _e('土', 'monthly-booking'); ?></div>
+                
+                <?php
+                $first_date = new DateTime($month_data['dates'][0]);
+                $first_day_of_week = $first_date->format('w');
+                
+                for ($i = 0; $i < $first_day_of_week; $i++) {
+                    echo '<div class="calendar-day other-month"></div>';
+                }
+                
+                foreach ($month_data['dates'] as $date) {
+                    $status = MonthlyBooking_Calendar_Utils::get_day_status($date, $bookings, $campaign_days);
+                    $date_info = MonthlyBooking_Calendar_Utils::format_japanese_date($date);
+                    $is_today = ($date === $today);
+                    
+                    $classes = array('calendar-day', $status['class']);
+                    if ($is_today) {
+                        $classes[] = 'today';
+                    }
+                    
+                    $aria_label = $date_info['formatted'] . ' ' . $status['label'];
+                    if (isset($status['campaign_name'])) {
+                        $aria_label .= ' - ' . $status['campaign_name'];
+                    }
+                    ?>
+                    <div class="<?php echo esc_attr(implode(' ', $classes)); ?>" 
+                         data-date="<?php echo esc_attr($date); ?>"
+                         aria-label="<?php echo esc_attr($aria_label); ?>"
+                         tabindex="0"
+                         <?php if (isset($status['campaign_name'])): ?>
+                         data-campaign="<?php echo esc_attr($status['campaign_name']); ?>"
+                         data-campaign-type="<?php echo esc_attr($status['campaign_type']); ?>"
+                         <?php endif; ?>>
+                        <div class="day-number"><?php echo esc_html($date_info['day']); ?></div>
+                        <div class="day-status"><?php echo esc_html($status['symbol']); ?></div>
+                        <?php if (isset($status['campaign_name'])): ?>
+                        <div class="campaign-tooltip">
+                            <strong><?php echo esc_html($status['campaign_name']); ?></strong>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                    <?php
+                }
+                ?>
             </div>
         </div>
         <?php
@@ -87,29 +281,7 @@ class MonthlyBooking_Calendar_Render {
     }
     
     /**
-     * Render calendar months
-     */
-    private function render_calendar_months($months_count) {
-        $output = '';
-        $current_date = new DateTime();
-        
-        for ($i = 0; $i < $months_count; $i++) {
-            $month_date = clone $current_date;
-            $month_date->modify("+{$i} months");
-            
-            $output .= '<div class="calendar-month">';
-            $output .= '<h4>' . $month_date->format('Y年n月') . '</h4>';
-            $output .= '<div class="month-grid">';
-            $output .= $this->render_month_days($month_date);
-            $output .= '</div>';
-            $output .= '</div>';
-        }
-        
-        return $output;
-    }
-    
-    /**
-     * Render days for a specific month
+     * Render days for a specific month (legacy method)
      */
     private function render_month_days($month_date) {
         $output = '';
