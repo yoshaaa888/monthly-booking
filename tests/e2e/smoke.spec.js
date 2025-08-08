@@ -22,39 +22,58 @@ test.describe('Calendar Smoke Test', () => {
       await page.goto('/monthly-calendar/');
       await page.waitForLoadState('networkidle', { timeout: 10000 });
       
+      const pageHTML = await page.content();
+      if (pageHTML.toLowerCase().includes('wpdberror')) {
+        console.error('❌ WordPress database error detected');
+        const fs = require('fs');
+        const path = require('path');
+        const artifactsDir = path.join(process.cwd(), 'test-results');
+        if (!fs.existsSync(artifactsDir)) {
+          fs.mkdirSync(artifactsDir, { recursive: true });
+        }
+        fs.writeFileSync(path.join(artifactsDir, 'wpdberror-page.html'), pageHTML);
+        throw new Error('WordPress database error detected on /monthly-calendar/ page');
+      }
+      
       let calendarFound = false;
       let monthCount = 0;
       
-      const calendarContainer = page.locator('.monthly-booking-calendar-container');
-      if (await calendarContainer.isVisible()) {
-        console.info('✅ Found new calendar container');
+      await page.waitForLoadState('networkidle', { timeout: 15000 });
+      
+      const tier1Selector = page.locator('.monthly-booking-calendar-container .calendar-month .calendar-header');
+      monthCount = await tier1Selector.count();
+      if (monthCount > 0) {
+        console.info('✅ Found calendar headers (Tier 1):', monthCount);
         calendarFound = true;
-        
-        const monthHeaders = page.locator('.month-header h4');
-        monthCount = await monthHeaders.count();
-        console.info('Found month headers in new container:', monthCount);
       }
       
       if (!calendarFound) {
-        const existingCalendar = page.locator('.calendar-month .calendar-header');
-        if (await existingCalendar.count() > 0) {
-          console.info('✅ Found existing calendar structure');
+        const tier2Selector = page.locator('.calendar-month .calendar-header');
+        monthCount = await tier2Selector.count();
+        if (monthCount > 0) {
+          console.info('✅ Found calendar headers (Tier 2):', monthCount);
           calendarFound = true;
-          monthCount = await existingCalendar.count();
-          console.info('Found calendar headers in existing structure:', monthCount);
         }
       }
       
       if (!calendarFound) {
-        const pageText = await page.textContent('body');
-        if (pageText && (pageText.includes('予約カレンダー') || pageText.includes('空室') || pageText.includes('calendar'))) {
-          console.info('✅ Found calendar-related text content');
+        const tier3Selector = page.locator('.monthly-booking-calendar-container .calendar-month');
+        monthCount = await tier3Selector.count();
+        if (monthCount > 0) {
+          console.info('✅ Found calendar months (Tier 3):', monthCount);
           calendarFound = true;
-          monthCount = 1; // Assume at least one month if text is found
         }
       }
       
-      const pageHTML = await page.content();
+      if (!calendarFound) {
+        const tier4Selector = page.locator('.calendar-month');
+        monthCount = await tier4Selector.count();
+        if (monthCount > 0) {
+          console.info('✅ Found calendar months (Tier 4):', monthCount);
+          calendarFound = true;
+        }
+      }
+      
       console.info('📄 Page HTML length:', pageHTML.length);
       
       if (!calendarFound) {

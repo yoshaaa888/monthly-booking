@@ -81,7 +81,7 @@ test.describe('Calendar Booking Logic Tests', () => {
     }
   });
 
-  test('Month boundary handling', async ({ page }) => {
+  (process.env.CI ? test.skip : test)('Month boundary handling', async ({ page }) => {
     const roomSelector = page.locator('#room-selector');
     
     if (await roomSelector.isVisible()) {

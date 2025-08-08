@@ -79,6 +79,90 @@ jobs:
       env:
         CAL_URL: http://localhost:8888
     
+    - name: Initialize database tables and seed data
+      run: |
+        echo "Initializing database tables and seed data..."
+        
+        # Create required tables with simplified schemas
+        npx wp-env run cli wp db query "
+        CREATE TABLE IF NOT EXISTS wp_monthly_rooms (
+          room_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+          display_name VARCHAR(191) NOT NULL,
+          room_name VARCHAR(191) DEFAULT '',
+          property_name VARCHAR(191) DEFAULT '',
+          is_active TINYINT(1) DEFAULT 1
+        ) DEFAULT CHARSET=utf8mb4;"
+        
+        npx wp-env run cli wp db query "
+        CREATE TABLE IF NOT EXISTS wp_monthly_bookings (
+          id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+          room_id BIGINT UNSIGNED NOT NULL,
+          start_date DATE NOT NULL,
+          end_date DATE NOT NULL,
+          status VARCHAR(50) DEFAULT 'confirmed',
+          INDEX (room_id), INDEX (start_date), INDEX (end_date)
+        ) DEFAULT CHARSET=utf8mb4;"
+        
+        npx wp-env run cli wp db query "
+        CREATE TABLE IF NOT EXISTS wp_monthly_campaigns (
+          id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+          room_id BIGINT UNSIGNED NULL,
+          title VARCHAR(191) NOT NULL,
+          type VARCHAR(50) DEFAULT 'discount',
+          start_date DATE NOT NULL,
+          end_date DATE NOT NULL,
+          is_active TINYINT(1) DEFAULT 1,
+          INDEX (room_id), INDEX (start_date), INDEX (end_date)
+        ) DEFAULT CHARSET=utf8mb4;"
+        
+        # Insert minimal seed data
+        npx wp-env run cli wp db query "
+        INSERT INTO wp_monthly_rooms (display_name, room_name, property_name, is_active)
+        VALUES ('デモ101', 'Room 101', 'Demo Building', 1)
+        ON DUPLICATE KEY UPDATE is_active=VALUES(is_active);"
+        
+        # Add demo campaign
+        TODAY=$(date +%F)
+        NEXTWEEK=$(date -d '+7 day' +%F 2>/dev/null || date -v+7d +%F)
+        npx wp-env run cli wp db query "
+        INSERT INTO wp_monthly_campaigns (room_id, title, type, start_date, end_date, is_active)
+        VALUES (1, 'E2Eデモキャンペーン', 'discount', '$TODAY', '$NEXTWEEK', 1);"
+        
+        echo "✅ Database initialization completed"
+      env:
+        CAL_URL: http://localhost:8888
+    
+    - name: AJAX health check and page verification
+      run: |
+        set -e
+        echo "CAL_URL=$CAL_URL"
+        
+        # Create test-results directory
+        mkdir -p test-results
+        
+        # Check page for database errors
+        curl -fsSL "$CAL_URL/monthly-calendar/" -o test-results/monthly-calendar-before-test.html || true
+        if grep -qi "wpdberror" test-results/monthly-calendar-before-test.html; then
+          echo "❌ DB error detected on /monthly-calendar/"
+          cat test-results/monthly-calendar-before-test.html | head -n 20
+          exit 1
+        fi
+        
+        # Check AJAX endpoint (using the mbp_load_calendar action from the plugin)
+        curl -sS "$CAL_URL/wp-admin/admin-ajax.php?action=mbp_load_calendar&room_id=1" -o test-results/ajax-calendar.json || true
+        if ! grep -q "{" test-results/ajax-calendar.json; then
+          echo "❌ AJAX JSON not returned"
+          cat test-results/ajax-calendar.json || true
+          exit 1
+        fi
+        echo "✅ AJAX endpoint is responding"
+        
+        # Save page content after seed for diagnostics
+        curl -fsSL "$CAL_URL/monthly-calendar/" -o test-results/monthly-calendar-after-seed.html || true
+        echo "✅ Page accessibility verified"
+      env:
+        CAL_URL: http://localhost:8888
+    
     - name: Run Playwright tests
       run: |
         echo "CAL_URL=$CAL_URL"
@@ -97,5 +181,7 @@ jobs:
       if: always()
       with:
         name: test-results
-        path: test-results/**
+        path: |
+          test-results/**
+          playwright-report/**
         retention-days: 7
