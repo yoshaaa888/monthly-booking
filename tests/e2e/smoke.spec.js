@@ -3,8 +3,10 @@ const { test, expect } = require('@playwright/test');
 test.describe('Calendar Smoke Test', () => {
   
   test('Basic calendar page loads and shows month headers', async ({ page }) => {
+    console.info('🔍 Environment Debug:');
     console.info('CAL_URL=', process.env.CAL_URL || 'not set');
     console.info('baseURL=', page.context()._options.baseURL);
+    console.info('CI=', process.env.CI || 'not set');
     
     try {
       console.info('Testing base URL accessibility...');
