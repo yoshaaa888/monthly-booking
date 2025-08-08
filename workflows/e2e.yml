@@ -13,111 +13,34 @@ concurrency:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    env:
-      NODE_VERSION: '20'
-      CAL_URL: http://localhost:8888
+    timeout-minutes: 10 # 診断のため時間を短縮
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set WP_DIR environment variable
-        run: echo "WP_DIR=${{ runner.temp }}/wp" >> $GITHUB_ENV
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install Playwright deps
-        run: npm i -D @playwright/test && npx playwright install --with-deps
-
-      # ───────── WordPress (wp-env) 起動 ─────────
       - name: Install @wordpress/env
         run: npm i -g @wordpress/env
-
-      - name: Start WordPress (wp-env)
-        run: wp-env start || wp-env start
-        env:
-          WP_ENV_PORT: 8888
-
-      - name: Wait for WordPress health
-        run: |
-          for i in $(seq 1 60); do
-            if curl -fsS "$CAL_URL" >/dev/null; then
-              echo "WordPress is up"; break
-            fi
-            echo "Waiting WP... ($i/60)"; sleep 2
-          done
-
-      # ───────── プラグイン有効化 & ページ作成 ─────────
-      - name: Activate plugin
-        run: wp-env run cli wp plugin activate monthly-booking || true
       
-      - name: List plugins
-        run: wp-env run cli wp plugin list
+      - name: Start WordPress (for diagnosis)
+        run: wp-env start || true
 
-      - name: Create calendar page with shortcode
+      # ▼▼▼▼▼ ここからが診断用のステップです ▼▼▼▼▼
+      - name: Diagnose wp-env execution
         run: |
-          set -e
-          PAGE_ID=$(wp-env run cli wp post list --post_type=page --name=monthly-calendar --field=ID --format=csv | tr -d '\r' || true)
-          if [ -z "$PAGE_ID" ]; then
-            wp-env run cli wp post create --post_type=page --post_title=予約カレンダー --post_name=monthly-calendar --post_status=publish --post_content='[monthly_booking_calendar]'
-          else
-            echo "monthly-calendar page exists: $PAGE_ID"
-          fi
-      
-      - name: Flush rewrite rules
+          echo "--- 1. Running 'wp --info' via wp-env ---"
+          wp-env run cli wp --info
+
+          echo "--- 2. Running 'wp plugin list' with 'set -x' to see exact command ---"
+          set -x
+          wp-env run cli wp plugin list
+          set +x
+          
+          echo "--- 3. Checking PATH inside the container ---"
+          wp-env run cli printenv PATH
+      # ▲▲▲▲▲ ここまでが診断用のステップです ▲▲▲▲▲
+
+      - name: Force failure to prevent further steps
         run: |
-          wp-env run cli wp rewrite structure /%postname%/
-          wp-env run cli wp rewrite flush --hard
-
-      # ───────── （任意）シード：テーブルは dbDelta に任せる ─────────
-      - name: Optional seed minimal data (non-fatal)
-        run: wp-env run cli wp db query "INSERT INTO wp_monthly_rooms (display_name, room_name, property_name, is_active) VALUES ('E2Eデモ101', 'Room 101', 'Demo Building', 1);" || true
-
-      # ───────── /monthly-calendar/ にアクセスして致命的エラー検知 ─────────
-      - name: Calendar page health check (detect db errors)
-        run: |
-          set -e
-          HTML=$(curl -fsS "$CAL_URL/monthly-calendar/" || true)
-          if echo "$HTML" | grep -q "wpdberror"; then
-            echo "Database error detected on /monthly-calendar/"
-            echo "$HTML" | head -n 100
-            exit 1
-          fi
-          echo "Calendar page reachable."
-
-      # ───────── Playwright 実行 ─────────
-      - name: Run Playwright (smoke first)
-        env:
-          CAL_URL: ${{ env.CAL_URL }}
-        run: npm run test:e2e || npx playwright test --reporter=list,html
-
-      # ───────── レポート保存 ─────────
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/**
-          if-no-files-found: warn
-
-      - name: Upload raw test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: |
-            test-results/**
-            tests/e2e/**/*.js
-          if-no-files-found: warn
-
-      # 成否でCIを落とすかはここで制御
-      - name: Fail job if smoke failed hard
-        if: failure()
-        run: |
-          echo "Some tests failed. See artifacts."
+          echo "Diagnosis complete. This job will now fail intentionally."
           exit 1
