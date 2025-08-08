@@ -12,7 +12,7 @@ module.exports = defineConfig({
     ['json', { outputFile: 'test-results/results.json' }]
   ],
   use: {
-    baseURL: 'http://t-monthlycampaign.local',
+    baseURL: process.env.CAL_URL || 'http://t-monthlycampaign.local',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -39,9 +39,9 @@ module.exports = defineConfig({
       use: { ...devices['iPhone 12'] },
     },
   ],
-  webServer: {
-    command: 'echo "WordPress Local environment should be running at http://t-monthlycampaign.local"',
-    url: 'http://t-monthlycampaign.local',
-    reuseExistingServer: true,
-  },
+  // webServer: {
+  //   command: 'echo "WordPress Local environment should be running at http://t-monthlycampaign.local"',
+  //   url: 'http://t-monthlycampaign.local',
+  //   reuseExistingServer: true,
+  // },
 });

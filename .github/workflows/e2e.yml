@@ -21,6 +21,8 @@ jobs:
       run: npx playwright install --with-deps
     - name: Run Playwright tests
       run: npm run test:e2e
+      env:
+        CAL_URL: http://example.com
     - uses: actions/upload-artifact@v4
       if: always()
       with:
