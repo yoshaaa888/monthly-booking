@@ -7,7 +7,7 @@ on:
     branches: [ devin/1754064671-monthly-booking-plugin ]
 
 concurrency:
-  group: e2e-${{ github.ref }}
+  group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -23,6 +23,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Debug: print current workflow
+        run: sed -n '1,160p' .github/workflows/e2e.yml
 
       # ▼▼▼▼▼ ここに新しいステップを追加しました ▼▼▼▼▼
       - name: Set WP_DIR environment variable
@@ -65,30 +68,27 @@ jobs:
       # ───────── プラグイン有効化 & ページ作成 ─────────
       - name: Activate plugin
         run: |
-          wp-env run cli "wp plugin activate monthly-booking" || true
-          wp-env run cli "wp plugin list"
+          wp-env run cli wp plugin activate monthly-booking
+          wp-env run cli wp plugin list
       
       - name: Create calendar page with shortcode
         run: |
           set -e
-          PAGE_ID=$(wp-env run cli "wp post list --post_type=page --name=monthly-calendar --field=ID --format=csv" | tr -d '\r' || true)
+          PAGE_ID=$(wp-env run cli wp post list --post_type=page --name=monthly-calendar --field=ID --format=csv | tr -d '\r' || true)
           if [ -z "$PAGE_ID" ]; then
-            wp-env run cli "wp post create --post_type=page --post_title=予約カレンダー --post_name=monthly-calendar --post_status=publish --post_content='[monthly_booking_calendar]'"
+            wp-env run cli wp post create --post_type=page --post_title=予約カレンダー --post_name=monthly-calendar --post_status=publish --post_content='[monthly_booking_calendar]'
           else
             echo "monthly-calendar page exists: $PAGE_ID"
           fi
-          wp-env run cli "wp rewrite structure /%postname%/"
-          wp-env run cli "wp rewrite flush --hard"
+          wp-env run cli wp rewrite structure '/%postname%/'
+          wp-env run cli wp rewrite flush --hard
 
       # ───────── （任意）シード：テーブルは dbDelta に任せる ─────────
       - name: Optional seed minimal data (non-fatal)
         run: |
           set +e
           # 例：部屋1件（カラム名はプラグイン側スキーマに合わせること）
-          wp-env run cli "wp db query \"
-            INSERT INTO wp_monthly_rooms (display_name, room_name, property_name, is_active)
-            VALUES ('E2Eデモ101', 'Room 101', 'Demo Building', 1);
-          \"" || true
+          wp-env run cli wp db query "INSERT INTO wp_monthly_rooms (display_name, room_name, property_name, is_active) VALUES ('E2Eデモ101', 'Room 101', 'Demo Building', 1);" || true
 
       # ───────── /monthly-calendar/ にアクセスして致命的エラー検知 ─────────
       - name: Calendar page health check (detect db errors)
