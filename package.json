@@ -10,7 +10,8 @@
     "test:cleanup": "node test-environment/cleanup-test-data.js"
   },
   "devDependencies": {
-    "@playwright/test": "^1.40.0"
+    "@playwright/test": "^1.40.0",
+    "mysql2": "^3.6.0"
   },
   "keywords": ["wordpress", "booking", "calendar", "testing"],
   "author": "Devin AI",
