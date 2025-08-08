@@ -94,14 +94,6 @@ class MonthlyBooking_Admin_UI {
             array($this, 'render_fee_settings_page')
         );
         
-        add_submenu_page(
-            'monthly-room-booking',
-            __('プラグイン設定', 'monthly-booking'),
-            __('プラグイン設定', 'monthly-booking'),
-            'manage_options',
-            'monthly-room-booking-settings',
-            array($this, 'admin_page_plugin_settings')
-        );
     }
     
     /**
@@ -134,28 +126,6 @@ class MonthlyBooking_Admin_UI {
     public function register_settings() {
         register_setting('monthly_booking_settings', 'monthly_booking_options');
         
-        add_settings_section(
-            'monthly_booking_general',
-            __('General Settings', 'monthly-booking'),
-            array($this, 'settings_section_callback'),
-            'monthly_booking_settings'
-        );
-        
-        add_settings_field(
-            'default_price',
-            __('Default Monthly Price', 'monthly-booking'),
-            array($this, 'default_price_callback'),
-            'monthly_booking_settings',
-            'monthly_booking_general'
-        );
-        
-        add_settings_field(
-            'cleaning_days',
-            __('Cleaning Period (days)', 'monthly-booking'),
-            array($this, 'cleaning_days_callback'),
-            'monthly_booking_settings',
-            'monthly_booking_general'
-        );
     }
     
     /**
@@ -1168,8 +1138,18 @@ class MonthlyBooking_Admin_UI {
                 <h2><?php _e('予約登録', 'monthly-booking'); ?></h2>
                 <p><?php _e('新規予約の登録・既存予約の編集を行います。', 'monthly-booking'); ?></p>
                 
-                <div class="notice notice-info">
-                    <p><?php _e('機能実装予定: 予約フォーム、ゲスト情報入力、料金計算、予約確認', 'monthly-booking'); ?></p>
+                <div class="notice notice-info" style="padding: 20px; margin: 20px 0;">
+                    <h3 style="margin-top: 0;"><?php _e('🚧 開発中の機能', 'monthly-booking'); ?></h3>
+                    <p style="font-size: 16px; line-height: 1.6;">
+                        <?php _e('この「予約登録」機能は、将来のアップデートで実装が予定されています。', 'monthly-booking'); ?>
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        <strong><?php _e('現在ご利用いただける機能:', 'monthly-booking'); ?></strong><br>
+                        • <?php _e('物件マスタ管理 - 部屋情報の登録・編集', 'monthly-booking'); ?><br>
+                        • <?php _e('キャンペーン設定 - 割引キャンペーンの作成・管理', 'monthly-booking'); ?><br>
+                        • <?php _e('料金設定 - 基本料金・オプション料金の設定', 'monthly-booking'); ?><br>
+                        • <?php _e('予約カレンダー - 部屋別の予約状況確認', 'monthly-booking'); ?>
+                    </p>
                 </div>
             </div>
         </div>
@@ -1650,28 +1630,6 @@ class MonthlyBooking_Admin_UI {
         <?php
     }
     
-    /**
-     * Admin page: プラグイン設定 (Plugin Settings)
-     */
-    public function admin_page_plugin_settings() {
-        if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
-        }
-        
-        ?>
-        <div class="wrap">
-            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-            
-            <form method="post" action="options.php">
-                <?php
-                settings_fields('monthly_booking_settings');
-                do_settings_sections('monthly_booking_settings');
-                submit_button();
-                ?>
-            </form>
-        </div>
-        <?php
-    }
     
     /**
      * Display bookings table
@@ -1701,26 +1659,6 @@ class MonthlyBooking_Admin_UI {
         }
     }
     
-    /**
-     * Settings callbacks
-     */
-    public function settings_section_callback() {
-        echo '<p>' . __('Configure general settings for the Monthly Booking plugin.', 'monthly-booking') . '</p>';
-    }
-    
-    public function default_price_callback() {
-        $options = get_option('monthly_booking_options');
-        $value = isset($options['default_price']) ? $options['default_price'] : '100000';
-        echo '<input type="number" name="monthly_booking_options[default_price]" value="' . esc_attr($value) . '" min="0" step="1000" />';
-        echo '<p class="description">' . __('Default monthly rental price in yen.', 'monthly-booking') . '</p>';
-    }
-    
-    public function cleaning_days_callback() {
-        $options = get_option('monthly_booking_options');
-        $value = isset($options['cleaning_days']) ? $options['cleaning_days'] : '3';
-        echo '<input type="number" name="monthly_booking_options[cleaning_days]" value="' . esc_attr($value) . '" min="1" max="7" />';
-        echo '<p class="description">' . __('Number of days required for cleaning between bookings.', 'monthly-booking') . '</p>';
-    }
     
     public function render_fee_settings_page() {
         if (!current_user_can('manage_options')) {
