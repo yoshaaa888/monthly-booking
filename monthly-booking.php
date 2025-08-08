@@ -639,42 +639,6 @@ class MonthlyBooking {
                 'display_order' => 9
             ),
             array(
-                'setting_key' => 'default_rent_ss',
-                'setting_name' => 'デフォルト日額賃料（SSプラン）',
-                'setting_value' => 2500.00,
-                'unit_type' => 'daily',
-                'category' => 'default_rates',
-                'description' => 'SSプランのデフォルト日額賃料',
-                'display_order' => 10
-            ),
-            array(
-                'setting_key' => 'default_rent_s',
-                'setting_name' => 'デフォルト日額賃料（Sプラン）',
-                'setting_value' => 2000.00,
-                'unit_type' => 'daily',
-                'category' => 'default_rates',
-                'description' => 'Sプランのデフォルト日額賃料',
-                'display_order' => 11
-            ),
-            array(
-                'setting_key' => 'default_rent_m',
-                'setting_name' => 'デフォルト日額賃料（Mプラン）',
-                'setting_value' => 1900.00,
-                'unit_type' => 'daily',
-                'category' => 'default_rates',
-                'description' => 'Mプランのデフォルト日額賃料',
-                'display_order' => 12
-            ),
-            array(
-                'setting_key' => 'default_rent_l',
-                'setting_name' => 'デフォルト日額賃料（Lプラン）',
-                'setting_value' => 1800.00,
-                'unit_type' => 'daily',
-                'category' => 'default_rates',
-                'description' => 'Lプランのデフォルト日額賃料',
-                'display_order' => 13
-            ),
-            array(
                 'setting_key' => 'option_discount_max',
                 'setting_name' => 'オプション割引上限額',
                 'setting_value' => 2000.00,
