@@ -357,7 +357,6 @@ class MonthlyBooking {
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
-            KEY room_id (room_id),
             KEY property_id (property_id),
             KEY mor_g (mor_g),
             KEY station1 (station1),
