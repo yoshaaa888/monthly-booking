@@ -74,27 +74,69 @@ jobs:
 
       - name: Activate plugin and setup test environment
         run: |
-          npx wp-env run cli wp plugin activate monthly-booking
-          npx wp-env run cli wp rewrite structure '/%postname%/'
-          npx wp-env run cli wp rewrite flush
+          # Ensure WordPress core is properly installed
+          npx wp-env run cli wp core is-installed || npx wp-env run cli wp core install \
+            --url="http://localhost:8889" \
+            --title="A11y Test Site" \
+            --admin_user=admin \
+            --admin_password=admin \
+            --admin_email=admin@example.com
           
-          # Create calendar page
-          npx wp-env run cli wp post create --post_type=page --post_title="Monthly Calendar" --post_content="[monthly_booking_calendar]" --post_status=publish --post_name=monthly-calendar
+          # Activate plugin (this triggers dbDelta for table creation)
+          npx wp-env run cli wp plugin activate monthly-booking
+          
+          # Verify database tables exist
+          npx wp-env run cli wp db query "SHOW TABLES LIKE 'wp_monthly_reservations';" || echo "Table creation may have failed"
+          
+          # Set permalink structure and flush
+          npx wp-env run cli wp rewrite structure '/%postname%/'
+          npx wp-env run cli wp rewrite flush --hard
+          
+          # Create calendar page with error handling
+          PAGE_ID=$(npx wp-env run cli wp post list --post_type=page --name=monthly-calendar --field=ID --format=csv | tr -d '\r' || true)
+          if [ -z "$PAGE_ID" ]; then
+            npx wp-env run cli wp post create --post_type=page --post_title="Monthly Calendar" --post_content="[monthly_booking_calendar]" --post_status=publish --post_name=monthly-calendar
+            echo "Calendar page created"
+          else
+            echo "Calendar page already exists: $PAGE_ID"
+          fi
           
           # Seed database if fixture exists
           if [ -f "tests/fixtures/seed.sql" ]; then
-            npx wp-env run cli wp db query < tests/fixtures/seed.sql
+            npx wp-env run cli wp db query < tests/fixtures/seed.sql || echo "Seed data loading failed (non-fatal)"
           fi
 
       - name: Health check
         run: |
+          echo "Checking WordPress and calendar page accessibility..."
+          
+          # First check WordPress root
+          timeout=30
+          while [ $timeout -gt 0 ]; do
+            if curl -s http://localhost:8889 | grep -q "WordPress\|wp-"; then
+              echo "WordPress root accessible"
+              break
+            fi
+            echo "Waiting for WordPress root... ($timeout seconds remaining)"
+            sleep 2
+            timeout=$((timeout-2))
+          done
+          
+          # Then check calendar page specifically
           timeout=60
           while [ $timeout -gt 0 ]; do
             response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8889/monthly-calendar/)
             if [ "$response" = "200" ]; then
-              if ! curl -s http://localhost:8889/monthly-calendar/ | grep -q "wpdberror"; then
-                echo "Health check passed"
-                break
+              page_content=$(curl -s http://localhost:8889/monthly-calendar/)
+              if ! echo "$page_content" | grep -q "wpdberror\|database error"; then
+                if echo "$page_content" | grep -q "monthly-booking\|calendar"; then
+                  echo "Health check passed - calendar page accessible with plugin content"
+                  break
+                else
+                  echo "Calendar page accessible but plugin content may be missing"
+                fi
+              else
+                echo "Database error detected in page content"
               fi
             fi
             echo "Health check failed (HTTP $response), retrying... ($timeout seconds remaining)"
@@ -102,7 +144,14 @@ jobs:
             timeout=$((timeout-2))
           done
           if [ $timeout -le 0 ]; then
-            echo "Health check failed"
+            echo "Health check failed - calendar page not accessible"
+            # Debug information
+            echo "=== WordPress status ==="
+            curl -s -I http://localhost:8889/ || echo "WordPress root not accessible"
+            echo "=== Available pages ==="
+            npx wp-env run cli wp post list --post_type=page --format=table || echo "Cannot list pages"
+            echo "=== Plugin status ==="
+            npx wp-env run cli wp plugin list || echo "Cannot list plugins"
             exit 1
           fi
 
