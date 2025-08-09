@@ -37,6 +37,9 @@ class MonthlyBooking_Calendar_API {
         }
         
         $bookings_table = $wpdb->prefix . 'monthly_bookings';
+        $reservations_table = $wpdb->prefix . 'monthly_reservations';
+        
+        $bookings = array();
         
         $sql = "SELECT start_date as checkin_date, end_date as checkout_date, status
                 FROM $bookings_table 
@@ -47,12 +50,35 @@ class MonthlyBooking_Calendar_API {
         
         $results = $wpdb->get_results($wpdb->prepare($sql, $room_id, $to, $from));
         
+        if ($results) {
+            $bookings = array_merge($bookings, $results);
+        }
+        
+        if (defined('MB_FEATURE_RESERVATIONS_MVP') && MB_FEATURE_RESERVATIONS_MVP) {
+            $sql = "SELECT checkin_date, checkout_date, status
+                    FROM $reservations_table 
+                    WHERE room_id = %d 
+                    AND (checkin_date <= %s AND checkout_date >= %s) 
+                    AND status != 'canceled'
+                    ORDER BY checkin_date";
+            
+            $reservation_results = $wpdb->get_results($wpdb->prepare($sql, $room_id, $to, $from));
+            
+            if ($reservation_results) {
+                foreach ($reservation_results as $reservation) {
+                    $reservation->checkin_date = $reservation->checkin_date;
+                    $reservation->checkout_date = $reservation->checkout_date;
+                }
+                $bookings = array_merge($bookings, $reservation_results);
+            }
+        }
+        
         if ($wpdb->last_error) {
             error_log('Monthly Booking Calendar API - Booking query error: ' . $wpdb->last_error);
             return array();
         }
         
-        return $results ? $results : array();
+        return $bookings;
     }
     
     public function mbp_get_campaign_days($room_id, $from, $to) {

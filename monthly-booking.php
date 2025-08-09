@@ -3,7 +3,7 @@
  * Plugin Name: Monthly Room Booking
  * Plugin URI: https://github.com/yoshaaa888/monthly-booking
  * Description: A WordPress plugin for managing monthly room bookings with property management, calendar display, pricing logic, and campaign management.
- * Version: 1.6.0
+ * Version: 1.7.0-alpha
  * Author: Yoshi
  * License: GPL v2 or later
  * Text Domain: monthly-booking
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('MONTHLY_BOOKING_VERSION', '1.6.0');
+define('MONTHLY_BOOKING_VERSION', '1.7.0-alpha');
 define('MONTHLY_BOOKING_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MONTHLY_BOOKING_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -29,6 +29,7 @@ class MonthlyBooking {
     public function init() {
         load_plugin_textdomain('monthly-booking', false, dirname(plugin_basename(__FILE__)) . '/languages');
         
+        $this->init_features();
         $this->include_files();
         
         if (is_admin()) {
@@ -46,6 +47,10 @@ class MonthlyBooking {
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/campaign-manager.php';
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/calendar-api.php';
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/calendar-utils.php';
+        
+        if ($this->is_feature_enabled('reservations_mvp')) {
+            require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/reservation-service.php';
+        }
     }
     
     private function init_admin() {
@@ -63,9 +68,26 @@ class MonthlyBooking {
         new MonthlyBooking_Campaign_Manager();
     }
     
+    private function init_features() {
+        if (!defined('MB_FEATURE_RESERVATIONS_MVP')) {
+            define('MB_FEATURE_RESERVATIONS_MVP', true);
+        }
+    }
+    
+    private function is_feature_enabled($feature) {
+        return defined('MB_FEATURE_' . strtoupper($feature)) && constant('MB_FEATURE_' . strtoupper($feature));
+    }
+    
     private function init_ajax_handlers() {
         add_action('wp_ajax_mbp_load_calendar', array($this, 'ajax_load_calendar'));
         add_action('wp_ajax_nopriv_mbp_load_calendar', array($this, 'ajax_load_calendar'));
+        
+        if ($this->is_feature_enabled('reservations_mvp')) {
+            add_action('wp_ajax_mbp_reservation_create', array($this, 'ajax_reservation_create'));
+            add_action('wp_ajax_mbp_reservation_update', array($this, 'ajax_reservation_update'));
+            add_action('wp_ajax_mbp_reservation_delete', array($this, 'ajax_reservation_delete'));
+            add_action('wp_ajax_mbp_reservation_list', array($this, 'ajax_reservation_list'));
+        }
     }
     
     public function activate() {
@@ -560,6 +582,28 @@ class MonthlyBooking {
         ) $charset_collate;";
         dbDelta($sql);
         
+        if ($this->is_feature_enabled('reservations_mvp')) {
+            $table_name = $wpdb->prefix . 'monthly_reservations';
+            $sql = "CREATE TABLE $table_name (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                room_id BIGINT UNSIGNED NOT NULL,
+                checkin_date DATE NOT NULL,
+                checkout_date DATE NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'confirmed',
+                guest_name VARCHAR(190) NOT NULL,
+                guest_email VARCHAR(190) NULL,
+                base_daily_rate INT NULL,
+                total_price INT NULL,
+                notes TEXT NULL,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL,
+                PRIMARY KEY (id),
+                KEY idx_room_period (room_id, checkin_date),
+                KEY idx_room_period2 (room_id, checkout_date)
+            ) $charset_collate;";
+            dbDelta($sql);
+        }
+        
         $this->insert_default_fee_settings();
     }
     
@@ -602,6 +646,127 @@ class MonthlyBooking {
         $calendar_html = $calendar_render->render_6_month_calendar($room_id);
         
         wp_send_json_success($calendar_html);
+    }
+    
+    public function ajax_reservation_create() {
+        check_ajax_referer('mbp_reservations_nonce', '_ajax_nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('権限がありません。', 'monthly-booking'));
+            return;
+        }
+        
+        if (!$this->is_feature_enabled('reservations_mvp')) {
+            wp_send_json_error(__('この機能は無効になっています。', 'monthly-booking'));
+            return;
+        }
+        
+        $service = new MonthlyBooking_Reservation_Service();
+        $data = array(
+            'room_id' => intval($_POST['room_id']),
+            'guest_name' => sanitize_text_field($_POST['guest_name']),
+            'guest_email' => sanitize_email($_POST['guest_email']),
+            'checkin_date' => sanitize_text_field($_POST['checkin_date']),
+            'checkout_date' => sanitize_text_field($_POST['checkout_date']),
+            'status' => sanitize_text_field($_POST['status']) ?: 'confirmed',
+            'notes' => sanitize_textarea_field($_POST['notes'])
+        );
+        
+        $result = $service->create_reservation($data);
+        
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        } else {
+            wp_send_json_success(array(
+                'message' => __('予約が正常に作成されました。', 'monthly-booking'),
+                'reservation_id' => $result
+            ));
+        }
+    }
+    
+    public function ajax_reservation_update() {
+        check_ajax_referer('mbp_reservations_nonce', '_ajax_nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('権限がありません。', 'monthly-booking'));
+            return;
+        }
+        
+        if (!$this->is_feature_enabled('reservations_mvp')) {
+            wp_send_json_error(__('この機能は無効になっています。', 'monthly-booking'));
+            return;
+        }
+        
+        $service = new MonthlyBooking_Reservation_Service();
+        $reservation_id = intval($_POST['reservation_id']);
+        $data = array(
+            'room_id' => intval($_POST['room_id']),
+            'guest_name' => sanitize_text_field($_POST['guest_name']),
+            'guest_email' => sanitize_email($_POST['guest_email']),
+            'checkin_date' => sanitize_text_field($_POST['checkin_date']),
+            'checkout_date' => sanitize_text_field($_POST['checkout_date']),
+            'status' => sanitize_text_field($_POST['status']),
+            'notes' => sanitize_textarea_field($_POST['notes'])
+        );
+        
+        $result = $service->update_reservation($reservation_id, $data);
+        
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        } else {
+            wp_send_json_success(array(
+                'message' => __('予約が正常に更新されました。', 'monthly-booking')
+            ));
+        }
+    }
+    
+    public function ajax_reservation_delete() {
+        check_ajax_referer('mbp_reservations_nonce', '_ajax_nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('権限がありません。', 'monthly-booking'));
+            return;
+        }
+        
+        if (!$this->is_feature_enabled('reservations_mvp')) {
+            wp_send_json_error(__('この機能は無効になっています。', 'monthly-booking'));
+            return;
+        }
+        
+        $service = new MonthlyBooking_Reservation_Service();
+        $reservation_id = intval($_POST['reservation_id']);
+        
+        $result = $service->delete_reservation($reservation_id);
+        
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        } else {
+            wp_send_json_success(array(
+                'message' => __('予約が正常に削除されました。', 'monthly-booking')
+            ));
+        }
+    }
+    
+    public function ajax_reservation_list() {
+        check_ajax_referer('mbp_reservations_nonce', '_ajax_nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('権限がありません。', 'monthly-booking'));
+            return;
+        }
+        
+        if (!$this->is_feature_enabled('reservations_mvp')) {
+            wp_send_json_error(__('この機能は無効になっています。', 'monthly-booking'));
+            return;
+        }
+        
+        $service = new MonthlyBooking_Reservation_Service();
+        $page = intval($_POST['page']) ?: 1;
+        $per_page = intval($_POST['per_page']) ?: 20;
+        
+        $result = $service->get_reservations($page, $per_page);
+        
+        wp_send_json_success($result);
     }
     
     private function insert_default_fee_settings() {
