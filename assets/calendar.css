@@ -220,6 +220,11 @@
     white-space: nowrap;
     z-index: 1000;
     margin-top: 5px;
+    pointer-events: none;
+}
+
+.campaign-tooltip[aria-hidden="false"] {
+    display: block;
 }
 
 .campaign-tooltip::before {
