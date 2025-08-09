@@ -65,14 +65,11 @@ jobs:
         run: |
           echo "Waiting for MySQL to be ready..."
           for i in {1..30}; do
-            if wp-env run cli wp db check --quiet 2>/dev/null; then
-              echo "MySQL is up via wp-env ($i/30)"; break
+            if mysqladmin ping -h "127.0.0.1" -u"root" -p"wordpress" --silent; then
+              echo "MySQL is up"; break
             fi
-            echo "waiting MySQL... ($i/30)"; sleep 1
+            echo "waiting MySQL... ($i)"; sleep 1
           done
-          
-          echo "Verifying MySQL connection and getting status..."
-          wp-env run cli wp db check || echo "MySQL check failed but continuing"
 
       - name: Wait for WordPress health
         run: |
@@ -88,33 +85,24 @@ jobs:
         run: |
           echo "Ensuring WordPress core is properly installed..."
           wp-env run cli wp core is-installed || wp-env run cli wp core install \
-            --url="$CAL_URL" \
-            --title="E2E Test Site" \
+            --url="http://localhost:8080" \
+            --title="E2E" \
             --admin_user=admin \
             --admin_password=admin \
-            --admin_email=admin@example.com \
-            --skip-email
+            --admin_email=admin@example.com
 
       # ───────── プラグイン有効化（dbDelta実行） ─────────
       - name: Activate plugin and verify tables
         run: |
           echo "Activating monthly-booking plugin..."
           wp-env run cli wp plugin activate monthly-booking
-          wp-env run cli wp plugin list
           
           echo "Verifying database tables creation..."
-          TABLES_RESULT=$(wp-env run cli wp db query "SHOW TABLES LIKE 'wp_monthly_reservations';" 2>&1)
-          echo "Tables query result: $TABLES_RESULT"
-          
-          if echo "$TABLES_RESULT" | grep -q "wp_monthly_reservations"; then
-            echo "✓ wp_monthly_reservations table exists"
-            wp-env run cli wp db query "DESCRIBE wp_monthly_reservations;" || echo "Cannot describe wp_monthly_reservations table"
-          else
-            echo "✗ wp_monthly_reservations table not found"
-          fi
+          wp-env run cli wp db query "SHOW TABLES LIKE 'wp_monthly_reservations';"
+          wp-env run cli wp db query "DESCRIBE wp_monthly_reservations;"
           
           echo "Checking for recent database errors..."
-          wp-env run cli wp eval 'global $wpdb; echo "LAST_DB_ERROR=" . ($wpdb->last_error ?: "none");'
+          wp-env run cli wp eval 'global $wpdb; echo "LAST_ERR=" . ($wpdb->last_error ?: "");'
       
       - name: Create calendar page with shortcode
         run: |
@@ -165,7 +153,7 @@ jobs:
         run: |
           echo "Capturing WordPress debug logs..."
           wp-env run cli wp eval 'echo "Debug log path: " . WP_CONTENT_DIR . "/debug.log";' || true
-          wp-env run cli cat wp-content/debug.log || echo "No debug.log found"
+          grep -n . wp-content/debug.log || true
         continue-on-error: true
 
       - name: Upload Playwright report
