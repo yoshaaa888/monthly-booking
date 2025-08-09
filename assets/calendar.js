@@ -260,6 +260,95 @@ jQuery(document).ready(function($) {
     
     if ($('.monthly-booking-calendar').length) {
         initCalendar();
+        initTooltips();
+    }
+    
+    function initTooltips() {
+        const calendarGrid = document.querySelector('.calendar-grid');
+        if (!calendarGrid) return;
+        
+        let currentTooltip = null;
+        let currentFocusedElement = null;
+        
+        calendarGrid.addEventListener('mouseenter', function(e) {
+            const target = e.target.closest('.calendar-day[aria-describedby]');
+            if (target) {
+                showTooltip(target);
+            }
+        }, true);
+        
+        calendarGrid.addEventListener('mouseleave', function(e) {
+            const target = e.target.closest('.calendar-day[aria-describedby]');
+            if (target) {
+                hideTooltip(target);
+            }
+        }, true);
+        
+        calendarGrid.addEventListener('focus', function(e) {
+            const target = e.target.closest('.calendar-day[aria-describedby]');
+            if (target) {
+                currentFocusedElement = target;
+                showTooltip(target);
+            }
+        }, true);
+        
+        calendarGrid.addEventListener('blur', function(e) {
+            const target = e.target.closest('.calendar-day[aria-describedby]');
+            if (target) {
+                hideTooltip(target);
+                currentFocusedElement = null;
+            }
+        }, true);
+        
+        calendarGrid.addEventListener('touchstart', function(e) {
+            const target = e.target.closest('.calendar-day[aria-describedby]');
+            if (target) {
+                e.preventDefault(); // Prevent mouse events
+                showTooltip(target);
+            }
+        }, true);
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && currentTooltip) {
+                hideAllTooltips();
+                if (currentFocusedElement) {
+                    currentFocusedElement.focus();
+                }
+            }
+        });
+        
+        function showTooltip(dayElement) {
+            hideAllTooltips();
+            
+            const tooltipId = dayElement.getAttribute('aria-describedby');
+            const tooltip = document.getElementById(tooltipId);
+            if (tooltip) {
+                tooltip.removeAttribute('aria-hidden');
+                tooltip.style.display = 'block';
+                currentTooltip = tooltip;
+            }
+        }
+        
+        function hideTooltip(dayElement) {
+            const tooltipId = dayElement.getAttribute('aria-describedby');
+            const tooltip = document.getElementById(tooltipId);
+            if (tooltip) {
+                tooltip.setAttribute('aria-hidden', 'true');
+                tooltip.style.display = 'none';
+                if (currentTooltip === tooltip) {
+                    currentTooltip = null;
+                }
+            }
+        }
+        
+        function hideAllTooltips() {
+            const allTooltips = calendarGrid.querySelectorAll('.campaign-tooltip');
+            allTooltips.forEach(tooltip => {
+                tooltip.setAttribute('aria-hidden', 'true');
+                tooltip.style.display = 'none';
+            });
+            currentTooltip = null;
+        }
     }
     
     window.MonthlyBookingCalendar = {
