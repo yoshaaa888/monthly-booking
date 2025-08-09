@@ -80,7 +80,7 @@ jQuery(document).ready(function($) {
             url: monthlyBookingAjax.ajaxurl,
             type: 'POST',
             data: {
-                action: 'get_calendar_bookings',
+                action: 'mbp_load_calendar',
                 month: month + 1,
                 year: year,
                 nonce: monthlyBookingAjax.nonce
@@ -148,6 +148,7 @@ jQuery(document).ready(function($) {
         });
         
         const calendarGrid = document.querySelector('.calendar-grid');
+        console.log('Calendar grid found:', calendarGrid);
         if (calendarGrid) {
             calendarGrid.addEventListener('keydown', function(e) {
                 const currentCell = e.target;
@@ -232,7 +233,7 @@ jQuery(document).ready(function($) {
         }
         
         function setRovingTabindex(activeCell) {
-            const allCells = document.querySelectorAll('.calendar-day');
+            const allCells = document.querySelectorAll('.calendar-day:not(.other-month)');
             allCells.forEach(cell => {
                 cell.setAttribute('tabindex', '-1');
             });
@@ -261,6 +262,13 @@ jQuery(document).ready(function($) {
     if ($('.monthly-booking-calendar').length) {
         initCalendar();
         initTooltips();
+        
+        setTimeout(() => {
+            const firstCell = document.querySelector('.calendar-day[tabindex="0"]');
+            if (firstCell) {
+                setRovingTabindex(firstCell);
+            }
+        }, 100);
     }
     
     function initTooltips() {

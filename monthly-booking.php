@@ -567,9 +567,30 @@ class MonthlyBooking {
         check_ajax_referer('mbp_calendar_nonce', 'nonce');
         
         $room_id = intval($_POST['room_id']);
+        $month = intval($_POST['month']);
+        $year = intval($_POST['year']);
         
         if (!$room_id) {
             wp_send_json_error('Invalid room ID');
+            return;
+        }
+        
+        if ($month && $year) {
+            if (!class_exists('MonthlyBooking_Calendar_API')) {
+                require_once plugin_dir_path(__FILE__) . 'includes/calendar-api.php';
+            }
+            
+            $api = new MonthlyBooking_Calendar_API();
+            $from = sprintf('%04d-%02d-01', $year, $month);
+            $to = date('Y-m-t', strtotime($from));
+            
+            $bookings = $api->mbp_get_bookings($room_id, $from, $to);
+            $campaigns = $api->get_global_campaigns($from, $to);
+            
+            wp_send_json_success(array(
+                'bookings' => $bookings,
+                'campaigns' => $campaigns
+            ));
             return;
         }
         
