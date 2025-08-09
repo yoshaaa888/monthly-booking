@@ -10,10 +10,16 @@
     "test:cleanup": "node test-environment/cleanup-test-data.js"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
     "@playwright/test": "^1.40.0",
     "mysql2": "^3.6.0"
   },
-  "keywords": ["wordpress", "booking", "calendar", "testing"],
+  "keywords": [
+    "wordpress",
+    "booking",
+    "calendar",
+    "testing"
+  ],
   "author": "Devin AI",
   "license": "GPL-2.0"
 }
