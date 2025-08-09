@@ -360,7 +360,11 @@ jQuery(document).ready(function($) {
     }
     
     window.MonthlyBookingCalendar = {
-        refresh: function() {
+        refresh: function(options) {
+            if (options && options.roomId && options.year && options.month) {
+                currentMonth = options.month - 1;
+                currentYear = options.year;
+            }
             renderCalendar(currentMonth, currentYear);
         },
         goToMonth: function(month, year) {

@@ -70,6 +70,10 @@ jobs:
             fi
             echo "waiting MySQL... ($i)"; sleep 1
           done
+          if [ $i -eq 30 ]; then
+            echo "MySQL failed to start within 30 seconds"
+            exit 1
+          fi
 
       - name: Wait for WordPress health
         run: |
@@ -153,6 +157,7 @@ jobs:
         run: |
           echo "Capturing WordPress debug logs..."
           wp-env run cli wp eval 'echo "Debug log path: " . WP_CONTENT_DIR . "/debug.log";' || true
+          wp-env run cli wp db query "SELECT * FROM wp_options WHERE option_name LIKE '%monthly_booking%';" || true
           grep -n . wp-content/debug.log || true
         continue-on-error: true
 

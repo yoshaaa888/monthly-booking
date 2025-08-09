@@ -94,6 +94,10 @@ class MonthlyBooking {
     }
     
     public function activate() {
+        if (!defined('MB_FEATURE_RESERVATIONS_MVP')) {
+            define('MB_FEATURE_RESERVATIONS_MVP', true);
+        }
+        
         $this->create_tables();
         $this->insert_default_options();
         $this->insert_sample_properties();

@@ -114,7 +114,7 @@ class MonthlyBooking_Admin_UI {
         
         wp_enqueue_script(
             'monthly-booking-admin',
-            MONTHLY_BOOKING_PLUGIN_URL . 'assets/admin.js',
+            plugin_dir_url(MONTHLY_BOOKING_PLUGIN_DIR . 'monthly-booking.php') . 'assets/admin.js',
             array('jquery'),
             MONTHLY_BOOKING_VERSION,
             true
@@ -122,7 +122,7 @@ class MonthlyBooking_Admin_UI {
         
         wp_enqueue_script(
             'monthly-booking-calendar',
-            MONTHLY_BOOKING_PLUGIN_URL . 'assets/calendar.js',
+            plugin_dir_url(MONTHLY_BOOKING_PLUGIN_DIR . 'monthly-booking.php') . 'assets/calendar.js',
             array('jquery'),
             MONTHLY_BOOKING_VERSION,
             true
