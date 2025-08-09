@@ -1251,16 +1251,6 @@ class MonthlyBooking_Admin_UI {
         $page = isset($_GET['paged']) ? intval($_GET['paged']) : 1;
         $result = $service->get_reservations($page, 20);
         
-        wp_enqueue_script('monthly-booking-admin-reservations', plugin_dir_url(__FILE__) . '../assets/admin-reservations.js', array('jquery'), '1.7.0', true);
-        wp_localize_script('monthly-booking-admin-reservations', 'monthlyBookingReservations', array(
-            'ajaxurl' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('mbp_reservations_nonce'),
-            'strings' => array(
-                'confirmDelete' => __('本当に削除しますか？', 'monthly-booking'),
-                'deleteSuccess' => __('予約が削除されました。', 'monthly-booking'),
-                'deleteError' => __('削除に失敗しました。', 'monthly-booking')
-            )
-        ));
         
         ?>
         <div class="wrap">
@@ -1354,16 +1344,6 @@ class MonthlyBooking_Admin_UI {
             }
         }
         
-        wp_enqueue_script('monthly-booking-admin-form', plugin_dir_url(__FILE__) . '../assets/admin-form.js', array('jquery'), '1.7.0', true);
-        wp_localize_script('monthly-booking-admin-form', 'monthlyBookingForm', array(
-            'ajaxurl' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('mbp_reservations_nonce'),
-            'strings' => array(
-                'saving' => __('保存中...', 'monthly-booking'),
-                'saveSuccess' => __('予約が保存されました。', 'monthly-booking'),
-                'saveError' => __('保存に失敗しました。', 'monthly-booking')
-            )
-        ));
         
         ?>
         <div class="wrap">
