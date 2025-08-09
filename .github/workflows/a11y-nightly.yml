@@ -2,8 +2,8 @@ name: A11y Nightly Tests
 
 on:
   schedule:
-    # Run daily at 1 AM UTC (10 PM JST) to avoid peak hours
-    - cron: '0 1 * * *'
+    # Run daily at 1 PM UTC (10 PM JST) for post-business hours execution
+    - cron: '0 13 * * *'
   workflow_dispatch:
 
 jobs:
