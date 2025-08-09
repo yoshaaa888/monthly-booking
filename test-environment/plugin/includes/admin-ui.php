@@ -1043,27 +1043,12 @@ class MonthlyBooking_Admin_UI {
     
     
     /**
-     * Admin page: 予約登録 (Booking Registration)
+     * Admin page: 予約登録 (Booking Registration) - DISABLED TO PREVENT CONFLICT
+     * This method was causing conflicts with the main plugin implementation.
+     * The actual implementation is in the main includes/admin-ui.php file.
      */
-    public function admin_page_booking_registration() {
-        if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
-        }
-        
-        ?>
-        <div class="wrap">
-            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-            
-            <div class="monthly-booking-admin-content">
-                <h2><?php _e('予約登録', 'monthly-booking'); ?></h2>
-                <p><?php _e('新規予約の登録・既存予約の編集を行います。', 'monthly-booking'); ?></p>
-                
-                <div class="notice notice-info">
-                    <p><?php _e('機能実装予定: 予約フォーム、ゲスト情報入力、料金計算、予約確認', 'monthly-booking'); ?></p>
-                </div>
-            </div>
-        </div>
-        <?php
+    public function admin_page_booking_registration_DISABLED() {
+        wp_die(__('Test environment method disabled. Please use the main plugin implementation.', 'monthly-booking'));
     }
     
     /**
