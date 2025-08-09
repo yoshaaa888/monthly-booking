@@ -150,6 +150,57 @@ jQuery(document).ready(function($) {
             
             $(document).trigger('monthlyBookingDaySelected', [date, $day]);
         });
+        
+        $(document).on('keydown', '.calendar-day[tabindex="0"]', function(e) {
+            const $current = $(this);
+            const $days = $('.calendar-day[tabindex="0"]:visible');
+            const currentIndex = $days.index($current);
+            let $target = null;
+            
+            switch(e.key) {
+                case 'ArrowRight':
+                    e.preventDefault();
+                    $target = $days.eq(currentIndex + 1);
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    $target = $days.eq(currentIndex - 1);
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    $target = $days.eq(currentIndex + 7);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    $target = $days.eq(currentIndex - 7);
+                    break;
+                case 'Home':
+                    e.preventDefault();
+                    $target = $days.first();
+                    break;
+                case 'End':
+                    e.preventDefault();
+                    $target = $days.last();
+                    break;
+                case 'PageDown':
+                    e.preventDefault();
+                    $target = $days.eq(Math.min(currentIndex + 30, $days.length - 1));
+                    break;
+                case 'PageUp':
+                    e.preventDefault();
+                    $target = $days.eq(Math.max(currentIndex - 30, 0));
+                    break;
+                case 'Enter':
+                case ' ':
+                    e.preventDefault();
+                    $current.trigger('click');
+                    break;
+            }
+            
+            if ($target && $target.length && $target.is(':visible')) {
+                $target.focus();
+            }
+        });
     }
     
     if ($('.monthly-booking-calendar').length) {
