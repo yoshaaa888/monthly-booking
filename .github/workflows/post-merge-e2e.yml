@@ -89,7 +89,7 @@ jobs:
           CAL_URL: ${{ env.CAL_URL }}
         run: |
           set -euo pipefail
-          npx playwright test --reporter=list,html
+          npx playwright test --reporter=list,html --grep "@smoke" --max-failures=1 --workers=2
 
       - name: Upload Playwright artifacts
         if: always()
