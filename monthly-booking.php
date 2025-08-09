@@ -51,6 +51,12 @@ class MonthlyBooking {
         if ($this->is_feature_enabled('reservations_mvp')) {
             require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/reservation-service.php';
         }
+        
+        if ( defined( 'WP_CLI' ) && WP_CLI ) {
+            require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/cli-bootstrap.php';
+        }
+        
+        require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/fallback-calendar-endpoint.php';
     }
     
     private function init_admin() {

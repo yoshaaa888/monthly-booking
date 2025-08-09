@@ -45,51 +45,16 @@ jobs:
       - name: Start WordPress env
         run: npx wp-env start --update
 
-      # === Pre-flight: ページ/パーマリンク/プラグイン/フラグの準備 & 可観測化 ===
-      - name: Pre-flight (activate plugin, permalinks, ensure /monthly-calendar/)
+      # === Bootstrap: 1コマンドでWordPress環境セットアップ ===
+      - name: Bootstrap WordPress environment with WP-CLI
         shell: bash
         run: |
           set -e
-
-          echo "== Site URL =="
-          npx wp-env run cli "wp option get siteurl" || true
-          npx wp-env run cli "wp option get home" || true
-
-          echo "== Plugins =="
-          npx wp-env run cli "wp plugin list" || true
-
-          echo "== Activate monthly-booking (idempotent) =="
-          npx wp-env run cli "wp plugin activate monthly-booking || true"
-
-          echo "== Feature flags (idempotent) =="
-          # 定数だけでなく option にも対応している場合のフォールバック
-          npx wp-env run cli "wp option update mb_feature_reservations_mvp 1 --autoload=yes || true"
-
-          echo "== Permalink structure -> /%postname%/ =="
-          npx wp-env run cli "wp rewrite structure '/%postname%/' --hard"
-          npx wp-env run cli "wp rewrite flush --hard"
-
-          echo "== Ensure 'monthly-calendar' page exists =="
-          PAGE_ID=$(npx wp-env run cli -- "wp post list --post_type=page --pagename=monthly-calendar --field=ID")
-          if [ -z "$PAGE_ID" ]; then
-            echo "Creating monthly-calendar page..."
-            npx wp-env run cli -- wp post create \
-              --post_type=page \
-              --post_status=publish \
-              --post_title='Monthly Calendar' \
-              --post_name='monthly-calendar' \
-              --post_content='[monthly_calendar]'
-          else
-            echo "monthly-calendar exists: ID=${PAGE_ID}"
-          fi
-
-          echo "== Dump permalink & rewrite rules =="
-          npx wp-env run cli "wp option get permalink_structure" || true
-          npx wp-env run cli "wp rewrite list | head -n 100" || true
-
-          echo "== Warm up endpoint =="
-          BASE=$(npx wp-env run cli -- "wp option get home")
-          curl -sS -I "${BASE%/}/monthly-calendar/" || true
+          echo "Running Monthly Booking bootstrap..."
+          npx wp-env run cli "wp mb bootstrap"
+          
+          echo "== Verification =="
+          npx wp-env run cli "wp mb status"
 
       # === Health check: /monthly-calendar/ が HTTP 200 になるまで待機 ===
       - name: Health check /monthly-calendar/ (HTTP 200 within 60s)
@@ -127,20 +92,44 @@ jobs:
             ./**/a11y-report/**
 
       # === Debug artifacts: 失敗時の状況証拠を保存 ===
+      - name: Enable WordPress debug logging
+        if: failure()
+        shell: bash
+        run: |
+          npx wp-env run cli "wp config set WP_DEBUG true --raw" || true
+          npx wp-env run cli "wp config set WP_DEBUG_LOG true --raw" || true
+          npx wp-env run cli "wp config set WP_DEBUG_DISPLAY false --raw" || true
+
       - name: Collect debug artifacts (if fail)
         if: failure()
         shell: bash
         run: |
           set -e
           mkdir -p a11y-debug
+          
+          echo "=== WordPress Configuration ===" > a11y-debug/wp-config.txt
           npx wp-env run cli "wp option get siteurl" > a11y-debug/siteurl.txt || true
           npx wp-env run cli "wp option get home" > a11y-debug/home.txt || true
           npx wp-env run cli "wp option get permalink_structure" > a11y-debug/permalink.txt || true
-          npx wp-env run cli "wp post list --post_type=page --fields=ID,post_title,post_name,post_status" > a11y-debug/pages.txt || true
-          npx wp-env run cli "wp plugin list" > a11y-debug/plugins.txt || true
-          npx wp-env run cli "wp rewrite list" > a11y-debug/rewrite-rules.txt || true
-          # 必要に応じてログ収集（環境に合わせて調整）
-          # docker logs や PHP エラーログのパスが分かれば追加
+          
+          echo "=== Pages ===" > a11y-debug/pages.txt
+          npx wp-env run cli "wp post list --post_type=page --fields=ID,post_title,post_name,post_status" >> a11y-debug/pages.txt || true
+          
+          echo "=== Plugins ===" > a11y-debug/plugins.txt
+          npx wp-env run cli "wp plugin list" >> a11y-debug/plugins.txt || true
+          
+          echo "=== Rewrite Rules ===" > a11y-debug/rewrite-rules.txt
+          npx wp-env run cli "wp rewrite list" >> a11y-debug/rewrite-rules.txt || true
+          
+          echo "=== Monthly Booking Status ===" > a11y-debug/mb-status.txt
+          npx wp-env run cli "wp mb status" >> a11y-debug/mb-status.txt || true
+          
+          echo "=== WordPress Debug Log ===" > a11y-debug/wp-debug.log
+          npx wp-env run cli "wp eval 'if (file_exists(WP_CONTENT_DIR.\"/debug.log\")) { echo file_get_contents(WP_CONTENT_DIR.\"/debug.log\"); } else { echo \"No debug log found\"; }'" >> a11y-debug/wp-debug.log || true
+          
+          echo "=== Calendar Page Content ===" > a11y-debug/calendar-page.html
+          BASE=$(npx wp-env run cli "wp option get home" || echo "http://localhost:8080")
+          curl -s "${BASE%/}/monthly-calendar/" > a11y-debug/calendar-page.html || echo "Failed to fetch calendar page" > a11y-debug/calendar-page.html
 
       - name: Upload a11y debug artifacts
         if: failure()
