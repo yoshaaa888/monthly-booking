@@ -29,6 +29,7 @@ class MonthlyBooking {
     public function init() {
         load_plugin_textdomain('monthly-booking', false, dirname(plugin_basename(__FILE__)) . '/languages');
         
+        $this->init_features();
         $this->include_files();
         
         if (is_admin()) {
