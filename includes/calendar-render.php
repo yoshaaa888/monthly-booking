@@ -91,10 +91,10 @@ class MonthlyBooking_Calendar_Render {
         ob_start();
         
         ?>
-        <div class="monthly-booking-calendar-container" role="application" aria-label="<?php echo esc_attr(__('月間予約カレンダー', 'monthly-booking')); ?>">
+        <div class="monthly-booking-calendar-container">
             <div class="monthly-booking-calendar">
                 <div class="calendar-header">
-                    <h3><?php _e('予約カレンダー', 'monthly-booking'); ?></h3>
+                    <h3 id="calendar-title"><?php echo esc_html__('予約カレンダー', 'monthly-booking'); ?></h3>
                     
                     <?php if (!$atts['room_id'] && !empty($rooms)): ?>
                     <div class="room-selection">
@@ -223,24 +223,34 @@ class MonthlyBooking_Calendar_Render {
                 <h4><?php echo esc_html($month_data['month_name']); ?></h4>
             </div>
             
-            <div class="calendar-grid" role="grid" aria-label="<?php echo esc_attr($month_data['month_name'] . __('の予約状況', 'monthly-booking')); ?>">
-                <div class="calendar-day-header" role="columnheader"><?php _e('日', 'monthly-booking'); ?></div>
-                <div class="calendar-day-header" role="columnheader"><?php _e('月', 'monthly-booking'); ?></div>
-                <div class="calendar-day-header" role="columnheader"><?php _e('火', 'monthly-booking'); ?></div>
-                <div class="calendar-day-header" role="columnheader"><?php _e('水', 'monthly-booking'); ?></div>
-                <div class="calendar-day-header" role="columnheader"><?php _e('木', 'monthly-booking'); ?></div>
-                <div class="calendar-day-header" role="columnheader"><?php _e('金', 'monthly-booking'); ?></div>
-                <div class="calendar-day-header" role="columnheader"><?php _e('土', 'monthly-booking'); ?></div>
+            <div class="calendar-grid" role="grid" aria-labelledby="calendar-title">
+                <div role="row">
+                    <div class="calendar-day-header" role="columnheader"><?php echo esc_html__('日', 'monthly-booking'); ?></div>
+                    <div class="calendar-day-header" role="columnheader"><?php echo esc_html__('月', 'monthly-booking'); ?></div>
+                    <div class="calendar-day-header" role="columnheader"><?php echo esc_html__('火', 'monthly-booking'); ?></div>
+                    <div class="calendar-day-header" role="columnheader"><?php echo esc_html__('水', 'monthly-booking'); ?></div>
+                    <div class="calendar-day-header" role="columnheader"><?php echo esc_html__('木', 'monthly-booking'); ?></div>
+                    <div class="calendar-day-header" role="columnheader"><?php echo esc_html__('金', 'monthly-booking'); ?></div>
+                    <div class="calendar-day-header" role="columnheader"><?php echo esc_html__('土', 'monthly-booking'); ?></div>
+                </div>
                 
                 <?php
                 $first_date = new DateTime($month_data['dates'][0]);
                 $first_day_of_week = $first_date->format('w');
+                $day_count = 0;
+                
+                echo '<div role="row">';
                 
                 for ($i = 0; $i < $first_day_of_week; $i++) {
                     echo '<div class="calendar-day other-month" role="gridcell" aria-hidden="true"></div>';
+                    $day_count++;
                 }
                 
                 foreach ($month_data['dates'] as $date) {
+                    if ($day_count > 0 && $day_count % 7 === 0) {
+                        echo '</div><div role="row">';
+                    }
+                    
                     $status = MonthlyBooking_Calendar_Utils::get_day_status($date, $bookings, $campaign_days);
                     $date_info = MonthlyBooking_Calendar_Utils::format_japanese_date($date);
                     $is_today = ($date === $today);
@@ -268,13 +278,21 @@ class MonthlyBooking_Calendar_Render {
                         <div class="day-number"><?php echo esc_html($date_info['day']); ?></div>
                         <div class="day-status"><?php echo esc_html($status['symbol']); ?></div>
                         <?php if (isset($status['campaign_name'])): ?>
-                        <div class="campaign-tooltip" role="tooltip" id="tooltip-<?php echo esc_attr($date); ?>">
+                        <div class="campaign-tooltip" role="tooltip" id="tooltip-<?php echo esc_attr($date); ?>" aria-hidden="true">
                             <strong><?php echo esc_html($status['campaign_name']); ?></strong>
                         </div>
                         <?php endif; ?>
                     </div>
                     <?php
+                    $day_count++;
                 }
+                
+                while ($day_count % 7 !== 0) {
+                    echo '<div class="calendar-day other-month" role="gridcell" aria-hidden="true"></div>';
+                    $day_count++;
+                }
+                
+                echo '</div>';
                 ?>
             </div>
         </div>
