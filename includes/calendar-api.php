@@ -182,3 +182,39 @@ class MonthlyBooking_Calendar_API {
         return $campaign_days;
     }
 }
+
+function get_calendar_bookings($room_id, $year, $month) {
+    $api = new MonthlyBooking_Calendar_API();
+    
+    $from = sprintf('%04d-%02d-01', $year, $month);
+    $to = date('Y-m-t', strtotime($from)); // Last day of month
+    
+    $bookings = $api->mbp_get_bookings($room_id, $from, $to);
+    
+    $calendar_data = array();
+    $start_date = new DateTime($from);
+    $end_date = new DateTime($to);
+    $end_date->modify('+1 day');
+    
+    $period = new DatePeriod($start_date, new DateInterval('P1D'), $end_date);
+    
+    foreach ($period as $date) {
+        $date_str = $date->format('Y-m-d');
+        $calendar_data[$date_str] = array('reserved' => false, 'status' => 'available');
+        
+        foreach ($bookings as $booking) {
+            $checkin = $booking->checkin_date;
+            $checkout = $booking->checkout_date;
+            
+            if ($date_str >= $checkin && $date_str < $checkout) {
+                $calendar_data[$date_str] = array(
+                    'reserved' => true, 
+                    'status' => $booking->status ?: 'confirmed'
+                );
+                break;
+            }
+        }
+    }
+    
+    return $calendar_data;
+}
