@@ -30,7 +30,9 @@ jobs:
           cache: 'npm'
 
       - name: Install deps
-        run: npm ci
+        run: |
+          npm ci
+          npm i -g @wordpress/env
 
       # （任意）Playwright が必要な場合のみ Chromium を入れる
       - name: Install Playwright chromium (if playwright present)
@@ -43,7 +45,7 @@ jobs:
           fi
 
       - name: Start WordPress env
-        run: npx wp-env start --update
+        run: wp-env start --update
 
       # === Bootstrap: 1コマンドでWordPress環境セットアップ ===
       - name: Bootstrap WordPress environment with WP-CLI
