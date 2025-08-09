@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2025-08-09
+### Fixed
+- #21 AJAX 400: admin-ajax.php が 200/JSON を返すよう修正（nopriv/nonce/params/CT 統一）
+- #22 Roving tabindex: 月カレンダーで常時1要素のみ `tabindex="0"` に是正（再描画時も維持）
+- #23 Keyboard nav: 矢印/Home/End/PageUp/Down を APG 準拠で実装、ページスクロール抑止
+### QA
+- a11y-nightly: 重大違反ゼロを確認
+- 手動: 未ログイン時もAJAX成功、月またぎで同日フォーカス保持
+
 ## [1.6.0] - 2025-08-09
 
 ### Added
