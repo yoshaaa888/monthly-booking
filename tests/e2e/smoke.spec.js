@@ -1,8 +1,8 @@
 const { test, expect } = require('@playwright/test');
 
-test.describe('Calendar Smoke Test', () => {
+test.describe('Calendar Smoke Test @smoke', () => {
   
-  test('Basic calendar page loads and shows month headers', async ({ page }) => {
+  test('Basic calendar page loads and shows month headers @smoke', async ({ page }) => {
     console.info('🔍 Environment Debug:');
     console.info('CAL_URL=', process.env.CAL_URL || 'not set');
     console.info('baseURL=', page.context()._options.baseURL);
