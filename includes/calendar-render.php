@@ -61,6 +61,14 @@ class MonthlyBooking_Calendar_Render {
             'access' => __('Access', 'monthly-booking'),
             'amenities' => __('Amenities', 'monthly-booking')
         ));
+        
+        wp_localize_script('monthly-booking-calendar', 'monthlyBookingAjax', array(
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('mbp_calendar_nonce'),
+            'loading' => __('読み込み中...', 'monthly-booking'),
+            'error' => __('エラーが発生しました。ページを再読み込みしてください。', 'monthly-booking'),
+            'noData' => __('データが見つかりません。', 'monthly-booking')
+        ));
     }
     
     /**
@@ -239,6 +247,7 @@ class MonthlyBooking_Calendar_Render {
                 $first_date = new DateTime($month_data['dates'][0]);
                 $first_day_of_week = $first_date->format('w');
                 $day_count = 0;
+                $today_found = false;
                 
                 echo '<div role="row">';
                 
@@ -259,6 +268,7 @@ class MonthlyBooking_Calendar_Render {
                     $classes = array('calendar-day', $status['class']);
                     if ($is_today) {
                         $classes[] = 'today';
+                        $today_found = true;
                     }
                     
                     $aria_label = $date_info['formatted'] . ' ' . $status['label'];
@@ -270,7 +280,7 @@ class MonthlyBooking_Calendar_Render {
                          data-date="<?php echo esc_attr($date); ?>"
                          role="gridcell"
                          aria-label="<?php echo esc_attr($aria_label); ?>"
-                         tabindex="0"
+                         tabindex="<?php echo ($is_today || ($date === $month_data['dates'][0] && !$today_found)) ? '0' : '-1'; ?>"
                          <?php if (isset($status['campaign_name'])): ?>
                          aria-describedby="tooltip-<?php echo esc_attr($date); ?>"
                          data-campaign="<?php echo esc_attr($status['campaign_name']); ?>"
