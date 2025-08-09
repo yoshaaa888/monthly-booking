@@ -150,6 +150,98 @@ jQuery(document).ready(function($) {
             
             $(document).trigger('monthlyBookingDaySelected', [date, $day]);
         });
+        
+        const calendarGrid = document.querySelector('.calendar-grid');
+        if (calendarGrid) {
+            calendarGrid.addEventListener('keydown', function(e) {
+                const currentCell = e.target;
+                if (!currentCell.classList.contains('calendar-day') || currentCell.getAttribute('tabindex') !== '0') {
+                    return;
+                }
+                
+                const allCells = Array.from(calendarGrid.querySelectorAll('.calendar-day:not(.other-month)'));
+                const currentIndex = allCells.indexOf(currentCell);
+                let targetIndex = -1;
+                
+                switch(e.key) {
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        targetIndex = Math.min(currentIndex + 1, allCells.length - 1);
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        targetIndex = Math.max(currentIndex - 1, 0);
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        targetIndex = Math.min(currentIndex + 7, allCells.length - 1);
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        targetIndex = Math.max(currentIndex - 7, 0);
+                        break;
+                    case 'Home':
+                        e.preventDefault();
+                        targetIndex = 0;
+                        break;
+                    case 'End':
+                        e.preventDefault();
+                        targetIndex = allCells.length - 1;
+                        break;
+                    case 'PageDown':
+                        e.preventDefault();
+                        handleMonthNavigation('next', currentIndex);
+                        return;
+                    case 'PageUp':
+                        e.preventDefault();
+                        handleMonthNavigation('prev', currentIndex);
+                        return;
+                    case 'Enter':
+                    case ' ':
+                        e.preventDefault();
+                        currentCell.click();
+                        break;
+                    case 'Tab':
+                        return;
+                    default:
+                        return;
+                }
+                
+                if (targetIndex >= 0 && allCells[targetIndex]) {
+                    const targetCell = allCells[targetIndex];
+                    setRovingTabindex(targetCell);
+                    targetCell.focus();
+                }
+            });
+        }
+        
+        function handleMonthNavigation(direction, currentIndex) {
+            const currentColumn = currentIndex % 7;
+            const navButton = document.querySelector(direction === 'next' ? '.calendar-next' : '.calendar-prev');
+            
+            if (navButton) {
+                navButton.click();
+                setTimeout(() => {
+                    const calendarGrid = document.querySelector('.calendar-grid');
+                    if (calendarGrid) {
+                        const newCells = Array.from(calendarGrid.querySelectorAll('.calendar-day:not(.other-month)'));
+                        const targetCell = newCells[Math.min(currentColumn, newCells.length - 1)];
+                        if (targetCell) {
+                            setRovingTabindex(targetCell);
+                            targetCell.focus();
+                        }
+                    }
+                }, 150);
+            }
+        }
+        
+        function setRovingTabindex(activeCell) {
+            const allCells = document.querySelectorAll('.calendar-day');
+            allCells.forEach(cell => {
+                cell.setAttribute('tabindex', '-1');
+            });
+            activeCell.setAttribute('tabindex', '0');
+        }
     }
     
     if ($('.monthly-booking-calendar').length) {
