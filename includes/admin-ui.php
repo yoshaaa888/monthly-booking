@@ -1122,6 +1122,31 @@ class MonthlyBooking_Admin_UI {
             wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }
         
+        if (!defined('MB_FEATURE_RESERVATIONS_MVP') || !MB_FEATURE_RESERVATIONS_MVP) {
+            $this->render_feature_disabled_notice();
+            return;
+        }
+        
+        $action = isset($_GET['action']) ? $_GET['action'] : 'list';
+        $reservation_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+        
+        switch ($action) {
+            case 'add':
+                $this->render_reservation_form();
+                break;
+            case 'edit':
+                $this->render_reservation_form($reservation_id);
+                break;
+            case 'delete':
+                $this->handle_reservation_delete($reservation_id);
+                break;
+            default:
+                $this->render_reservation_list();
+                break;
+        }
+    }
+    
+    private function render_feature_disabled_notice() {
         ?>
         <div class="wrap">
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
@@ -1131,9 +1156,9 @@ class MonthlyBooking_Admin_UI {
                 <p><?php _e('新規予約の登録・既存予約の編集を行います。', 'monthly-booking'); ?></p>
                 
                 <div class="notice notice-info" style="padding: 20px; margin: 20px 0;">
-                    <h3 style="margin-top: 0;"><?php _e('🚧 開発中の機能', 'monthly-booking'); ?></h3>
+                    <h3 style="margin-top: 0;"><?php _e('🚧 機能が無効になっています', 'monthly-booking'); ?></h3>
                     <p style="font-size: 16px; line-height: 1.6;">
-                        <?php _e('この「予約登録」機能は、将来のアップデートで実装が予定されています。', 'monthly-booking'); ?>
+                        <?php _e('予約登録MVP機能は現在無効になっています。', 'monthly-booking'); ?>
                     </p>
                     <p style="margin-bottom: 0;">
                         <strong><?php _e('現在ご利用いただける機能:', 'monthly-booking'); ?></strong><br>
@@ -1146,6 +1171,297 @@ class MonthlyBooking_Admin_UI {
             </div>
         </div>
         <?php
+    }
+    
+    private function render_reservation_list() {
+        if (!class_exists('MonthlyBooking_Reservation_Service')) {
+            require_once plugin_dir_path(__FILE__) . 'reservation-service.php';
+        }
+        
+        $service = new MonthlyBooking_Reservation_Service();
+        $page = isset($_GET['paged']) ? intval($_GET['paged']) : 1;
+        $result = $service->get_reservations($page, 20);
+        
+        wp_enqueue_script('monthly-booking-admin-reservations', plugin_dir_url(__FILE__) . '../assets/admin-reservations.js', array('jquery'), '1.7.0', true);
+        wp_localize_script('monthly-booking-admin-reservations', 'monthlyBookingReservations', array(
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('mbp_reservations_nonce'),
+            'strings' => array(
+                'confirmDelete' => __('本当に削除しますか？', 'monthly-booking'),
+                'deleteSuccess' => __('予約が削除されました。', 'monthly-booking'),
+                'deleteError' => __('削除に失敗しました。', 'monthly-booking')
+            )
+        ));
+        
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+            
+            <div class="monthly-booking-admin-content">
+                <div class="reservation-header" style="margin-bottom: 20px;">
+                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-registration&action=add'); ?>" 
+                       class="button button-primary"><?php _e('新規予約追加', 'monthly-booking'); ?></a>
+                </div>
+                
+                <?php if (empty($result['reservations'])): ?>
+                    <div class="notice notice-info">
+                        <p><?php _e('予約がありません。新規予約を追加してください。', 'monthly-booking'); ?></p>
+                    </div>
+                <?php else: ?>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th scope="col"><?php _e('ID', 'monthly-booking'); ?></th>
+                                <th scope="col"><?php _e('部屋', 'monthly-booking'); ?></th>
+                                <th scope="col"><?php _e('顧客名', 'monthly-booking'); ?></th>
+                                <th scope="col"><?php _e('メール', 'monthly-booking'); ?></th>
+                                <th scope="col"><?php _e('チェックイン', 'monthly-booking'); ?></th>
+                                <th scope="col"><?php _e('チェックアウト', 'monthly-booking'); ?></th>
+                                <th scope="col"><?php _e('料金', 'monthly-booking'); ?></th>
+                                <th scope="col"><?php _e('ステータス', 'monthly-booking'); ?></th>
+                                <th scope="col"><?php _e('操作', 'monthly-booking'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($result['reservations'] as $reservation): ?>
+                            <tr>
+                                <td><?php echo esc_html($reservation->id); ?></td>
+                                <td><?php echo esc_html($reservation->property_name . ' - ' . $reservation->room_name); ?></td>
+                                <td><?php echo esc_html($reservation->guest_name); ?></td>
+                                <td><?php echo esc_html($reservation->guest_email); ?></td>
+                                <td><?php echo esc_html($reservation->checkin_date); ?></td>
+                                <td><?php echo esc_html($reservation->checkout_date); ?></td>
+                                <td><?php echo esc_html('¥' . number_format($reservation->total_price)); ?></td>
+                                <td>
+                                    <span class="status-<?php echo esc_attr($reservation->status); ?>">
+                                        <?php echo esc_html($this->get_status_label($reservation->status)); ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-registration&action=edit&id=' . $reservation->id); ?>" 
+                                       class="button button-small"><?php _e('編集', 'monthly-booking'); ?></a>
+                                    <button type="button" class="button button-small button-link-delete delete-reservation" 
+                                            data-id="<?php echo esc_attr($reservation->id); ?>"><?php _e('削除', 'monthly-booking'); ?></button>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                    
+                    <?php if ($result['total_pages'] > 1): ?>
+                        <div class="tablenav">
+                            <div class="tablenav-pages">
+                                <?php
+                                $page_links = paginate_links(array(
+                                    'base' => add_query_arg('paged', '%#%'),
+                                    'format' => '',
+                                    'prev_text' => __('&laquo;'),
+                                    'next_text' => __('&raquo;'),
+                                    'total' => $result['total_pages'],
+                                    'current' => $page
+                                ));
+                                echo $page_links;
+                                ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php
+    }
+    
+    private function render_reservation_form($reservation_id = 0) {
+        $reservation = null;
+        if ($reservation_id) {
+            if (!class_exists('MonthlyBooking_Reservation_Service')) {
+                require_once plugin_dir_path(__FILE__) . 'reservation-service.php';
+            }
+            $service = new MonthlyBooking_Reservation_Service();
+            $reservation = $service->get_reservation($reservation_id);
+            
+            if (!$reservation) {
+                wp_die(__('予約が見つかりません。', 'monthly-booking'));
+            }
+        }
+        
+        wp_enqueue_script('monthly-booking-admin-form', plugin_dir_url(__FILE__) . '../assets/admin-form.js', array('jquery'), '1.7.0', true);
+        wp_localize_script('monthly-booking-admin-form', 'monthlyBookingForm', array(
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('mbp_reservations_nonce'),
+            'strings' => array(
+                'saving' => __('保存中...', 'monthly-booking'),
+                'saveSuccess' => __('予約が保存されました。', 'monthly-booking'),
+                'saveError' => __('保存に失敗しました。', 'monthly-booking')
+            )
+        ));
+        
+        ?>
+        <div class="wrap">
+            <h1><?php echo $reservation_id ? __('予約編集', 'monthly-booking') : __('新規予約追加', 'monthly-booking'); ?></h1>
+            
+            <form id="reservation-form" method="post" novalidate>
+                <?php wp_nonce_field('mbp_reservations_form', 'reservation_nonce'); ?>
+                <input type="hidden" name="reservation_id" value="<?php echo esc_attr($reservation_id); ?>">
+                
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row">
+                            <label for="room_id"><?php _e('部屋', 'monthly-booking'); ?> <span class="required" style="color: red;">*</span></label>
+                        </th>
+                        <td>
+                            <select id="room_id" name="room_id" required aria-describedby="room_id_error" class="regular-text">
+                                <option value=""><?php _e('部屋を選択', 'monthly-booking'); ?></option>
+                                <?php
+                                global $wpdb;
+                                $rooms = $wpdb->get_results("SELECT room_id, room_name, property_name FROM {$wpdb->prefix}monthly_rooms WHERE is_active = 1 ORDER BY property_name, room_name");
+                                foreach ($rooms as $room):
+                                ?>
+                                <option value="<?php echo esc_attr($room->room_id); ?>" 
+                                        <?php selected($reservation ? $reservation->room_id : '', $room->room_id); ?>>
+                                    <?php echo esc_html($room->property_name . ' - ' . $room->room_name); ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div id="room_id_error" class="error-message" aria-live="polite" style="color: red; margin-top: 5px;"></div>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <th scope="row">
+                            <label for="guest_name"><?php _e('ゲスト名', 'monthly-booking'); ?> <span class="required" style="color: red;">*</span></label>
+                        </th>
+                        <td>
+                            <input type="text" id="guest_name" name="guest_name" 
+                                   value="<?php echo esc_attr($reservation ? $reservation->guest_name : ''); ?>" 
+                                   required aria-describedby="guest_name_error" class="regular-text">
+                            <div id="guest_name_error" class="error-message" aria-live="polite" style="color: red; margin-top: 5px;"></div>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <th scope="row">
+                            <label for="guest_email"><?php _e('メールアドレス', 'monthly-booking'); ?></label>
+                        </th>
+                        <td>
+                            <input type="email" id="guest_email" name="guest_email" 
+                                   value="<?php echo esc_attr($reservation ? $reservation->guest_email : ''); ?>" 
+                                   aria-describedby="guest_email_error" class="regular-text">
+                            <div id="guest_email_error" class="error-message" aria-live="polite" style="color: red; margin-top: 5px;"></div>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <th scope="row">
+                            <label for="checkin_date"><?php _e('チェックイン日', 'monthly-booking'); ?> <span class="required" style="color: red;">*</span></label>
+                        </th>
+                        <td>
+                            <input type="date" id="checkin_date" name="checkin_date" 
+                                   value="<?php echo esc_attr($reservation ? $reservation->checkin_date : ''); ?>" 
+                                   required aria-describedby="checkin_date_error">
+                            <div id="checkin_date_error" class="error-message" aria-live="polite" style="color: red; margin-top: 5px;"></div>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <th scope="row">
+                            <label for="checkout_date"><?php _e('チェックアウト日', 'monthly-booking'); ?> <span class="required" style="color: red;">*</span></label>
+                        </th>
+                        <td>
+                            <input type="date" id="checkout_date" name="checkout_date" 
+                                   value="<?php echo esc_attr($reservation ? $reservation->checkout_date : ''); ?>" 
+                                   required aria-describedby="checkout_date_error">
+                            <div id="checkout_date_error" class="error-message" aria-live="polite" style="color: red; margin-top: 5px;"></div>
+                        </td>
+                    </tr>
+                    
+                    
+                    <?php if ($reservation_id): ?>
+                    <tr>
+                        <th scope="row">
+                            <label for="status"><?php _e('ステータス', 'monthly-booking'); ?></label>
+                        </th>
+                        <td>
+                            <select id="status" name="status" class="regular-text">
+                                <option value="draft" <?php selected($reservation->status, 'draft'); ?>><?php _e('下書き', 'monthly-booking'); ?></option>
+                                <option value="confirmed" <?php selected($reservation->status, 'confirmed'); ?>><?php _e('確定', 'monthly-booking'); ?></option>
+                                <option value="canceled" <?php selected($reservation->status, 'canceled'); ?>><?php _e('キャンセル', 'monthly-booking'); ?></option>
+                            </select>
+                        </td>
+                    </tr>
+                    <?php endif; ?>
+                    
+                    <tr>
+                        <th scope="row">
+                            <label for="notes"><?php _e('備考', 'monthly-booking'); ?></label>
+                        </th>
+                        <td>
+                            <textarea id="notes" name="notes" rows="4" class="large-text"><?php echo esc_textarea($reservation ? $reservation->notes : ''); ?></textarea>
+                        </td>
+                    </tr>
+                </table>
+                
+                <p class="submit">
+                    <input type="submit" name="submit" class="button button-primary" 
+                           value="<?php echo $reservation_id ? __('更新', 'monthly-booking') : __('追加', 'monthly-booking'); ?>">
+                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-registration'); ?>" 
+                       class="button"><?php _e('キャンセル', 'monthly-booking'); ?></a>
+                </p>
+            </form>
+        </div>
+        
+        <style>
+        .error-message:empty {
+            display: none;
+        }
+        .required {
+            color: red;
+        }
+        .status-draft {
+            color: #d63638;
+        }
+        .status-confirmed {
+            color: #00a32a;
+        }
+        .status-canceled {
+            color: #646970;
+        }
+        </style>
+        <?php
+    }
+    
+    private function handle_reservation_delete($reservation_id) {
+        if (!$reservation_id) {
+            wp_die(__('無効な予約IDです。', 'monthly-booking'));
+        }
+        
+        if (!wp_verify_nonce($_GET['_wpnonce'], 'delete_reservation_' . $reservation_id)) {
+            wp_die(__('セキュリティチェックに失敗しました。', 'monthly-booking'));
+        }
+        
+        if (!class_exists('MonthlyBooking_Reservation_Service')) {
+            require_once plugin_dir_path(__FILE__) . 'reservation-service.php';
+        }
+        
+        $service = new MonthlyBooking_Reservation_Service();
+        $result = $service->delete_reservation($reservation_id);
+        
+        if (is_wp_error($result)) {
+            wp_die($result->get_error_message());
+        }
+        
+        wp_redirect(admin_url('admin.php?page=monthly-room-booking-registration&deleted=1'));
+        exit;
+    }
+    
+    private function get_status_label($status) {
+        $labels = array(
+            'draft' => __('下書き', 'monthly-booking'),
+            'confirmed' => __('確定', 'monthly-booking'),
+            'canceled' => __('キャンセル', 'monthly-booking')
+        );
+        
+        return isset($labels[$status]) ? $labels[$status] : $status;
     }
     
     /**
