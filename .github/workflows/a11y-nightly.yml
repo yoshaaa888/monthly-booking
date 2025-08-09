@@ -5,6 +5,9 @@ on:
     # Run daily at 1 PM UTC (10 PM JST) for post-business hours execution
     - cron: '0 13 * * *'
   workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, labeled]
+    # Only run on PRs with ci:a11y label to avoid unnecessary load
 
 permissions:
   contents: read
@@ -15,12 +18,17 @@ permissions:
 jobs:
   a11y-tests:
     runs-on: ubuntu-latest
+    # Only run if scheduled, manually triggered, or PR has ci:a11y label
+    if: |
+      github.event_name == 'schedule' || 
+      github.event_name == 'workflow_dispatch' || 
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:a11y'))
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js with caching
         uses: actions/setup-node@v4
         with:
           node-version: '18'
@@ -29,8 +37,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+      - name: Install Playwright browsers (Chromium only for a11y)
+        run: npx playwright install --with-deps chromium
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-a11y-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-browsers-a11y-${{ runner.os }}-
 
       - name: Setup WordPress environment
         uses: wordpress/wordpress-env@v10

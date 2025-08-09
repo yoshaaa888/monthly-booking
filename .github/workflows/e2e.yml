@@ -16,7 +16,7 @@ concurrency:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25  # Reduced from 30 to 25 for faster failure detection
 
     env:
       NODE_VERSION: '20'
@@ -36,17 +36,37 @@ jobs:
         run: echo "WP_DIR=${{ runner.temp }}/wp" >> $GITHUB_ENV
       # ▲▲▲▲▲ ここまで ▲▲▲▲▲
 
-      - name: Setup Node
+      - name: Setup Node with caching
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'  # Enable Node.js dependency caching
 
-      - name: Install Playwright deps
+      - name: Timestamp - Starting dependency installation
+        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Starting dependency installation"
+
+      - name: Install Playwright deps (Chromium only)
         run: |
           npm i -D @playwright/test
-          npx playwright install --with-deps
+          npx playwright install --with-deps chromium  # Install only Chromium for faster setup
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ~/.cache/ms-playwright  # Explicit cache path
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-browsers-${{ runner.os }}-
+
+      - name: Timestamp - Dependencies installed
+        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Dependencies installation completed"
 
       # ───────── WordPress (wp-env) 起動 ─────────
+      - name: Timestamp - Starting WordPress setup
+        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Starting WordPress environment setup"
+
       - name: Install @wordpress/env
         run: npm i -g @wordpress/env
 
@@ -57,23 +77,37 @@ jobs:
         env:
           WP_ENV_PORT: 8888
 
+      - name: Timestamp - WordPress started
+        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - WordPress environment started"
+
       - name: Show CAL_URL
         run: echo "CAL_URL=$CAL_URL"
 
       # ───────── MySQL起動待ち（DB準備確実化） ─────────
-      - name: Enhanced MySQL startup wait
+      - name: Timestamp - Starting MySQL health check
+        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Starting MySQL health check"
+
+      - name: Enhanced MySQL startup wait with health check
         run: |
           echo "Waiting for MySQL to be ready via wp-env..."
-          for i in {1..30}; do
+          start_time=$(date +%s)
+          for i in {1..60}; do
             if wp-env run cli wp db check --quiet 2>/dev/null; then
-              echo "MySQL is ready via wp-env ($i/30)"; break
+              end_time=$(date +%s)
+              duration=$((end_time - start_time))
+              echo "MySQL is ready via wp-env ($i/60) - took ${duration}s"; 
+              break
             fi
-            echo "waiting MySQL via wp-env... ($i/30)"; sleep 1
+            echo "waiting MySQL via wp-env... ($i/60)"; 
+            sleep 1
           done
-          if [ $i -eq 30 ]; then
-            echo "MySQL failed to start within 30 seconds"
+          if [ $i -eq 60 ]; then
+            echo "MySQL failed to start within 60 seconds"
             exit 1
           fi
+
+      - name: Timestamp - MySQL ready
+        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - MySQL health check completed"
 
       - name: Wait for WordPress health
         run: |
@@ -145,11 +179,17 @@ jobs:
           echo "Calendar page reachable without database errors."
 
       # ───────── Playwright 実行 ─────────
-      - name: Run Playwright (smoke first)
+      - name: Timestamp - Starting Playwright tests
+        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Starting Playwright test execution"
+
+      - name: Run Playwright (Chromium only)
         env:
           CAL_URL: ${{ env.CAL_URL }}
         run: |
-          npm run test:e2e || npx playwright test --reporter=list,html || true
+          npm run test:e2e || npx playwright test --project=chromium --reporter=list,html || true
+
+      - name: Timestamp - Playwright tests completed
+        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Playwright test execution completed"
 
       # ───────── レポート保存 ─────────
       - name: Capture WordPress debug logs

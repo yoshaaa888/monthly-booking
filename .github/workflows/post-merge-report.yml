@@ -1,0 +1,110 @@
+name: Post-merge Activities Report Auto-update
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  update-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest CI run results
+        id: ci-results
+        run: |
+          # Get latest E2E workflow run
+          latest_run=$(gh run list --workflow=e2e.yml --limit=1 --json status,conclusion,createdAt,durationMs --jq '.[0]')
+          
+          if [ "$latest_run" != "null" ]; then
+            status=$(echo "$latest_run" | jq -r '.status')
+            conclusion=$(echo "$latest_run" | jq -r '.conclusion')
+            created_at=$(echo "$latest_run" | jq -r '.createdAt')
+            duration_ms=$(echo "$latest_run" | jq -r '.durationMs // 0')
+            duration_min=$((duration_ms / 60000))
+            
+            echo "ci_status=$status" >> $GITHUB_OUTPUT
+            echo "ci_conclusion=$conclusion" >> $GITHUB_OUTPUT
+            echo "ci_created_at=$created_at" >> $GITHUB_OUTPUT
+            echo "ci_duration_min=$duration_min" >> $GITHUB_OUTPUT
+          else
+            echo "ci_status=unknown" >> $GITHUB_OUTPUT
+            echo "ci_conclusion=unknown" >> $GITHUB_OUTPUT
+            echo "ci_created_at=unknown" >> $GITHUB_OUTPUT
+            echo "ci_duration_min=0" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest a11y-nightly run results
+        id: a11y-results
+        run: |
+          # Get latest a11y-nightly workflow run
+          latest_run=$(gh run list --workflow=a11y-nightly.yml --limit=1 --json status,conclusion,createdAt,durationMs --jq '.[0]')
+          
+          if [ "$latest_run" != "null" ]; then
+            status=$(echo "$latest_run" | jq -r '.status')
+            conclusion=$(echo "$latest_run" | jq -r '.conclusion')
+            created_at=$(echo "$latest_run" | jq -r '.createdAt')
+            duration_ms=$(echo "$latest_run" | jq -r '.durationMs // 0')
+            duration_min=$((duration_ms / 60000))
+            
+            echo "a11y_status=$status" >> $GITHUB_OUTPUT
+            echo "a11y_conclusion=$conclusion" >> $GITHUB_OUTPUT
+            echo "a11y_created_at=$created_at" >> $GITHUB_OUTPUT
+            echo "a11y_duration_min=$duration_min" >> $GITHUB_OUTPUT
+          else
+            echo "a11y_status=unknown" >> $GITHUB_OUTPUT
+            echo "a11y_conclusion=unknown" >> $GITHUB_OUTPUT
+            echo "a11y_created_at=unknown" >> $GITHUB_OUTPUT
+            echo "a11y_duration_min=0" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update POST_MERGE_ACTIVITIES_REPORT.md
+        run: |
+          current_time=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          
+          # Create or update the report
+          cat >> POST_MERGE_ACTIVITIES_REPORT.md << EOF
+          
+          ---
+          
+          ## 🤖 Automated Report Update - $current_time
+          
+          ### Latest CI Execution Results
+          - **E2E Tests**: ${{ steps.ci-results.outputs.ci_conclusion }} (${{ steps.ci-results.outputs.ci_status }})
+          - **Duration**: ${{ steps.ci-results.outputs.ci_duration_min }} minutes
+          - **Executed**: ${{ steps.ci-results.outputs.ci_created_at }}
+          
+          ### Latest A11y-Nightly Results  
+          - **Accessibility Tests**: ${{ steps.a11y-results.outputs.a11y_conclusion }} (${{ steps.a11y-results.outputs.a11y_status }})
+          - **Duration**: ${{ steps.a11y-results.outputs.a11y_duration_min }} minutes
+          - **Executed**: ${{ steps.a11y-results.outputs.a11y_created_at }}
+          
+          **Last Updated**: $current_time
+          EOF
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "devin-ai-integration[bot]@users.noreply.github.com"
+          git config --local user.name "Devin AI"
+          
+          if git diff --quiet POST_MERGE_ACTIVITIES_REPORT.md; then
+            echo "No changes to commit"
+          else
+            git add POST_MERGE_ACTIVITIES_REPORT.md
+            git commit -m "chore: auto-update POST_MERGE_ACTIVITIES_REPORT with latest CI results"
+            git push
+          fi
