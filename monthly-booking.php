@@ -773,9 +773,9 @@ class MonthlyBooking {
     }
     
     public function ajax_get_bookings() {
-        $room_id = intval($_POST['room_id']);
-        $year = intval($_POST['year']);
-        $month = intval($_POST['month']);
+        $room_id = isset($_POST['room_id']) ? intval($_POST['room_id']) : 0;
+        $year = isset($_POST['year']) ? intval($_POST['year']) : 0;
+        $month = isset($_POST['month']) ? intval($_POST['month']) : 0;
         
         if (!$room_id || !$year || !$month) {
             wp_send_json_error('Missing required parameters');

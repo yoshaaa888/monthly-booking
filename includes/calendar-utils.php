@@ -86,8 +86,8 @@ class MonthlyBooking_Calendar_Utils {
                 'symbol' => '△',
                 'class' => 'campaign',
                 'label' => 'キャンペーン対象',
-                'campaign_name' => $campaign['name'],
-                'campaign_type' => $campaign['type']
+                'campaign_name' => isset($campaign['name']) ? $campaign['name'] : '',
+                'campaign_type' => isset($campaign['type']) ? $campaign['type'] : ''
             );
         }
         
