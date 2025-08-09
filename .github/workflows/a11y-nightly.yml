@@ -48,12 +48,14 @@ jobs:
           restore-keys: |
             playwright-browsers-a11y-${{ runner.os }}-
 
+      - name: Install @wordpress/env
+        run: npm i -g @wordpress/env
+
       - name: Setup WordPress environment
-        uses: wordpress/wordpress-env@v10
-        with:
-          core: 'WordPress/WordPress#6.5'
-          phpVersion: '8.1'
-          plugins: '["./"]'
+        run: |
+          wp-env start
+        env:
+          WP_ENV_PORT: 8889
 
       - name: Wait for WordPress to be ready
         run: |
