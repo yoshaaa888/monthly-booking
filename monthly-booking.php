@@ -82,6 +82,9 @@ class MonthlyBooking {
         add_action('wp_ajax_mbp_load_calendar', array($this, 'ajax_load_calendar'));
         add_action('wp_ajax_nopriv_mbp_load_calendar', array($this, 'ajax_load_calendar'));
         
+        add_action('wp_ajax_mbp_get_bookings', array($this, 'ajax_get_bookings'));
+        add_action('wp_ajax_nopriv_mbp_get_bookings', array($this, 'ajax_get_bookings'));
+        
         if ($this->is_feature_enabled('reservations_mvp')) {
             add_action('wp_ajax_mbp_reservation_create', array($this, 'ajax_reservation_create'));
             add_action('wp_ajax_mbp_reservation_update', array($this, 'ajax_reservation_update'));
@@ -767,6 +770,57 @@ class MonthlyBooking {
         $result = $service->get_reservations($page, $per_page);
         
         wp_send_json_success($result);
+    }
+    
+    public function ajax_get_bookings() {
+        $room_id = intval($_POST['room_id']);
+        $year = intval($_POST['year']);
+        $month = intval($_POST['month']);
+        
+        if (!$room_id || !$year || !$month) {
+            wp_send_json_error('Missing required parameters');
+            return;
+        }
+        
+        if (!class_exists('MonthlyBooking_Calendar_API')) {
+            require_once plugin_dir_path(__FILE__) . 'includes/calendar-api.php';
+        }
+        
+        $api = new MonthlyBooking_Calendar_API();
+        $from = sprintf('%04d-%02d-01', $year, $month);
+        $to = date('Y-m-t', strtotime($from));
+        
+        $bookings = $api->mbp_get_bookings($room_id, $from, $to);
+        $campaigns = $api->get_global_campaigns($from, $to);
+        
+        $calendar_data = array();
+        $current_date = new DateTime($from);
+        $end_date = new DateTime($to);
+        
+        while ($current_date <= $end_date) {
+            $date_str = $current_date->format('Y-m-d');
+            $reserved = false;
+            
+            foreach ($bookings as $booking) {
+                $checkin = $booking->checkin_date ?? $booking->start_date;
+                $checkout = $booking->checkout_date ?? $booking->end_date;
+                
+                if ($date_str >= $checkin && $date_str < $checkout) {
+                    $reserved = true;
+                    break;
+                }
+            }
+            
+            $calendar_data[] = array(
+                'date' => $date_str,
+                'reserved' => $reserved,
+                'status' => $reserved ? 'booked' : 'available'
+            );
+            
+            $current_date->modify('+1 day');
+        }
+        
+        wp_send_json_success($calendar_data);
     }
     
     private function insert_default_fee_settings() {
