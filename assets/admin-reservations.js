@@ -21,7 +21,7 @@ jQuery(document).ready(function($) {
             },
             success: function(response) {
                 if (response.success) {
-                    if (window.MonthlyBookingCalendar) {
+                    if (typeof window.MonthlyBookingCalendar !== 'undefined' && window.MonthlyBookingCalendar.refresh) {
                         window.MonthlyBookingCalendar.refresh();
                     }
                     

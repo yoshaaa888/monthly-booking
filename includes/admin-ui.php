@@ -1121,35 +1121,20 @@ class MonthlyBooking_Admin_UI {
         error_log('[mb-admin] reached admin_page_booking_registration');
         
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
+            wp_die(__('権限がありません。', 'monthly-booking'));
         }
         
-        define('MB_FEATURE_RESERVATIONS_MVP', true);
-        error_log('[mb-admin] MB_FEATURE_RESERVATIONS_MVP defined as: ' . (defined('MB_FEATURE_RESERVATIONS_MVP') ? 'true' : 'false'));
-        
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'monthly_reservations';
-        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name;
-        
-        if (!$table_exists) {
-            error_log('[mb-admin] Creating reservations table');
-            $this->create_reservations_table();
-        }
-        
-        $action = isset($_GET['action']) ? $_GET['action'] : 'list';
-        $reservation_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-        
-        error_log('[mb-admin] Action: ' . $action . ', calling render_working_reservation_list');
+        $action = isset($_GET['action']) ? sanitize_text_field($_GET['action']) : '';
         
         switch ($action) {
             case 'add':
                 $this->render_reservation_form();
                 break;
             case 'edit':
-                $this->render_reservation_form($reservation_id);
+                $this->render_reservation_form(true);
                 break;
             case 'delete':
-                $this->handle_reservation_delete($reservation_id);
+                $this->handle_reservation_delete();
                 break;
             default:
                 $this->render_working_reservation_list();
@@ -1274,7 +1259,27 @@ class MonthlyBooking_Admin_UI {
         <?php
     }
     
-    private function render_reservation_list() {
+    private function render_working_reservation_list() {
+        error_log('[mb-admin] reached render_working_reservation_list');
+        
+        global $wpdb;
+        
+        if (!defined('MB_FEATURE_RESERVATIONS_MVP')) {
+            define('MB_FEATURE_RESERVATIONS_MVP', true);
+        }
+        
+        if (!MB_FEATURE_RESERVATIONS_MVP) {
+            $this->render_feature_disabled_notice();
+            return;
+        }
+        
+        $table_name = $wpdb->prefix . 'monthly_reservations';
+        
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name;
+        if (!$table_exists) {
+            $this->create_reservations_table();
+        }
+        
         if (!class_exists('MonthlyBooking_Reservation_Service')) {
             require_once plugin_dir_path(__FILE__) . 'reservation-service.php';
         }

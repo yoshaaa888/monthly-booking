@@ -25,8 +25,30 @@ jQuery(document).ready(function($) {
             contentType: false,
             success: function(response) {
                 if (response.success) {
-                    if (window.MonthlyBookingCalendar) {
-                        window.MonthlyBookingCalendar.refresh();
+                    if (typeof window.MonthlyBookingCalendar !== 'undefined' && window.MonthlyBookingCalendar.refresh) {
+                        const roomId = formData.get('room_id');
+                        const checkinDate = formData.get('checkin_date');
+                        const checkoutDate = formData.get('checkout_date');
+                        
+                        if (roomId && checkinDate && checkoutDate) {
+                            const checkinMonth = new Date(checkinDate);
+                            const checkoutMonth = new Date(checkoutDate);
+                            
+                            window.MonthlyBookingCalendar.refresh({
+                                roomId: roomId,
+                                year: checkinMonth.getFullYear(),
+                                month: checkinMonth.getMonth() + 1
+                            });
+                            
+                            if (checkinMonth.getMonth() !== checkoutMonth.getMonth() || 
+                                checkinMonth.getFullYear() !== checkoutMonth.getFullYear()) {
+                                window.MonthlyBookingCalendar.refresh({
+                                    roomId: roomId,
+                                    year: checkoutMonth.getFullYear(),
+                                    month: checkoutMonth.getMonth() + 1
+                                });
+                            }
+                        }
                     }
                     
                     showNotice('success', response.data.message || monthlyBookingForm.strings.saveSuccess);

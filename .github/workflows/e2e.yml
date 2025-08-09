@@ -60,6 +60,18 @@ jobs:
       - name: Show CAL_URL
         run: echo "CAL_URL=$CAL_URL"
 
+      # ───────── MySQL起動待ち（DB準備確実化） ─────────
+      - name: Wait for MySQL startup
+        run: |
+          echo "Waiting for MySQL to be ready..."
+          for i in {1..30}; do
+            if wp-env run cli wp db check --quiet 2>/dev/null; then
+              echo "MySQL is ready ($i/30)"; break
+            fi
+            echo "Waiting for MySQL... ($i/30)"; sleep 1
+          done
+          wp-env run cli wp db check || echo "MySQL check failed but continuing"
+
       - name: Wait for WordPress health
         run: |
           for i in $(seq 1 60); do
@@ -69,11 +81,31 @@ jobs:
             echo "Waiting WP... ($i/60)"; sleep 2
           done
 
-      # ───────── プラグイン有効化 & ページ作成 ─────────
-      - name: Activate plugin
+      # ───────── WP Core & Site初期化（確実化） ─────────
+      - name: Initialize WordPress core and site
         run: |
+          echo "Ensuring WordPress core is properly installed..."
+          wp-env run cli wp core is-installed || wp-env run cli wp core install \
+            --url="$CAL_URL" \
+            --title="E2E Test Site" \
+            --admin_user=admin \
+            --admin_password=admin \
+            --admin_email=admin@example.com \
+            --skip-email
+
+      # ───────── プラグイン有効化（dbDelta実行） ─────────
+      - name: Activate plugin and verify tables
+        run: |
+          echo "Activating monthly-booking plugin..."
           wp-env run cli wp plugin activate monthly-booking
           wp-env run cli wp plugin list
+          
+          echo "Verifying database tables creation..."
+          wp-env run cli wp db query "SHOW TABLES LIKE 'wp_monthly_reservations';" || echo "wp_monthly_reservations table not found"
+          wp-env run cli wp db query "DESCRIBE wp_monthly_reservations;" || echo "Cannot describe wp_monthly_reservations table"
+          
+          echo "Checking for recent database errors..."
+          wp-env run cli wp eval 'global $wpdb; echo "LAST_DB_ERROR=" . ($wpdb->last_error ?: "none");'
       
       - name: Create calendar page with shortcode
         run: |
@@ -114,6 +146,14 @@ jobs:
           npm run test:e2e || npx playwright test --reporter=list,html || true
 
       # ───────── レポート保存 ─────────
+      - name: Capture WordPress debug logs
+        if: always()
+        run: |
+          echo "Capturing WordPress debug logs..."
+          wp-env run cli wp eval 'echo "Debug log path: " . WP_CONTENT_DIR . "/debug.log";' || true
+          wp-env run cli cat wp-content/debug.log || echo "No debug.log found"
+        continue-on-error: true
+
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
@@ -130,6 +170,15 @@ jobs:
           path: |
             test-results/**
             tests/e2e/**/*.js
+          if-no-files-found: warn
+
+      - name: Upload WordPress debug logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wp-debug-logs
+          path: |
+            ~/.wp-env/*/WordPress/wp-content/debug.log
           if-no-files-found: warn
 
       # 成否でCIを落とすかはここで制御（まずはスモーク緑化を優先して許容）
