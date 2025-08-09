@@ -162,7 +162,6 @@ jQuery(document).ready(function($) {
                 const allCells = Array.from(calendarGrid.querySelectorAll('.calendar-day:not(.other-month)'));
                 const currentIndex = allCells.indexOf(currentCell);
                 let targetIndex = -1;
-                let shouldPreventDefault = true;
                 
                 switch(e.key) {
                     case 'ArrowRight':
@@ -191,35 +190,11 @@ jQuery(document).ready(function($) {
                         break;
                     case 'PageDown':
                         e.preventDefault();
-                        const nextMonthBtn = document.querySelector('.calendar-next');
-                        if (nextMonthBtn) {
-                            const currentColumn = currentIndex % 7;
-                            nextMonthBtn.click();
-                            setTimeout(() => {
-                                const newCells = Array.from(calendarGrid.querySelectorAll('.calendar-day:not(.other-month)'));
-                                const targetCell = newCells[Math.min(currentColumn, newCells.length - 1)];
-                                if (targetCell) {
-                                    setRovingTabindex(targetCell);
-                                    targetCell.focus();
-                                }
-                            }, 100);
-                        }
+                        handleMonthNavigation('next', currentIndex);
                         return;
                     case 'PageUp':
                         e.preventDefault();
-                        const prevMonthBtn = document.querySelector('.calendar-prev');
-                        if (prevMonthBtn) {
-                            const currentColumn = currentIndex % 7;
-                            prevMonthBtn.click();
-                            setTimeout(() => {
-                                const newCells = Array.from(calendarGrid.querySelectorAll('.calendar-day:not(.other-month)'));
-                                const targetCell = newCells[Math.min(currentColumn, newCells.length - 1)];
-                                if (targetCell) {
-                                    setRovingTabindex(targetCell);
-                                    targetCell.focus();
-                                }
-                            }, 100);
-                        }
+                        handleMonthNavigation('prev', currentIndex);
                         return;
                     case 'Enter':
                     case ' ':
@@ -227,10 +202,9 @@ jQuery(document).ready(function($) {
                         currentCell.click();
                         break;
                     case 'Tab':
-                        shouldPreventDefault = false;
-                        break;
+                        return;
                     default:
-                        shouldPreventDefault = false;
+                        return;
                 }
                 
                 if (targetIndex >= 0 && allCells[targetIndex]) {
@@ -239,6 +213,26 @@ jQuery(document).ready(function($) {
                     targetCell.focus();
                 }
             });
+        }
+        
+        function handleMonthNavigation(direction, currentIndex) {
+            const currentColumn = currentIndex % 7;
+            const navButton = document.querySelector(direction === 'next' ? '.calendar-next' : '.calendar-prev');
+            
+            if (navButton) {
+                navButton.click();
+                setTimeout(() => {
+                    const calendarGrid = document.querySelector('.calendar-grid');
+                    if (calendarGrid) {
+                        const newCells = Array.from(calendarGrid.querySelectorAll('.calendar-day:not(.other-month)'));
+                        const targetCell = newCells[Math.min(currentColumn, newCells.length - 1)];
+                        if (targetCell) {
+                            setRovingTabindex(targetCell);
+                            targetCell.focus();
+                        }
+                    }
+                }, 150);
+            }
         }
         
         function setRovingTabindex(activeCell) {
