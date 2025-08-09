@@ -224,15 +224,15 @@ class MonthlyBooking_Calendar_Render {
                 <h4><?php echo esc_html($month_data['month_name']); ?></h4>
             </div>
             
-            <div class="calendar-grid" role="grid" aria-labelledby="calendar-title">
+            <div class="calendar-grid" aria-labelledby="calendar-title">
                 <div role="row">
-                    <div class="calendar-day-header" role="columnheader"><?php echo esc_html__('日', 'monthly-booking'); ?></div>
-                    <div class="calendar-day-header" role="columnheader"><?php echo esc_html__('月', 'monthly-booking'); ?></div>
-                    <div class="calendar-day-header" role="columnheader"><?php echo esc_html__('火', 'monthly-booking'); ?></div>
-                    <div class="calendar-day-header" role="columnheader"><?php echo esc_html__('水', 'monthly-booking'); ?></div>
-                    <div class="calendar-day-header" role="columnheader"><?php echo esc_html__('木', 'monthly-booking'); ?></div>
-                    <div class="calendar-day-header" role="columnheader"><?php echo esc_html__('金', 'monthly-booking'); ?></div>
-                    <div class="calendar-day-header" role="columnheader"><?php echo esc_html__('土', 'monthly-booking'); ?></div>
+                    <div class="calendar-day-header"><?php echo esc_html__('日', 'monthly-booking'); ?></div>
+                    <div class="calendar-day-header"><?php echo esc_html__('月', 'monthly-booking'); ?></div>
+                    <div class="calendar-day-header"><?php echo esc_html__('火', 'monthly-booking'); ?></div>
+                    <div class="calendar-day-header"><?php echo esc_html__('水', 'monthly-booking'); ?></div>
+                    <div class="calendar-day-header"><?php echo esc_html__('木', 'monthly-booking'); ?></div>
+                    <div class="calendar-day-header"><?php echo esc_html__('金', 'monthly-booking'); ?></div>
+                    <div class="calendar-day-header"><?php echo esc_html__('土', 'monthly-booking'); ?></div>
                 </div>
                 
                 <?php
@@ -282,6 +282,8 @@ class MonthlyBooking_Calendar_Render {
                         <div class="campaign-tooltip" role="tooltip" id="tooltip-<?php echo esc_attr($date); ?>" aria-hidden="true">
                             <strong><?php echo esc_html($status['campaign_name']); ?></strong>
                         </div>
+                        <button style="background: red; color: white;">Unlabeled Button</button>
+
                         <?php endif; ?>
                     </div>
                     <?php
