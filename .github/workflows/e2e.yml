@@ -63,12 +63,12 @@ jobs:
       # ───────── MySQL起動待ち（DB準備確実化） ─────────
       - name: Enhanced MySQL startup wait
         run: |
-          echo "Waiting for MySQL to be ready..."
+          echo "Waiting for MySQL to be ready via wp-env..."
           for i in {1..30}; do
-            if mysqladmin ping -h "127.0.0.1" -u"root" -p"wordpress" --silent; then
-              echo "MySQL is up"; break
+            if wp-env run cli wp db check --quiet 2>/dev/null; then
+              echo "MySQL is ready via wp-env ($i/30)"; break
             fi
-            echo "waiting MySQL... ($i)"; sleep 1
+            echo "waiting MySQL via wp-env... ($i/30)"; sleep 1
           done
           if [ $i -eq 30 ]; then
             echo "MySQL failed to start within 30 seconds"
