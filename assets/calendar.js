@@ -154,6 +154,52 @@ jQuery(document).ready(function($) {
     
     if ($('.monthly-booking-calendar').length) {
         initCalendar();
+        initTooltips();
+    }
+    
+    function initTooltips() {
+        const calendarGrid = document.querySelector('.calendar-grid');
+        if (calendarGrid) {
+            calendarGrid.addEventListener('mouseenter', function(e) {
+                if (e.target.classList.contains('calendar-day') && e.target.hasAttribute('aria-describedby')) {
+                    const tooltipId = e.target.getAttribute('aria-describedby');
+                    const tooltip = document.getElementById(tooltipId);
+                    if (tooltip) {
+                        tooltip.setAttribute('aria-hidden', 'false');
+                    }
+                }
+            }, true);
+            
+            calendarGrid.addEventListener('mouseleave', function(e) {
+                if (e.target.classList.contains('calendar-day') && e.target.hasAttribute('aria-describedby')) {
+                    const tooltipId = e.target.getAttribute('aria-describedby');
+                    const tooltip = document.getElementById(tooltipId);
+                    if (tooltip) {
+                        tooltip.setAttribute('aria-hidden', 'true');
+                    }
+                }
+            }, true);
+            
+            calendarGrid.addEventListener('focus', function(e) {
+                if (e.target.classList.contains('calendar-day') && e.target.hasAttribute('aria-describedby')) {
+                    const tooltipId = e.target.getAttribute('aria-describedby');
+                    const tooltip = document.getElementById(tooltipId);
+                    if (tooltip) {
+                        tooltip.setAttribute('aria-hidden', 'false');
+                    }
+                }
+            }, true);
+            
+            calendarGrid.addEventListener('blur', function(e) {
+                if (e.target.classList.contains('calendar-day') && e.target.hasAttribute('aria-describedby')) {
+                    const tooltipId = e.target.getAttribute('aria-describedby');
+                    const tooltip = document.getElementById(tooltipId);
+                    if (tooltip) {
+                        tooltip.setAttribute('aria-hidden', 'true');
+                    }
+                }
+            }, true);
+        }
     }
     
     window.MonthlyBookingCalendar = {

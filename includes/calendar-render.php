@@ -260,13 +260,14 @@ class MonthlyBooking_Calendar_Render {
                          aria-label="<?php echo esc_attr($aria_label); ?>"
                          tabindex="0"
                          <?php if (isset($status['campaign_name'])): ?>
+                         aria-describedby="tooltip-<?php echo esc_attr($date); ?>"
                          data-campaign="<?php echo esc_attr($status['campaign_name']); ?>"
                          data-campaign-type="<?php echo esc_attr($status['campaign_type']); ?>"
                          <?php endif; ?>>
                         <div class="day-number"><?php echo esc_html($date_info['day']); ?></div>
                         <div class="day-status"><?php echo esc_html($status['symbol']); ?></div>
                         <?php if (isset($status['campaign_name'])): ?>
-                        <div class="campaign-tooltip">
+                        <div class="campaign-tooltip" role="tooltip" id="tooltip-<?php echo esc_attr($date); ?>" aria-hidden="true">
                             <strong><?php echo esc_html($status['campaign_name']); ?></strong>
                         </div>
                         <?php endif; ?>
