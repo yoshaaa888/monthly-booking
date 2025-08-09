@@ -53,9 +53,7 @@ jobs:
 
       - name: Setup WordPress environment
         run: |
-          wp-env start
-        env:
-          WP_ENV_PORT: 8889
+          wp-env start --port=8889
 
       - name: Wait for WordPress to be ready
         run: |
@@ -129,6 +127,10 @@ jobs:
       - name: Create accessibility issue on failure
         if: failure()
         run: |
+          # Create labels if they don't exist
+          gh label create "accessibility" --description "Accessibility related issues" --color "0052cc" || true
+          gh label create "bug" --description "Bug reports" --color "d73a4a" || true
+          
           VIOLATIONS=$(grep -o '"id":"[^"]*".*"impact":"critical\|serious"' test-results/*/test-results.json 2>/dev/null | head -5 || echo "No specific violations found")
           gh issue create --title "[a11y] Critical accessibility violations detected" --body "Automated accessibility scan found critical/serious violations: $VIOLATIONS. See workflow artifacts for details." --label "accessibility,bug"
         env:
