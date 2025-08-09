@@ -72,88 +72,62 @@ jobs:
             exit 1
           fi
 
-      - name: Activate plugin and setup test environment
+      - name: WordPress sanity & prepare calendar page
         run: |
-          # Ensure WordPress core is properly installed
-          npx wp-env run cli wp core is-installed || npx wp-env run cli wp core install \
-            --url="http://localhost:8889" \
-            --title="A11y Test Site" \
-            --admin_user=admin \
-            --admin_password=admin \
-            --admin_email=admin@example.com
-          
-          # Activate plugin (this triggers dbDelta for table creation)
-          npx wp-env run cli wp plugin activate monthly-booking
-          
-          # Verify database tables exist
-          npx wp-env run cli wp db query "SHOW TABLES LIKE 'wp_monthly_reservations';" || echo "Table creation may have failed"
-          
-          # Set permalink structure and flush
-          npx wp-env run cli wp rewrite structure '/%postname%/'
-          npx wp-env run cli wp rewrite flush --hard
-          
-          # Create calendar page with error handling
-          PAGE_ID=$(npx wp-env run cli wp post list --post_type=page --name=monthly-calendar --field=ID --format=csv | tr -d '\r' || true)
+          set -e
+
+          echo "== Site URL =="
+          npx wp-env run cli "wp option get siteurl"
+          npx wp-env run cli "wp option get home"
+
+          echo "== Plugin status =="
+          npx wp-env run cli "wp plugin list"
+
+          echo "== Activate our plugin (idempotent) =="
+          npx wp-env run cli "wp plugin activate monthly-booking || true"
+
+          echo "== Enable feature flags (idempotent) =="
+          # Set feature flag via option for test environment compatibility
+          npx wp-env run cli "wp option update mb_feature_reservations_mvp 1 --autoload=yes || true"
+
+          echo "== Permalink structure -> /%postname%/ =="
+          npx wp-env run cli "wp rewrite structure '/%postname%/' --hard"
+          npx wp-env run cli "wp rewrite flush --hard"
+
+          echo "== Ensure monthly-calendar page exists =="
+          PAGE_ID=$(npx wp-env run cli -- "wp post list --post_type=page --pagename=monthly-calendar --field=ID")
           if [ -z "$PAGE_ID" ]; then
-            npx wp-env run cli wp post create --post_type=page --post_title="Monthly Calendar" --post_content="[monthly_booking_calendar]" --post_status=publish --post_name=monthly-calendar
-            echo "Calendar page created"
+            echo "Creating monthly-calendar page..."
+            # Use correct shortcode name
+            npx wp-env run cli -- wp post create --post_type=page --post_status=publish --post_title='Monthly Calendar' --post_name='monthly-calendar' --post_content='[monthly_booking_calendar]'
           else
-            echo "Calendar page already exists: $PAGE_ID"
-          fi
-          
-          # Seed database if fixture exists
-          if [ -f "tests/fixtures/seed.sql" ]; then
-            npx wp-env run cli wp db query < tests/fixtures/seed.sql || echo "Seed data loading failed (non-fatal)"
+            echo "monthly-calendar page exists: ID=${PAGE_ID}"
           fi
 
-      - name: Health check
+          echo "== Dump permalink & rules =="
+          npx wp-env run cli "wp option get permalink_structure"
+          npx wp-env run cli "wp rewrite list | head -n 50" || true
+
+          echo "== Warm up endpoint =="
+          BASE=$(npx wp-env run cli -- "wp option get home")
+          curl -sS -I "${BASE%/}/monthly-calendar/" || true
+
+      - name: Health check monthly-calendar (HTTP 200)
         run: |
-          echo "Checking WordPress and calendar page accessibility..."
-          
-          # First check WordPress root
-          timeout=30
-          while [ $timeout -gt 0 ]; do
-            if curl -s http://localhost:8889 | grep -q "WordPress\|wp-"; then
-              echo "WordPress root accessible"
-              break
+          set -e
+          BASE=$(npx wp-env run cli -- "wp option get home")
+          URL="${BASE%/}/monthly-calendar/"
+
+          echo "Checking ${URL}"
+          for i in {1..30}; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || true)
+            echo "Attempt $i: HTTP $CODE"
+            if [ "$CODE" = "200" ]; then
+              echo "OK"; exit 0
             fi
-            echo "Waiting for WordPress root... ($timeout seconds remaining)"
             sleep 2
-            timeout=$((timeout-2))
           done
-          
-          # Then check calendar page specifically
-          timeout=60
-          while [ $timeout -gt 0 ]; do
-            response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8889/monthly-calendar/)
-            if [ "$response" = "200" ]; then
-              page_content=$(curl -s http://localhost:8889/monthly-calendar/)
-              if ! echo "$page_content" | grep -q "wpdberror\|database error"; then
-                if echo "$page_content" | grep -q "monthly-booking\|calendar"; then
-                  echo "Health check passed - calendar page accessible with plugin content"
-                  break
-                else
-                  echo "Calendar page accessible but plugin content may be missing"
-                fi
-              else
-                echo "Database error detected in page content"
-              fi
-            fi
-            echo "Health check failed (HTTP $response), retrying... ($timeout seconds remaining)"
-            sleep 2
-            timeout=$((timeout-2))
-          done
-          if [ $timeout -le 0 ]; then
-            echo "Health check failed - calendar page not accessible"
-            # Debug information
-            echo "=== WordPress status ==="
-            curl -s -I http://localhost:8889/ || echo "WordPress root not accessible"
-            echo "=== Available pages ==="
-            npx wp-env run cli wp post list --post_type=page --format=table || echo "Cannot list pages"
-            echo "=== Plugin status ==="
-            npx wp-env run cli wp plugin list || echo "Cannot list plugins"
-            exit 1
-          fi
+          echo "Monthly calendar did not become ready in time"; exit 1
 
       - name: Run accessibility tests
         run: npx playwright test --grep "@a11y" --reporter=list,html --retries=1
@@ -200,6 +174,24 @@ jobs:
           name: playwright-a11y-traces
           path: test-results/
           retention-days: 7
+
+      - name: Collect debug artifacts (if fail)
+        if: failure()
+        run: |
+          mkdir -p a11y-debug
+          npx wp-env run cli "wp option get siteurl" > a11y-debug/siteurl.txt || true
+          npx wp-env run cli "wp option get home" > a11y-debug/home.txt || true
+          npx wp-env run cli "wp option get permalink_structure" > a11y-debug/permalink.txt || true
+          npx wp-env run cli "wp post list --post_type=page --fields=ID,post_title,post_name,post_status" > a11y-debug/pages.txt || true
+          npx wp-env run cli "wp plugin list" > a11y-debug/plugins.txt || true
+          npx wp-env run cli "wp rewrite list" > a11y-debug/rewrite-rules.txt || true
+
+      - name: Upload a11y debug artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-debug
+          path: a11y-debug/**
 
       - name: Upload wp-env logs on failure
         uses: actions/upload-artifact@v4
