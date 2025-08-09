@@ -65,13 +65,13 @@ jobs:
         run: |
           echo "Waiting for MySQL to be ready..."
           for i in {1..30}; do
-            if mysqladmin ping -h "127.0.0.1" -u"root" -p"wordpress" --silent 2>/dev/null; then
-              echo "MySQL is up ($i/30)"; break
+            if wp-env run cli wp db check --quiet 2>/dev/null; then
+              echo "MySQL is up via wp-env ($i/30)"; break
             fi
             echo "waiting MySQL... ($i/30)"; sleep 1
           done
           
-          echo "Verifying MySQL connection via wp-env..."
+          echo "Verifying MySQL connection and getting status..."
           wp-env run cli wp db check || echo "MySQL check failed but continuing"
 
       - name: Wait for WordPress health
