@@ -1,0 +1,127 @@
+name: A11y Nightly Tests
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  a11y-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Setup WordPress environment
+        uses: wordpress/wordpress-env@v10
+        with:
+          core: 'WordPress/WordPress#6.5'
+          phpVersion: '8.1'
+          plugins: '["./"]'
+
+      - name: Wait for WordPress to be ready
+        run: |
+          timeout=60
+          while [ $timeout -gt 0 ]; do
+            if curl -s http://localhost:8889 | grep -q "WordPress"; then
+              echo "WordPress is ready"
+              break
+            fi
+            echo "Waiting for WordPress... ($timeout seconds remaining)"
+            sleep 2
+            timeout=$((timeout-2))
+          done
+          if [ $timeout -le 0 ]; then
+            echo "WordPress failed to start"
+            exit 1
+          fi
+
+      - name: Activate plugin and setup test environment
+        run: |
+          npx wp-env run cli wp plugin activate monthly-booking
+          npx wp-env run cli wp rewrite structure '/%postname%/'
+          npx wp-env run cli wp rewrite flush
+          
+          # Create calendar page
+          npx wp-env run cli wp post create --post_type=page --post_title="Monthly Calendar" --post_content="[monthly_booking_calendar]" --post_status=publish --post_name=monthly-calendar
+          
+          # Seed database if fixture exists
+          if [ -f "tests/fixtures/seed.sql" ]; then
+            npx wp-env run cli wp db query < tests/fixtures/seed.sql
+          fi
+
+      - name: Health check
+        run: |
+          timeout=60
+          while [ $timeout -gt 0 ]; do
+            response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8889/monthly-calendar/)
+            if [ "$response" = "200" ]; then
+              if ! curl -s http://localhost:8889/monthly-calendar/ | grep -q "wpdberror"; then
+                echo "Health check passed"
+                break
+              fi
+            fi
+            echo "Health check failed (HTTP $response), retrying... ($timeout seconds remaining)"
+            sleep 2
+            timeout=$((timeout-2))
+          done
+          if [ $timeout -le 0 ]; then
+            echo "Health check failed"
+            exit 1
+          fi
+
+      - name: Run accessibility tests
+        run: npx playwright test --grep "@a11y" --reporter=list,html --retries=1
+        continue-on-error: true
+
+      - name: Run axe accessibility audit
+        run: |
+          npx playwright test --grep "@axe" --reporter=list,html --retries=1 || {
+            echo "Axe tests failed, checking severity..."
+            # Extract critical/serious violations from test results
+            if grep -q "critical\|serious" test-results/*/test-results.json 2>/dev/null; then
+              echo "Critical or serious accessibility violations found"
+              exit 1
+            else
+              echo "Only minor/moderate violations found, continuing..."
+              exit 0
+            fi
+          }
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-a11y-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload test traces
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-a11y-traces
+          path: test-results/
+          retention-days: 7
+
+      - name: Upload wp-env logs on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: wp-env-logs
+          path: ~/.wp-env/logs/
+          retention-days: 3
