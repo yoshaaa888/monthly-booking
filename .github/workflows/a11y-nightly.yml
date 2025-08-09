@@ -2,8 +2,8 @@ name: A11y Nightly Tests
 
 on:
   schedule:
-    # Run daily at 2 AM UTC
-    - cron: '0 2 * * *'
+    # Run daily at 1 AM UTC (10 PM JST) to avoid peak hours
+    - cron: '0 1 * * *'
   workflow_dispatch:
 
 jobs:
@@ -101,6 +101,14 @@ jobs:
               exit 0
             fi
           }
+
+      - name: Create accessibility issue on failure
+        if: failure()
+        run: |
+          VIOLATIONS=$(grep -o '"id":"[^"]*".*"impact":"critical\|serious"' test-results/*/test-results.json 2>/dev/null | head -5 || echo "No specific violations found")
+          gh issue create --title "[a11y] Critical accessibility violations detected" --body "Automated accessibility scan found critical/serious violations: $VIOLATIONS. See workflow artifacts for details." --label "accessibility,bug"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
