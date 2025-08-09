@@ -18,43 +18,40 @@ jQuery(document).ready(function($) {
     }
     
     function renderCalendar(month, year) {
-        try {
-            const $calendar = $('.monthly-booking-calendar');
-            if ($calendar.length === 0) return;
-            
-            $('.calendar-header h3').text(monthNames[month] + ' ' + year);
-            
-            $('.calendar-grid').empty();
-            
-            dayNames.forEach(day => {
-                $('.calendar-grid').append(`<div class="calendar-day-header">${day}</div>`);
-            });
-            
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const daysInPrevMonth = new Date(year, month, 0).getDate();
-            
-            for (let i = firstDay - 1; i >= 0; i--) {
-                const day = daysInPrevMonth - i;
-                $('.calendar-grid').append(createDayElement(day, true, year, month - 1));
-            }
-            
-            for (let day = 1; day <= daysInMonth; day++) {
-                $('.calendar-grid').append(createDayElement(day, false, year, month));
-            }
-            
-            const totalCells = $('.calendar-grid .calendar-day').length + $('.calendar-grid .calendar-day-header').length;
-            const remainingCells = 42 - (totalCells - 7); // 6 weeks * 7 days - headers
-            
-            for (let day = 1; day <= remainingCells; day++) {
-                $('.calendar-grid').append(createDayElement(day, true, year, month + 1));
-            }
-            
-            loadBookingData(month, year);
-        } catch (error) {
-            console.error('カレンダーの描画に失敗しました:', error);
-            $('.calendar-grid').html('<div class="calendar-error-message" style="text-align: center; padding: 20px; color: #d63638;">カレンダーの表示でエラーが発生しました。</div>');
+        const $calendar = $('.monthly-booking-calendar');
+        if ($calendar.length === 0) return;
+        
+        $('.calendar-header h3').text(monthNames[month] + ' ' + year);
+        
+        announceMonthChange(year, month);
+        
+        $('.calendar-grid').empty();
+        
+        dayNames.forEach(day => {
+            $('.calendar-grid').append(`<div class="calendar-day-header">${day}</div>`);
+        });
+        
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const daysInPrevMonth = new Date(year, month, 0).getDate();
+        
+        for (let i = firstDay - 1; i >= 0; i--) {
+            const day = daysInPrevMonth - i;
+            $('.calendar-grid').append(createDayElement(day, true, year, month - 1));
         }
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+            $('.calendar-grid').append(createDayElement(day, false, year, month));
+        }
+        
+        const totalCells = $('.calendar-grid .calendar-day').length + $('.calendar-grid .calendar-day-header').length;
+        const remainingCells = 42 - (totalCells - 7); // 6 weeks * 7 days - headers
+        
+        for (let day = 1; day <= remainingCells; day++) {
+            $('.calendar-grid').append(createDayElement(day, true, year, month + 1));
+        }
+        
+        loadBookingData(month, year);
     }
     
     function createDayElement(day, isOtherMonth, year, month) {
@@ -93,9 +90,8 @@ jQuery(document).ready(function($) {
                     updateCalendarWithBookings(response.data);
                 }
             },
-            error: function(xhr, status, error) {
-                console.error('予約データの読み込みに失敗しました:', error);
-                $('.calendar-grid').html('<div class="calendar-error-message" style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #d63638; background: #fbeaea; border: 1px solid #d63638; border-radius: 4px; margin: 10px;">エラー：予約データの取得に失敗しました。ページを再読み込みしてください。</div>');
+            error: function() {
+                console.log('Failed to load booking data');
             }
         });
     }
@@ -241,6 +237,24 @@ jQuery(document).ready(function($) {
                 cell.setAttribute('tabindex', '-1');
             });
             activeCell.setAttribute('tabindex', '0');
+        }
+    }
+    
+    let lastAnnouncementTime = 0;
+    const ANNOUNCEMENT_THROTTLE = 500; // 500ms throttle
+    
+    function announceMonthChange(year, month) {
+        const now = Date.now();
+        if (now - lastAnnouncementTime < ANNOUNCEMENT_THROTTLE) {
+            return;
+        }
+        lastAnnouncementTime = now;
+        
+        const liveRegion = document.getElementById('calendar-announcements');
+        if (liveRegion) {
+            const monthName = monthNames[month];
+            const announcement = `${year}年${monthName}を表示`;
+            liveRegion.textContent = announcement;
         }
     }
     

@@ -112,6 +112,7 @@ class MonthlyBooking_Calendar_Render {
                 </div>
                 
                 <div class="calendar-content" data-room-id="<?php echo esc_attr($selected_room_id); ?>">
+                    <div id="calendar-announcements" aria-live="polite" aria-atomic="true" class="sr-only"></div>
                     <?php echo $this->render_6_month_calendar($selected_room_id); ?>
                 </div>
                 
