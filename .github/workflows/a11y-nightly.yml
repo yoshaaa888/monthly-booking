@@ -1,183 +1,137 @@
-name: A11y Nightly Tests
+name: a11y-nightly
 
 on:
   schedule:
-    # Run daily at 1 PM UTC (10 PM JST) for post-business hours execution
-    - cron: '0 13 * * *'
-  workflow_dispatch:
+    - cron: '0 1 * * *' # 毎日 1:00 UTC
+  workflow_dispatch: {}
   pull_request:
-    types: [opened, synchronize, labeled]
-    # Only run on PRs with ci:a11y label to avoid unnecessary load
-
-permissions:
-  contents: read
-  actions: write
-  issues: write
-  pull-requests: write
+    branches: ["*"]
+    types: [opened, synchronize, reopened, labeled]
 
 jobs:
-  a11y-tests:
+  a11y:
+    # PR の場合は 'ci:a11y' ラベルが付いているときのみ実行
+    if: >
+      github.event_name != 'pull_request' ||
+      contains(join(fromJson(toJson(github.event.pull_request.labels)).*.name, ','), 'ci:a11y')
     runs-on: ubuntu-latest
-    # Only run if scheduled, manually triggered, or PR has ci:a11y label
-    if: |
-      github.event_name == 'schedule' || 
-      github.event_name == 'workflow_dispatch' || 
-      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:a11y'))
-    
+    timeout-minutes: 25
+    permissions:
+      contents: read
+
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js with caching
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install deps
         run: npm ci
 
-      - name: Install Playwright browsers (Chromium only for a11y)
-        run: npx playwright install --with-deps chromium
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-browsers-a11y-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            playwright-browsers-a11y-${{ runner.os }}-
-
-      - name: Install @wordpress/env
-        run: npm i -g @wordpress/env
-
-      - name: Setup WordPress environment
+      # （任意）Playwright が必要な場合のみ Chromium を入れる
+      - name: Install Playwright chromium (if playwright present)
+        shell: bash
         run: |
-          wp-env start --port=8889
-
-      - name: Wait for WordPress to be ready
-        run: |
-          timeout=60
-          while [ $timeout -gt 0 ]; do
-            if curl -s http://localhost:8889 | grep -q "WordPress"; then
-              echo "WordPress is ready"
-              break
-            fi
-            echo "Waiting for WordPress... ($timeout seconds remaining)"
-            sleep 2
-            timeout=$((timeout-2))
-          done
-          if [ $timeout -le 0 ]; then
-            echo "WordPress failed to start"
-            exit 1
+          if grep -q '"@*playwright' package.json 2>/dev/null || grep -q '"playwright' package.json 2>/dev/null; then
+            npx playwright install --with-deps chromium
+          else
+            echo "Playwright not detected. Skipping browser install."
           fi
 
-      - name: WordPress sanity & prepare calendar page
+      - name: Start WordPress env
+        run: npx wp-env start --update
+
+      # === Pre-flight: ページ/パーマリンク/プラグイン/フラグの準備 & 可観測化 ===
+      - name: Pre-flight (activate plugin, permalinks, ensure /monthly-calendar/)
+        shell: bash
         run: |
           set -e
 
           echo "== Site URL =="
-          npx wp-env run cli "wp option get siteurl"
-          npx wp-env run cli "wp option get home"
+          npx wp-env run cli "wp option get siteurl" || true
+          npx wp-env run cli "wp option get home" || true
 
-          echo "== Plugin status =="
-          npx wp-env run cli "wp plugin list"
+          echo "== Plugins =="
+          npx wp-env run cli "wp plugin list" || true
 
-          echo "== Activate our plugin (idempotent) =="
+          echo "== Activate monthly-booking (idempotent) =="
           npx wp-env run cli "wp plugin activate monthly-booking || true"
 
-          echo "== Enable feature flags (idempotent) =="
-          # Set feature flag via option for test environment compatibility
+          echo "== Feature flags (idempotent) =="
+          # 定数だけでなく option にも対応している場合のフォールバック
           npx wp-env run cli "wp option update mb_feature_reservations_mvp 1 --autoload=yes || true"
 
           echo "== Permalink structure -> /%postname%/ =="
           npx wp-env run cli "wp rewrite structure '/%postname%/' --hard"
           npx wp-env run cli "wp rewrite flush --hard"
 
-          echo "== Ensure monthly-calendar page exists =="
+          echo "== Ensure 'monthly-calendar' page exists =="
           PAGE_ID=$(npx wp-env run cli -- "wp post list --post_type=page --pagename=monthly-calendar --field=ID")
           if [ -z "$PAGE_ID" ]; then
             echo "Creating monthly-calendar page..."
-            # Use correct shortcode name
-            npx wp-env run cli -- wp post create --post_type=page --post_status=publish --post_title='Monthly Calendar' --post_name='monthly-calendar' --post_content='[monthly_booking_calendar]'
+            npx wp-env run cli -- wp post create \
+              --post_type=page \
+              --post_status=publish \
+              --post_title='Monthly Calendar' \
+              --post_name='monthly-calendar' \
+              --post_content='[monthly_calendar]'
           else
-            echo "monthly-calendar page exists: ID=${PAGE_ID}"
+            echo "monthly-calendar exists: ID=${PAGE_ID}"
           fi
 
-          echo "== Dump permalink & rules =="
-          npx wp-env run cli "wp option get permalink_structure"
-          npx wp-env run cli "wp rewrite list | head -n 50" || true
+          echo "== Dump permalink & rewrite rules =="
+          npx wp-env run cli "wp option get permalink_structure" || true
+          npx wp-env run cli "wp rewrite list | head -n 100" || true
 
           echo "== Warm up endpoint =="
           BASE=$(npx wp-env run cli -- "wp option get home")
           curl -sS -I "${BASE%/}/monthly-calendar/" || true
 
-      - name: Health check monthly-calendar (HTTP 200)
+      # === Health check: /monthly-calendar/ が HTTP 200 になるまで待機 ===
+      - name: Health check /monthly-calendar/ (HTTP 200 within 60s)
+        shell: bash
         run: |
           set -e
           BASE=$(npx wp-env run cli -- "wp option get home")
           URL="${BASE%/}/monthly-calendar/"
-
-          echo "Checking ${URL}"
+          echo "Health checking: ${URL}"
           for i in {1..30}; do
             CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || true)
             echo "Attempt $i: HTTP $CODE"
             if [ "$CODE" = "200" ]; then
-              echo "OK"; exit 0
+              echo "OK"
+              exit 0
             fi
             sleep 2
           done
-          echo "Monthly calendar did not become ready in time"; exit 1
+          echo "Monthly calendar did not become ready in time"
+          exit 1
 
-      - name: Run accessibility tests
-        run: npx playwright test --grep "@a11y" --reporter=list,html --retries=1
-        continue-on-error: true
+      # === 実際の a11y テスト ===
+      - name: Run a11y suite
+        run: npm run test:a11y
 
-      - name: Run axe accessibility audit
-        run: |
-          npx playwright test --grep "@axe" --reporter=list,html --retries=1 || {
-            echo "Axe tests failed, checking severity..."
-            # Extract critical/serious violations from test results
-            if grep -q "critical\|serious" test-results/*/test-results.json 2>/dev/null; then
-              echo "Critical or serious accessibility violations found"
-              exit 1
-            else
-              echo "Only minor/moderate violations found, continuing..."
-              exit 0
-            fi
-          }
-
-      - name: Create accessibility issue on failure
-        if: failure()
-        run: |
-          # Create labels if they don't exist
-          gh label create "accessibility" --description "Accessibility related issues" --color "0052cc" || true
-          gh label create "bug" --description "Bug reports" --color "d73a4a" || true
-          
-          VIOLATIONS=$(grep -o '"id":"[^"]*".*"impact":"critical\|serious"' test-results/*/test-results.json 2>/dev/null | head -5 || echo "No specific violations found")
-          gh issue create --title "[a11y] Critical accessibility violations detected" --body "Automated accessibility scan found critical/serious violations: $VIOLATIONS. See workflow artifacts for details." --label "accessibility,bug"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
+      - name: Upload a11y report
         if: always()
-        with:
-          name: playwright-a11y-report
-          path: playwright-report/
-          retention-days: 7
-
-      - name: Upload test traces
         uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: playwright-a11y-traces
-          path: test-results/
-          retention-days: 7
+          name: a11y-report
+          path: |
+            a11y-report/**
+            playwright-report/**
+            axe-report/**
+            ./**/a11y-report/**
 
+      # === Debug artifacts: 失敗時の状況証拠を保存 ===
       - name: Collect debug artifacts (if fail)
         if: failure()
+        shell: bash
         run: |
+          set -e
           mkdir -p a11y-debug
           npx wp-env run cli "wp option get siteurl" > a11y-debug/siteurl.txt || true
           npx wp-env run cli "wp option get home" > a11y-debug/home.txt || true
@@ -185,6 +139,8 @@ jobs:
           npx wp-env run cli "wp post list --post_type=page --fields=ID,post_title,post_name,post_status" > a11y-debug/pages.txt || true
           npx wp-env run cli "wp plugin list" > a11y-debug/plugins.txt || true
           npx wp-env run cli "wp rewrite list" > a11y-debug/rewrite-rules.txt || true
+          # 必要に応じてログ収集（環境に合わせて調整）
+          # docker logs や PHP エラーログのパスが分かれば追加
 
       - name: Upload a11y debug artifacts
         if: failure()
@@ -192,11 +148,3 @@ jobs:
         with:
           name: a11y-debug
           path: a11y-debug/**
-
-      - name: Upload wp-env logs on failure
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: wp-env-logs
-          path: ~/.wp-env/logs/
-          retention-days: 3
