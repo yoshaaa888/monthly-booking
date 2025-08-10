@@ -1,3 +1,5 @@
+// CI trigger: verify E2E and a11y workflow execution (run 1)
+// CI trigger: verify E2E and a11y workflow execution (run 2) (important-comment)
 jQuery(document).ready(function($) {
     'use strict';
     
