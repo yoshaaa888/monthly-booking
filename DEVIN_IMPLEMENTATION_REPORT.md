@@ -328,9 +328,16 @@ gh pr edit <PR_NUMBER> --remove-label "ci:a11y"
 **対象リポジトリ**: yoshaaa888/monthly-booking  
 **実装ブランチ**: ci/add-pr-triggers (PR #27)
 
-**最終更新**: docker-compose ENOENT エラー修正完了 - 両ワークフローで直接バイナリダウンロード方式を実装
+**最終更新**: PR #27 マージ準備完了 - docker-compose ENOENT エラー修正済み、マージ競合なし確認済み
 
 ## 🔧 **docker-compose ENOENT 修正詳細**
+
+### PR #27 マージ準備状況 ✅ 完了
+- **ブランチ**: ci/add-pr-triggers (mainより28コミット先行)
+- **マージテスト**: ✅ 成功 - 競合なし確認済み
+- **docker-compose修正**: ✅ 実装済み (コミット d029857, e4e970d)
+- **API制限**: 🔄 GitHub API レート制限中 - リセット待ち
+- **マージ準備**: ✅ CI確認後にマージ可能
 
 ### 問題の根本原因
 - GitHub Actions ubuntu-latestランナーで`docker-compose-plugin`パッケージがapt経由で取得不可
