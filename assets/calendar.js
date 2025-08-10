@@ -374,3 +374,4 @@ jQuery(document).ready(function($) {
         }
     };
 });
+// CI trigger: minimal change to test workflow execution (important-comment)
