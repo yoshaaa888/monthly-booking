@@ -1,55 +1,47 @@
-# 最終CI解決レポート - wp-setup.sh追加とワークフロー修復
+# Final CI Resolution Report - Workflow Restoration to Baseline
 
-## 📋 タスク概要
+## 📋 Task Overview
 
-PR #27（ci/add-pr-triggers）で欠落していた `.github/scripts/wp-setup.sh` スクリプトを追加し、e2e / a11y両ワークフローのCI失敗を解決する。
+Restore both e2e.yml and a11y-nightly.yml workflows in PR #27 (ci/add-pr-triggers) to the last known working baseline (commit 4138bf5) and add minimal pull_request triggers to resolve CI failures.
 
-## 🔍 事実関係の整理
+## 🔍 Root Cause Analysis and Resolution Strategy
 
-### 1. 現在のmainとPR #27の差分確認
+### 1. Baseline Identification
 
-```bash
-# 差分確認結果
-.github/scripts/wp-setup.sh          # 新規追加
-.github/workflows/a11y-nightly.yml   # 更新済み
-.github/workflows/e2e.yml            # 更新済み
-.github/workflows/post-merge-report.yml # 新規追加
-```
+**Last Known Working State**: Commit 4138bf5 (tagged v1.7.0-alpha)
+- Both e2e and a11y workflows were passing on main branch
+- Proven stable configuration with working WP-CLI command syntax
+- Clean workflow structure without syntax issues
 
-### 2. wp-setup.shの状態確認
+### 2. Workflow Restoration Verification
 
-- **ファイル存在**: ✅ 確認済み（git ls-files で追跡中）
-- **実行権限**: ✅ -rwxrwxr-x（適切な実行権限）
-- **構文チェック**: ✅ `bash -n` でエラーなし
-- **コミット状況**: ✅ 複数回コミット済み（9a52d39, 8fefa4c）
-
-### 3. ワークフロー内でのパス指定確認
-
-#### e2e.yml（55-71行目）
+#### e2e.yml Restoration Status
 ```yaml
-- name: Make wp-setup executable
-  run: chmod +x .github/scripts/wp-setup.sh
-
-- name: WordPress bootstrap (shared script)
-  env:
-    DB_WAIT_MAX: "60"
-    DB_WAIT_INTERVAL: "2"
-  run: .github/scripts/wp-setup.sh
+# Restored to commit 4138bf5 baseline + minimal pull_request trigger
+on:
+  push:
+    branches: [ devin/1754064671-monthly-booking-plugin ]
+  pull_request:
+    branches: ["*"]  # ← Added minimal trigger
 ```
 
-#### a11y-nightly.yml（57-73行目）
+#### a11y-nightly.yml Restoration Status  
 ```yaml
-- name: Make wp-setup executable
-  run: chmod +x .github/scripts/wp-setup.sh
-
-- name: WordPress bootstrap (shared script)
-  env:
-    DB_WAIT_MAX: "60"
-    DB_WAIT_INTERVAL: "2"
-  run: .github/scripts/wp-setup.sh
+# Restored to commit 4138bf5 baseline + minimal pull_request trigger
+on:
+  schedule:
+    - cron: '0 13 * * *'
+  workflow_dispatch:
+  pull_request:
+    branches: ["*"]  # ← Added minimal trigger
 ```
 
-**結果**: ✅ 両ワークフローで正しいパス指定
+### 3. wp-setup.sh Script Integration
+
+- **File Location**: `.github/scripts/wp-setup.sh` 
+- **Permissions**: -rwxr-xr-x (executable)
+- **Size**: 2488 bytes
+- **Integration**: Referenced correctly in both restored workflows
 
 ## 🛠️ 根本原因分析
 
