@@ -2,7 +2,7 @@ name: E2E Tests (WordPress + Monthly Booking)
 
 on:
   push:
-    branches: ["main"]
+    branches: [ devin/1754064671-monthly-booking-plugin ]
   pull_request:
     branches: ["*"]
     paths-ignore:
@@ -10,233 +10,90 @@ on:
       - "**/*.md"
 
 concurrency:
-  group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
+  group: ${{ github.ref }}
   cancel-in-progress: ${{ github.ref_name != 'main' }}
 
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 25  # Reduced from 30 to 25 for faster failure detection
-
-    env:
-      NODE_VERSION: '20'
-      CAL_URL: http://localhost:8888
-      # WP_DIR: ${{ runner.temp }}/wp # <-- この行を削除しました
-
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Debug workflow file
-        if: always() && github.ref_name != 'main'
-        run: echo "Checking workflow file content" && head -n 50 .github/workflows/e2e.yml
-
-      # ▼▼▼▼▼ ここに新しいステップを追加しました ▼▼▼▼▼
-      - name: Set WP_DIR environment variable
-        run: echo "WP_DIR=${{ runner.temp }}/wp" >> $GITHUB_ENV
-      # ▲▲▲▲▲ ここまで ▲▲▲▲▲
-
-      - name: Setup Node with caching
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'  # Enable Node.js dependency caching
+          node-version: "20"
+          cache: "npm"
 
-      - name: Timestamp - Starting dependency installation
-        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Starting dependency installation"
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Install Playwright deps (Chromium only)
+      # === docker-compose ENOENT 対策：公式リリースから直接取得 ===
+      - name: Install docker-compose (shim for wp-env)
         run: |
-          npm i -D @playwright/test
-          npx playwright install --with-deps chromium  # Install only Chromium for faster setup
-        env:
-          PLAYWRIGHT_BROWSERS_PATH: ~/.cache/ms-playwright  # Explicit cache path
+          sudo curl -L "https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          /usr/local/bin/docker-compose version
 
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            playwright-browsers-${{ runner.os }}-
+      - name: Docker sanity
+        run: |
+          docker --version
+          docker compose version || true
 
-      - name: Timestamp - Dependencies installed
-        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Dependencies installation completed"
-
-      # ───────── WordPress (wp-env) 起動 ─────────
-      - name: Timestamp - Starting WordPress setup
-        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Starting WordPress environment setup"
-
-      - name: Install @wordpress/env
+      # === wp-env 起動（post-mergeパターン踏襲） ===
+      - name: Install @wordpress/env globally
         run: npm i -g @wordpress/env
 
-      - name: Install docker-compose for wp-env
-        run: |
-          sudo curl -fsSL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-          docker-compose version
-
-      - name: Start WordPress (wp-env)
-        run: |
-          wp-env start || wp-env start
-          echo "WP started"
+      - name: Start WordPress env
         env:
-          WP_ENV_PORT: 8888
+          DOCKER_COMPOSE_CMD: "docker compose"
+        run: wp-env start
 
-      - name: Timestamp - WordPress started
-        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - WordPress environment started"
+      # === 共通セットアップ（DB待機 / WP初期化 / プラグイン / パーマリンク / ページ） ===
+      - name: Make wp-setup executable
+        run: chmod +x .github/scripts/wp-setup.sh
 
-      - name: Show CAL_URL
-        run: echo "CAL_URL=$CAL_URL"
-
-      # ───────── MySQL起動待ち（DB準備確実化） ─────────
-      - name: Timestamp - Starting MySQL health check
-        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Starting MySQL health check"
-
-      - name: Enhanced MySQL startup wait with health check
-        run: |
-          echo "Waiting for MySQL to be ready via wp-env..."
-          start_time=$(date +%s)
-          for i in {1..60}; do
-            if wp-env run cli wp db check --quiet 2>/dev/null; then
-              end_time=$(date +%s)
-              duration=$((end_time - start_time))
-              echo "MySQL is ready via wp-env ($i/60) - took ${duration}s"; 
-              break
-            fi
-            echo "waiting MySQL via wp-env... ($i/60)"; 
-            sleep 1
-          done
-          if [ $i -eq 60 ]; then
-            echo "MySQL failed to start within 60 seconds"
-            exit 1
-          fi
-
-      - name: Timestamp - MySQL ready
-        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - MySQL health check completed"
-
-      - name: Wait for WordPress health
-        run: |
-          for i in $(seq 1 60); do
-            if curl -fsS "$CAL_URL" >/dev/null; then
-              echo "WordPress is up"; break
-            fi
-            echo "Waiting WP... ($i/60)"; sleep 2
-          done
-
-      # ───────── WP Core & Site初期化（確実化） ─────────
-      - name: Initialize WordPress core and site
-        run: |
-          echo "Ensuring WordPress core is properly installed..."
-          wp-env run cli wp core is-installed || wp-env run cli wp core install \
-            --url="http://localhost:8080" \
-            --title="E2E" \
-            --admin_user=admin \
-            --admin_password=admin \
-            --admin_email=admin@example.com
-
-      # ───────── プラグイン有効化（dbDelta実行） ─────────
-      - name: Activate plugin and verify tables
-        run: |
-          echo "Activating monthly-booking plugin..."
-          wp-env run cli wp plugin activate monthly-booking
-          
-          echo "Verifying database tables creation..."
-          wp-env run cli wp db query "SHOW TABLES LIKE 'wp_monthly_reservations';"
-          wp-env run cli wp db query "DESCRIBE wp_monthly_reservations;"
-          
-          echo "Checking for recent database errors..."
-          wp-env run cli wp eval 'global $wpdb; echo "LAST_ERR=" . ($wpdb->last_error ?: "");'
-      
-      - name: Create calendar page with shortcode
-        run: |
-          set -e
-          PAGE_ID=$(wp-env run cli wp post list --post_type=page --name=monthly-calendar --field=ID --format=csv | tr -d '\r' || true)
-          if [ -z "$PAGE_ID" ]; then
-            wp-env run cli wp post create --post_type=page --post_title=予約カレンダー --post_name=monthly-calendar --post_status=publish --post_content='[monthly_booking_calendar]'
-          else
-            echo "monthly-calendar page exists: $PAGE_ID"
-          fi
-          wp-env run cli wp rewrite structure '/%postname%/'
-          wp-env run cli wp rewrite flush --hard
-
-      # ───────── （任意）シード：テーブルは dbDelta に任せる ─────────
-      - name: Optional seed minimal data (non-fatal)
-        run: |
-          set +e
-          # Load seed data from external SQL file
-          wp-env run cli wp db query < tests/fixtures/seed.sql || true
-
-      # ───────── /monthly-calendar/ にアクセスして致命的エラー検知 ─────────
-      - name: Calendar page health check (detect db errors)
-        run: |
-          set -e
-          HTML=$(curl -fsS "$CAL_URL/monthly-calendar/" || true)
-          
-          # Check for actual WordPress database errors, not JavaScript error messages
-          if echo "$HTML" | grep -qi "wpdberror\|database error\|mysql.*error\|connection.*error"; then
-            # Exclude JavaScript error messages from detection
-            if ! echo "$HTML" | grep -qi "javascript\|\.js\|console\|error.*function\|エラーが発生しました"; then
-              echo "Database error detected on /monthly-calendar/"
-              echo "$HTML" | head -n 100
-              exit 1
-            fi
-          fi
-          echo "Calendar page reachable without database errors."
-
-      # ───────── Playwright 実行 ─────────
-      - name: Timestamp - Starting Playwright tests
-        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Starting Playwright test execution"
-
-      - name: Run Playwright (Chromium only)
+      - name: WordPress bootstrap (shared script)
         env:
-          CAL_URL: ${{ env.CAL_URL }}
-        run: |
-          npm run test:e2e || npx playwright test --project=chromium --reporter=list,html || true
+          DB_WAIT_MAX: "60"
+          DB_WAIT_INTERVAL: "2"
+        run: .github/scripts/wp-setup.sh
 
-      - name: Timestamp - Playwright tests completed
-        run: echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Playwright test execution completed"
+      # === E2E 実行 ===
+      - name: Install Playwright chromium only
+        run: npx playwright install --with-deps chromium
 
-      # ───────── レポート保存 ─────────
-      - name: Capture WordPress debug logs
-        if: always()
-        run: |
-          echo "Capturing WordPress debug logs..."
-          wp-env run cli wp eval 'echo "Debug log path: " . WP_CONTENT_DIR . "/debug.log";' || true
-          wp-env run cli wp db query "SELECT * FROM wp_options WHERE option_name LIKE '%monthly_booking%';" || true
-          grep -n . wp-content/debug.log || true
-        continue-on-error: true
+      - name: Run E2E
+        run: npx playwright test --reporter=list,html --workers=2
+        env:
+          CI: true
 
-      - name: Upload Playwright report
+      - name: Upload Playwright HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: playwright-report/**
-          if-no-files-found: warn
+          path: playwright-report
 
-      - name: Upload raw test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: |
-            test-results/**
-            tests/e2e/**/*.js
-          if-no-files-found: warn
-
-      - name: Upload WordPress debug logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: wp-debug-logs
-          path: |
-            ~/.wp-env/*/WordPress/wp-content/debug.log
-          if-no-files-found: warn
-
-      # 成否でCIを落とすかはここで制御（まずはスモーク緑化を優先して許容）
-      - name: Fail job if smoke failed hard
+      # === 失敗時のデバッグ収集 ===
+      - name: Collect debug artifacts (if fail)
         if: failure()
         run: |
-          echo "Some tests failed. See artifacts."
-          exit 1
+          mkdir -p ci-debug
+          npx wp-env run cli "wp option get siteurl" > ci-debug/siteurl.txt || true
+          npx wp-env run cli "wp option get home" > ci-debug/home.txt || true
+          npx wp-env run cli "wp option get permalink_structure" > ci-debug/permalink.txt || true
+          npx wp-env run cli "wp plugin list" > ci-debug/plugins.txt || true
+          npx wp-env run cli "wp post list --post_type=page --fields=ID,post_title,post_name,post_status" > ci-debug/pages.txt || true
+          npx wp-env run cli "wp rewrite list" > ci-debug/rewrite-rules.txt || true
+          cp -f wp-content/debug.log ci-debug/debug.log || true
+
+      - name: Upload debug artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-debug
+          path: ci-debug/**
+          retention-days: 7

@@ -2,7 +2,7 @@ name: a11y-nightly
 
 on:
   schedule:
-    - cron: '0 1 * * *' # 毎日 1:00 UTC
+    - cron: '0 1 * * *' # 1 AM UTC
   workflow_dispatch: {}
   pull_request:
     branches: ["*"]
@@ -29,51 +29,39 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install deps
-        run: |
-          npm ci
-          npm i -g @wordpress/env
+      - name: Install dependencies
+        run: npm ci
 
-      # （任意）Playwright が必要な場合のみ Chromium を入れる
-      - name: Install Playwright chromium (if playwright present)
-        shell: bash
+      # === docker-compose ENOENT 対策：公式リリースから直接取得 ===
+      - name: Install docker-compose (shim for wp-env)
         run: |
-          if grep -q '"@*playwright' package.json 2>/dev/null || grep -q '"playwright' package.json 2>/dev/null; then
-            npx playwright install --with-deps chromium
-          else
-            echo "Playwright not detected. Skipping browser install."
-          fi
-
-      - name: Install docker-compose for wp-env
-        run: |
-          sudo curl -fsSL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+          sudo curl -L "https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
-          docker-compose version
+          /usr/local/bin/docker-compose version
+
+      - name: Docker sanity
+        run: |
+          docker --version
+          docker compose version || true
+
+      # === wp-env 起動（post-mergeパターン踏襲） ===
+      - name: Install @wordpress/env globally
+        run: npm i -g @wordpress/env
 
       - name: Start WordPress env
-        run: wp-env start --update
+        env:
+          DOCKER_COMPOSE_CMD: "docker compose"
+        run: wp-env start
 
-      # === Plugin activation: Required before WP-CLI commands ===
-      - name: Activate Monthly Booking plugin
-        shell: bash
-        run: |
-          set -e
-          echo "Activating monthly-booking plugin..."
-          npx wp-env run cli "wp plugin activate monthly-booking"
-          
-          echo "Verifying plugin activation..."
-          npx wp-env run cli "wp plugin list --status=active"
+      # === 共通セットアップ（DB待機 / WP初期化 / プラグイン / パーマリンク / ページ） ===
+      - name: Make wp-setup executable
+        run: chmod +x .github/scripts/wp-setup.sh
 
-      # === Bootstrap: 1コマンドでWordPress環境セットアップ ===
-      - name: Bootstrap WordPress environment with WP-CLI
-        shell: bash
-        run: |
-          set -e
-          echo "Running Monthly Booking bootstrap..."
-          npx wp-env run cli "wp mb bootstrap"
-          
-          echo "== Verification =="
-          npx wp-env run cli "wp mb status"
+      - name: WordPress bootstrap (shared script)
+        env:
+          DB_WAIT_MAX: "60"
+          DB_WAIT_INTERVAL: "2"
+        run: .github/scripts/wp-setup.sh
 
       # === Health check: /monthly-calendar/ が HTTP 200 になるまで待機 ===
       - name: Health check /monthly-calendar/ (HTTP 200 within 60s)
@@ -95,7 +83,7 @@ jobs:
           echo "Monthly calendar did not become ready in time"
           exit 1
 
-      # === 実際の a11y テスト ===
+      # === a11y テスト実行 ===
       - name: Run a11y suite
         run: npm run test:a11y
 
@@ -110,45 +98,18 @@ jobs:
             axe-report/**
             ./**/a11y-report/**
 
-      # === Debug artifacts: 失敗時の状況証拠を保存 ===
-      - name: Enable WordPress debug logging
-        if: failure()
-        shell: bash
-        run: |
-          npx wp-env run cli "wp config set WP_DEBUG true --raw" || true
-          npx wp-env run cli "wp config set WP_DEBUG_LOG true --raw" || true
-          npx wp-env run cli "wp config set WP_DEBUG_DISPLAY false --raw" || true
-
+      # === 失敗時のデバッグ収集 ===
       - name: Collect debug artifacts (if fail)
         if: failure()
-        shell: bash
         run: |
-          set -e
           mkdir -p a11y-debug
-          
-          echo "=== WordPress Configuration ===" > a11y-debug/wp-config.txt
           npx wp-env run cli "wp option get siteurl" > a11y-debug/siteurl.txt || true
           npx wp-env run cli "wp option get home" > a11y-debug/home.txt || true
           npx wp-env run cli "wp option get permalink_structure" > a11y-debug/permalink.txt || true
-          
-          echo "=== Pages ===" > a11y-debug/pages.txt
-          npx wp-env run cli "wp post list --post_type=page --fields=ID,post_title,post_name,post_status" >> a11y-debug/pages.txt || true
-          
-          echo "=== Plugins ===" > a11y-debug/plugins.txt
-          npx wp-env run cli "wp plugin list" >> a11y-debug/plugins.txt || true
-          
-          echo "=== Rewrite Rules ===" > a11y-debug/rewrite-rules.txt
-          npx wp-env run cli "wp rewrite list" >> a11y-debug/rewrite-rules.txt || true
-          
-          echo "=== Monthly Booking Status ===" > a11y-debug/mb-status.txt
-          npx wp-env run cli "wp mb status" >> a11y-debug/mb-status.txt || true
-          
-          echo "=== WordPress Debug Log ===" > a11y-debug/wp-debug.log
-          npx wp-env run cli "wp eval 'if (file_exists(WP_CONTENT_DIR.\"/debug.log\")) { echo file_get_contents(WP_CONTENT_DIR.\"/debug.log\"); } else { echo \"No debug log found\"; }'" >> a11y-debug/wp-debug.log || true
-          
-          echo "=== Calendar Page Content ===" > a11y-debug/calendar-page.html
-          BASE=$(npx wp-env run cli "wp option get home" || echo "http://localhost:8080")
-          curl -s "${BASE%/}/monthly-calendar/" > a11y-debug/calendar-page.html || echo "Failed to fetch calendar page" > a11y-debug/calendar-page.html
+          npx wp-env run cli "wp post list --post_type=page --fields=ID,post_title,post_name,post_status" > a11y-debug/pages.txt || true
+          npx wp-env run cli "wp plugin list" > a11y-debug/plugins.txt || true
+          npx wp-env run cli "wp rewrite list" > a11y-debug/rewrite-rules.txt || true
+          cp -f wp-content/debug.log a11y-debug/debug.log || true
 
       - name: Upload a11y debug artifacts
         if: failure()
@@ -156,3 +117,4 @@ jobs:
         with:
           name: a11y-debug
           path: a11y-debug/**
+          retention-days: 7
