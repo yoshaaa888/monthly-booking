@@ -53,6 +53,17 @@ jobs:
       - name: Start WordPress env
         run: wp-env start --update
 
+      # === Plugin activation: Required before WP-CLI commands ===
+      - name: Activate Monthly Booking plugin
+        shell: bash
+        run: |
+          set -e
+          echo "Activating monthly-booking plugin..."
+          npx wp-env run cli "wp plugin activate monthly-booking"
+          
+          echo "Verifying plugin activation..."
+          npx wp-env run cli "wp plugin list --status=active"
+
       # === Bootstrap: 1コマンドでWordPress環境セットアップ ===
       - name: Bootstrap WordPress environment with WP-CLI
         shell: bash
