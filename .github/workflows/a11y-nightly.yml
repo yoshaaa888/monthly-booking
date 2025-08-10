@@ -68,7 +68,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          BASE=$(npx wp-env run cli -- "wp option get home")
+          BASE=$(npx wp-env run cli -- wp option get home)
           URL="${BASE%/}/monthly-calendar/"
           echo "Health checking: ${URL}"
           for i in {1..30}; do

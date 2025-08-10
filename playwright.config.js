@@ -39,7 +39,7 @@ module.exports = defineConfig({
       use: { ...devices['iPhone 12'] },
     },
   ],
-  webServer: process.env.CAL_URL ? undefined : {
+  webServer: process.env.CI ? undefined : {
     command: 'echo "WordPress Local environment should be running at http://t-monthlycampaign.local"',
     url: 'http://t-monthlycampaign.local',
     reuseExistingServer: true,
