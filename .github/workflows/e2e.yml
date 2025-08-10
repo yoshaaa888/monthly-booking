@@ -4,7 +4,7 @@ on:
   push:
     branches: [ devin/1754064671-monthly-booking-plugin ]
   pull_request:
-    branches: [ devin/1754064671-monthly-booking-plugin ]
+    branches: ["*"]
 
 concurrency:
   group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
