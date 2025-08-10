@@ -5,117 +5,97 @@ on:
     branches: [ devin/1754064671-monthly-booking-plugin ]
   pull_request:
     branches: ["*"]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
 
 concurrency:
-  group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
+  group: ${{ github.ref }}
   cancel-in-progress: ${{ github.ref_name != 'main' }}
 
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    env:
-      NODE_VERSION: '20'
-      CAL_URL: http://localhost:8888
-      WP_DIR: ${{ runner.temp }}/wp
-
+    timeout-minutes: 25
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Debug workflow file
-        if: always() && github.ref_name != 'main'
-        run: |
-          set -euo pipefail
-          sed -n '1,160p' .github/workflows/e2e.yml
-
-      - name: Setup Node / cache
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
-      - name: Install deps
+      - name: Install dependencies
+        run: npm ci
+
+      # docker-compose ENOENT対策（公式リリースからDL）
+      - name: Install docker-compose (shim for wp-env)
         run: |
-          if [ -f package-lock.json ]; then npm ci; else npm i; fi
-          npx playwright install --with-deps
-          npm i -g @wordpress/env
+          sudo curl -L "https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          /usr/local/bin/docker-compose version
 
-      - name: Start WordPress (wp-env)
+      - name: Docker sanity
+        run: |
+          docker --version
+          docker compose version || true
+
+      - name: Install @wordpress/env globally
+        run: npm i -g @wordpress/env
+
+      - name: Start WordPress env
+        env:
+          DOCKER_COMPOSE_CMD: "docker compose"
         run: wp-env start
 
-      - name: Wait for WordPress 200
-        run: |
-          set -euo pipefail
-          ok=0
-          for i in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$CAL_URL" || true)
-            if [ "$code" = "200" ]; then ok=1; break; fi
-            echo "Waiting WP... ($i/60) http=$code"; sleep 2
-          done
-          [ $ok -eq 1 ] || { echo "WP did not become healthy in time."; exit 1; }
+      # 共有セットアップ
+      - name: Make wp-setup executable
+        run: chmod +x .github/scripts/wp-setup.sh
 
       - name: WordPress bootstrap (shared script)
-        run: |
-          chmod +x .github/scripts/wp-setup.sh
-          .github/scripts/wp-setup.sh
-
-      - name: Finalize permalinks & calendar page (idempotent)
-        run: |
-          set -euo pipefail
-          PID=$(npx wp-env run cli -- "wp post list --post_type=page --name=monthly-calendar --field=ID")
-          if [ -z "$PID" ] || [ "$PID" = "0" ]; then
-            npx wp-env run cli -- wp post create --post_type=page --post_title='予約カレンダー' --post_name='monthly-calendar' --post_status=publish --post_content='[monthly_booking_calendar]'
-          fi
-          npx wp-env run cli -- wp rewrite structure '/%postname%/'
-          npx wp-env run cli -- wp rewrite flush
-
-      - name: Seed DB from fixtures (optional)
-        if: ${{ hashFiles('tests/fixtures/seed.sql') != '' }}
-        run: |
-          set -euo pipefail
-          echo "Seeding DB from tests/fixtures/seed.sql"
-          npx wp-env run cli sh -lc "wp db query < /var/www/html/wp-content/plugins/monthly-booking/tests/fixtures/seed.sql"
-
-      - name: Health check /monthly-calendar
-        run: |
-          set -euo pipefail
-          code=$(curl -s -o /tmp/page.html -w '%{http_code}' "$CAL_URL/monthly-calendar/")
-          if [ "$code" != "200" ]; then
-            echo "calendar not 200 (got $code)"; sed -n '1,160p' /tmp/page.html || true; exit 1
-          fi
-          if grep -qi "wpdberror" /tmp/page.html; then
-            echo "DB error on /monthly-calendar/"; sed -n '1,160p' /tmp/page.html || true; exit 1
-          fi
-          echo "Calendar OK"
-
-      - name: Run Playwright
         env:
-          CAL_URL: ${{ env.CAL_URL }}
+          DB_WAIT_MAX: "60"
+          DB_WAIT_INTERVAL: "2"
+        run: .github/scripts/wp-setup.sh
+
+      # Pagerによるexit 127対策＋ページ作成（必要時）
+      - name: Finalize permalinks & calendar page (no pager, inside container)
+        shell: bash
         run: |
           set -euo pipefail
-          npx playwright test --reporter=list,html --grep "@smoke" --max-failures=1 --workers=2
+          npx wp-env run cli -- wp rewrite structure '/%postname%/' --hard
+          npx wp-env run cli -- wp rewrite flush --hard
+          PID=$(npx wp-env run cli -- bash -lc 'WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post list --post_type=page --pagename=monthly-calendar --format=ids || true')
+          if [ -z "${PID}" ]; then
+            echo "Creating monthly-calendar page..."
+            npx wp-env run cli -- bash -lc 'WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post create \
+              --post_type=page --post_status=publish \
+              --post_title="Monthly Calendar" \
+              --post_name="monthly-calendar" \
+              --post_content="[monthly_calendar]"'
+          else
+            echo "monthly-calendar exists: ID=${PID}"
+          fi
 
-      - name: Upload Playwright artifacts
+      - name: Export PW_BASE_URL from WP
+        run: echo "PW_BASE_URL=$(npx wp-env run cli -- wp option get home)" >> $GITHUB_ENV
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E
+        run: npx playwright test --reporter=list,html --workers=2
+        env:
+          CI: true
+
+      - name: Upload Playwright HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: |
-            playwright-report/
-            test-results/
-          if-no-files-found: warn
+          path: playwright-report
 
-      - name: Dump wp-env logs on failure
-        if: failure()
-        run: |
-          echo "::group::wp-env logs"
-          docker ps -a || true
-          npx wp-env logs || true
-          echo "::endgroup::"
-
-      - name: Collect debug artifacts
+      - name: Collect debug artifacts (if fail)
         if: failure()
         run: |
           mkdir -p ci-debug
@@ -124,10 +104,8 @@ jobs:
           npx wp-env run cli "wp rewrite list"      > ci-debug/rewrite.txt || true
           npx wp-env run cli "wp post list --post_type=page --fields=ID,post_title,post_name,post_status" > ci-debug/pages.txt || true
           cp -f wp-content/debug.log ci-debug/debug.log || true
-
-      - name: Upload debug artifacts
+      - uses: actions/upload-artifact@v4
         if: failure()
-        uses: actions/upload-artifact@v4
         with:
           name: ci-debug
           path: ci-debug/**
