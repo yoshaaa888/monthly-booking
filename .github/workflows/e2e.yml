@@ -55,11 +55,47 @@ jobs:
       - name: Make wp-setup executable
         run: chmod +x .github/scripts/wp-setup.sh
 
+      # === Patch D: 環境サニティチェック ===
+      - name: Env sanity
+        run: |
+          which wp-env || true
+          wp-env --version || true
+          which docker-compose || true
+          docker compose version || true
+          echo "DOCKER_COMPOSE_CMD=${DOCKER_COMPOSE_CMD:-unset}"
+
       - name: WordPress bootstrap (shared script)
         env:
           DB_WAIT_MAX: "60"
           DB_WAIT_INTERVAL: "2"
         run: .github/scripts/wp-setup.sh
+
+      # === Patch A: PlaywrightにbaseURLを渡す ===
+      - name: Export PW_BASE_URL from WP
+        run: echo "PW_BASE_URL=$(npx wp-env run cli -- wp option get home)" >> $GITHUB_ENV
+
+      # === Patch B: カレンダーページとパーマリンクを再度強制 ===
+      - name: Finalize permalinks & calendar page (idempotent)
+        run: |
+          npx wp-env run cli -- wp rewrite structure '/%postname%/' --hard
+          npx wp-env run cli -- wp rewrite flush --hard
+          PID=$(npx wp-env run cli -- "wp post list --post_type=page --pagename=monthly-calendar --field=ID")
+          if [ -z "$PID" ]; then
+            npx wp-env run cli -- wp post create --post_type=page --post_status=publish --post_title='Monthly Calendar' --post_name='monthly-calendar' --post_content='[monthly_calendar]'
+          fi
+
+      # === Patch C: Health check を実URLで ===
+      - name: Health check /monthly-calendar/ (HTTP 200)
+        run: |
+          URL="${PW_BASE_URL%/}/monthly-calendar/"
+          echo "Checking ${URL}"
+          for i in {1..30}; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || true)
+            echo "Attempt $i: $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 2
+          done
+          exit 1
 
       # === E2E 実行 ===
       - name: Install Playwright chromium only
@@ -69,6 +105,7 @@ jobs:
         run: npx playwright test --reporter=list,html --workers=2
         env:
           CI: true
+          PW_BASE_URL: ${{ env.PW_BASE_URL }}
 
       - name: Upload Playwright HTML report
         if: always()
@@ -82,6 +119,7 @@ jobs:
         if: failure()
         run: |
           mkdir -p ci-debug
+          npx wp-env run cli "wp core is-installed" > ci-debug/core-installed.txt || true
           npx wp-env run cli "wp option get siteurl" > ci-debug/siteurl.txt || true
           npx wp-env run cli "wp option get home" > ci-debug/home.txt || true
           npx wp-env run cli "wp option get permalink_structure" > ci-debug/permalink.txt || true

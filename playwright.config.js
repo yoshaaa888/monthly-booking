@@ -1,18 +1,21 @@
 const { defineConfig, devices } = require('@playwright/test');
 
+const isCI = !!process.env.CI;
+const baseURL = process.env.PW_BASE_URL || 'http://localhost:8888';
+
 module.exports = defineConfig({
   testDir: './tests',
   fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  forbidOnly: isCI,
+  retries: isCI ? 2 : 0,
+  workers: isCI ? 2 : undefined,
   reporter: [
     ['list'],
     ['html', { outputFolder: 'test-results/html-report' }],
     ['json', { outputFile: 'test-results/results.json' }]
   ],
   use: {
-    baseURL: process.env.CAL_URL || 'http://localhost:8888',
+    baseURL: baseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
