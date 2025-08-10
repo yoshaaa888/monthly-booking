@@ -80,3 +80,4 @@ curl -sS -I "${CAL_URL}" || true
 
 log "Bootstrap complete."
 # CI Status Check - Sun Aug 10 03:04:26 UTC 2025
+# CI trigger: Sun Aug 10 03:19:39 UTC 2025
