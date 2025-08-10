@@ -79,3 +79,4 @@ log "Warming up: ${CAL_URL}"
 curl -sS -I "${CAL_URL}" || true
 
 log "Bootstrap complete."
+# CI Status Check - Sun Aug 10 03:04:26 UTC 2025
