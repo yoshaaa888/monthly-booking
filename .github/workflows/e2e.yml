@@ -1,3 +1,4 @@
+# Trigger CI execution - restored from main (5271136)
 name: E2E Tests (WordPress + Monthly Booking)
 
 on:
