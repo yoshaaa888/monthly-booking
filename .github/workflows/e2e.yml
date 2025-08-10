@@ -72,9 +72,9 @@ jobs:
 
       - name: Install docker-compose for wp-env
         run: |
-          sudo apt-get update
-          sudo apt-get install -y docker-compose-plugin
-          sudo ln -sf /usr/libexec/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
+          sudo curl -fsSL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          docker-compose version
 
       - name: Start WordPress (wp-env)
         run: |
