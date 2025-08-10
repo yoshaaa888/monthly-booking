@@ -81,7 +81,7 @@ jobs:
         run: |
           npx wp-env run cli -- wp rewrite structure '/%postname%/' --hard
           npx wp-env run cli -- wp rewrite flush --hard
-          PID=$(npx wp-env run cli -- "wp post list --post_type=page --pagename=monthly-calendar --field=ID")
+          PID=$(npx wp-env run cli -- "wp post list --post_type=page --name=monthly-calendar --field=ID")
           if [ -z "$PID" ]; then
             npx wp-env run cli -- wp post create --post_type=page --post_status=publish --post_title='Monthly Calendar' --post_name='monthly-calendar' --post_content='[monthly_calendar]'
           fi
