@@ -102,7 +102,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E
-        run: npx playwright test --reporter=list,html --workers=2
+        run: npx playwright test --project=chromium --reporter=list,html --workers=2
         env:
           CI: true
           PW_BASE_URL: ${{ env.PW_BASE_URL }}

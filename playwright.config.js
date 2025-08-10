@@ -11,7 +11,7 @@ module.exports = defineConfig({
   workers: isCI ? 2 : undefined,
   reporter: [
     ['list'],
-    ['html', { outputFolder: 'test-results/html-report' }],
+    ['html', { outputFolder: 'playwright-report' }],
     ['json', { outputFile: 'test-results/results.json' }]
   ],
   use: {
@@ -42,10 +42,12 @@ module.exports = defineConfig({
       use: { ...devices['iPhone 12'] },
     },
   ],
-  webServer: process.env.CI ? undefined : {
-    command: 'echo "WordPress Local environment should be running at http://t-monthlycampaign.local"',
-    url: 'http://t-monthlycampaign.local',
-    reuseExistingServer: true,
-    timeout: 120000,
-  },
+  ...(process.env.CI ? {} : {
+    webServer: {
+      command: 'echo "WordPress Local environment should be running at http://t-monthlycampaign.local"',
+      url: 'http://t-monthlycampaign.local',
+      reuseExistingServer: true,
+      timeout: 120000,
+    }
+  }),
 });
