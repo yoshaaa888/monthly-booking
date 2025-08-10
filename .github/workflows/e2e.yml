@@ -70,6 +70,12 @@ jobs:
       - name: Install @wordpress/env
         run: npm i -g @wordpress/env
 
+      - name: Install docker-compose for wp-env
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose-plugin
+          sudo ln -sf /usr/libexec/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
+
       - name: Start WordPress (wp-env)
         run: |
           wp-env start || wp-env start
