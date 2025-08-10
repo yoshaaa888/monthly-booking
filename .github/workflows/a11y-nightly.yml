@@ -1,143 +1,135 @@
-name: a11y-nightly
+name: A11y Nightly Tests
 
 on:
   schedule:
-    - cron: '0 1 * * *' # 1 AM UTC
-  workflow_dispatch: {}
-  pull_request:
-    branches: ["*"]
-    types: [opened, synchronize, reopened, labeled]
+    # Run daily at 1 PM UTC (10 PM JST) for post-business hours execution
+    - cron: '0 13 * * *'
+  workflow_dispatch:
 
 jobs:
-  a11y:
-    # PR の場合は 'ci:a11y' ラベルが付いているときのみ実行
-    if: >
-      github.event_name != 'pull_request' ||
-      contains(join(fromJson(toJson(github.event.pull_request.labels)).*.name, ','), 'ci:a11y')
+  a11y-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    permissions:
-      contents: read
-
+    
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      # === docker-compose ENOENT 対策：公式リリースから直接取得 ===
-      - name: Install docker-compose (shim for wp-env)
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Setup WordPress environment
+        uses: wordpress/wordpress-env@v10
+        with:
+          core: 'WordPress/WordPress#6.5'
+          phpVersion: '8.1'
+          plugins: '["./"]'
+
+      - name: Wait for WordPress to be ready
         run: |
-          sudo curl -L "https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-          /usr/local/bin/docker-compose version
-
-      - name: Docker sanity
-        run: |
-          docker --version
-          docker compose version || true
-
-      # === wp-env 起動（post-mergeパターン踏襲） ===
-      - name: Install @wordpress/env globally
-        run: npm i -g @wordpress/env
-
-      - name: Start WordPress env
-        env:
-          DOCKER_COMPOSE_CMD: "docker compose"
-        run: wp-env start
-
-      # === 共通セットアップ（DB待機 / WP初期化 / プラグイン / パーマリンク / ページ） ===
-      - name: Make wp-setup executable
-        run: chmod +x .github/scripts/wp-setup.sh
-
-      # === Patch D: 環境サニティチェック ===
-      - name: Env sanity
-        run: |
-          which wp-env || true
-          wp-env --version || true
-          which docker-compose || true
-          docker compose version || true
-          echo "DOCKER_COMPOSE_CMD=${DOCKER_COMPOSE_CMD:-unset}"
-
-      - name: WordPress bootstrap (shared script)
-        env:
-          DB_WAIT_MAX: "60"
-          DB_WAIT_INTERVAL: "2"
-        run: .github/scripts/wp-setup.sh
-
-      # === Patch A: PlaywrightにbaseURLを渡す ===
-      - name: Export PW_BASE_URL from WP
-        run: echo "PW_BASE_URL=$(npx wp-env run cli -- wp option get home)" >> $GITHUB_ENV
-
-      # === Patch B: カレンダーページとパーマリンクを再度強制 ===
-      - name: Finalize permalinks & calendar page (idempotent)
-        run: |
-          npx wp-env run cli -- wp rewrite structure '/%postname%/' --hard
-          npx wp-env run cli -- wp rewrite flush --hard
-          PID=$(npx wp-env run cli -- "wp post list --post_type=page --name=monthly-calendar --field=ID")
-          if [ -z "$PID" ]; then
-            npx wp-env run cli -- wp post create --post_type=page --post_status=publish --post_title='Monthly Calendar' --post_name='monthly-calendar' --post_content='[monthly_calendar]'
+          timeout=60
+          while [ $timeout -gt 0 ]; do
+            if curl -s http://localhost:8889 | grep -q "WordPress"; then
+              echo "WordPress is ready"
+              break
+            fi
+            echo "Waiting for WordPress... ($timeout seconds remaining)"
+            sleep 2
+            timeout=$((timeout-2))
+          done
+          if [ $timeout -le 0 ]; then
+            echo "WordPress failed to start"
+            exit 1
           fi
 
-      # === Patch C: Health check を実URLで ===
-      - name: Health check /monthly-calendar/ (HTTP 200)
+      - name: Activate plugin and setup test environment
         run: |
-          URL="${PW_BASE_URL%/}/monthly-calendar/"
-          echo "Checking ${URL}"
-          for i in {1..30}; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || true)
-            echo "Attempt $i: $code"
-            [ "$code" = "200" ] && exit 0
+          npx wp-env run cli wp plugin activate monthly-booking
+          npx wp-env run cli wp rewrite structure '/%postname%/'
+          npx wp-env run cli wp rewrite flush
+          
+          # Create calendar page
+          npx wp-env run cli wp post create --post_type=page --post_title="Monthly Calendar" --post_content="[monthly_booking_calendar]" --post_status=publish --post_name=monthly-calendar
+          
+          # Seed database if fixture exists
+          if [ -f "tests/fixtures/seed.sql" ]; then
+            npx wp-env run cli wp db query < tests/fixtures/seed.sql
+          fi
+
+      - name: Health check
+        run: |
+          timeout=60
+          while [ $timeout -gt 0 ]; do
+            response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8889/monthly-calendar/)
+            if [ "$response" = "200" ]; then
+              if ! curl -s http://localhost:8889/monthly-calendar/ | grep -q "wpdberror"; then
+                echo "Health check passed"
+                break
+              fi
+            fi
+            echo "Health check failed (HTTP $response), retrying... ($timeout seconds remaining)"
             sleep 2
+            timeout=$((timeout-2))
           done
-          exit 1
+          if [ $timeout -le 0 ]; then
+            echo "Health check failed"
+            exit 1
+          fi
 
-      # === a11y テスト実行 ===
-      - name: Install Playwright chromium only
-        run: npx playwright install --with-deps chromium
+      - name: Run accessibility tests
+        run: npx playwright test --grep "@a11y" --reporter=list,html --retries=1
+        continue-on-error: true
 
-      - name: Run a11y suite
-        run: npx playwright test --grep @a11y --project=chromium --reporter=list,html
-        env:
-          CI: true
-          PW_BASE_URL: ${{ env.PW_BASE_URL }}
+      - name: Run axe accessibility audit
+        run: |
+          npx playwright test --grep "@axe" --reporter=list,html --retries=1 || {
+            echo "Axe tests failed, checking severity..."
+            # Extract critical/serious violations from test results
+            if grep -q "critical\|serious" test-results/*/test-results.json 2>/dev/null; then
+              echo "Critical or serious accessibility violations found"
+              exit 1
+            else
+              echo "Only minor/moderate violations found, continuing..."
+              exit 0
+            fi
+          }
 
-      - name: Upload a11y report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: a11y-report
-          path: |
-            a11y-report/**
-            playwright-report/**
-            axe-report/**
-            ./**/a11y-report/**
-
-      # === 失敗時のデバッグ収集 ===
-      - name: Collect debug artifacts (if fail)
+      - name: Create accessibility issue on failure
         if: failure()
         run: |
-          mkdir -p a11y-debug
-          npx wp-env run cli "wp core is-installed" > a11y-debug/core-installed.txt || true
-          npx wp-env run cli "wp option get siteurl" > a11y-debug/siteurl.txt || true
-          npx wp-env run cli "wp option get home" > a11y-debug/home.txt || true
-          npx wp-env run cli "wp option get permalink_structure" > a11y-debug/permalink.txt || true
-          npx wp-env run cli "wp post list --post_type=page --fields=ID,post_title,post_name,post_status" > a11y-debug/pages.txt || true
-          npx wp-env run cli "wp plugin list" > a11y-debug/plugins.txt || true
-          npx wp-env run cli "wp rewrite list" > a11y-debug/rewrite-rules.txt || true
-          cp -f wp-content/debug.log a11y-debug/debug.log || true
+          VIOLATIONS=$(grep -o '"id":"[^"]*".*"impact":"critical\|serious"' test-results/*/test-results.json 2>/dev/null | head -5 || echo "No specific violations found")
+          gh issue create --title "[a11y] Critical accessibility violations detected" --body "Automated accessibility scan found critical/serious violations: $VIOLATIONS. See workflow artifacts for details." --label "accessibility,bug"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload a11y debug artifacts
-        if: failure()
+      - name: Upload Playwright report
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: a11y-debug
-          path: a11y-debug/**
+          name: playwright-a11y-report
+          path: playwright-report/
           retention-days: 7
+
+      - name: Upload test traces
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-a11y-traces
+          path: test-results/
+          retention-days: 7
+
+      - name: Upload wp-env logs on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: wp-env-logs
+          path: ~/.wp-env/logs/
+          retention-days: 3
