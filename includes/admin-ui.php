@@ -5,6 +5,7 @@
  * @package MonthlyRoomBooking
  */
 
+
 if (!defined('ABSPATH')) {
     exit;
 }
