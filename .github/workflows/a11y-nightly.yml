@@ -72,7 +72,8 @@ jobs:
               --post_name="monthly-calendar" \
               --post_content="[monthly_booking_calendar]"'
           else
-            echo "monthly-calendar exists: ID=${PID}"
+            echo "monthly-calendar exists: ID=${PID}; updating status/content..."
+            npx wp-env run cli -- bash -lc "WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post update ${PID} --post_status=publish --post_content='[monthly_booking_calendar]'"
           fi
 
       - name: Export PW_BASE_URL from WP
