@@ -15,6 +15,8 @@ class MonthlyBooking_Calendar_Render {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_scripts'));
         add_shortcode('monthly_booking_calendar', array($this, 'render_calendar_shortcode'));
         add_shortcode('monthly_booking_estimate', array($this, 'render_estimate_shortcode'));
+        add_action('wp_ajax_get_calendar_bookings', array($this, 'ajax_get_calendar_bookings'));
+        add_action('wp_ajax_nopriv_get_calendar_bookings', array($this, 'ajax_get_calendar_bookings'));
     }
     
     /**
@@ -35,6 +37,11 @@ class MonthlyBooking_Calendar_Render {
             MONTHLY_BOOKING_VERSION,
             true
         );
+
+        wp_localize_script('monthly-booking-calendar', 'monthlyBookingAjax', array(
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('monthly_booking_nonce')
+        ));
         
         wp_enqueue_script(
             'monthly-booking-estimate',
@@ -823,6 +830,52 @@ class MonthlyBooking_Calendar_Render {
             font-weight: bold;
             margin-left: 5px;
         }
+    public function ajax_get_calendar_bookings() {
+        check_ajax_referer('monthly_booking_nonce', 'nonce');
+
+        $month = isset($_POST['month']) ? intval($_POST['month']) : 0;
+        $year = isset($_POST['year']) ? intval($_POST['year']) : 0;
+
+        if ($month < 1 || $month > 12 || $year < 1970 || $year > 2100) {
+            wp_send_json_error(array('message' => __('Invalid parameters', 'monthly-booking')), 400);
+        }
+
+        $start_date = sprintf('%04d-%02d-01', $year, $month);
+        $end_date = date('Y-m-t', strtotime($start_date));
+
+        global $wpdb;
+        $table_bookings = $wpdb->prefix . 'monthly_bookings';
+
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT id, start_date, end_date, status
+             FROM $table_bookings
+             WHERE status != 'cancelled'
+               AND (start_date <= %s AND end_date >= %s)",
+            $end_date,
+            $start_date
+        ));
+
+        $days_in_month = intval(date('t', strtotime($start_date)));
+        $map = array();
+        for ($d = 1; $d <= $days_in_month; $d++) {
+            $day = sprintf('%04d-%02d-%02d', $year, $month, $d);
+            $map[$day] = array('date' => $day, 'status' => 'available');
+        }
+
+        foreach ($rows as $r) {
+            $from_ts = strtotime(max($start_date, $r->start_date));
+            $to_ts = strtotime(min($end_date, $r->end_date));
+            for ($ts = $from_ts; $ts <= $to_ts; $ts = strtotime('+1 day', $ts)) {
+                $day = date('Y-m-d', $ts);
+                if (isset($map[$day])) {
+                    $map[$day]['status'] = 'booked';
+                }
+            }
+        }
+
+        $result = array_values($map);
+        wp_send_json_success($result);
+    }
         .campaign-badge.early {
             background: #4ecdc4;
         }
