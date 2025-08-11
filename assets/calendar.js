@@ -1,3 +1,4 @@
+// CI trigger: synchronize ping v4
 // CI trigger: verify workflow stability
 // CI trigger: synchronize ping v3
 
