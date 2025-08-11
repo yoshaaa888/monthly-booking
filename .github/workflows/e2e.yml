@@ -5,6 +5,7 @@ on:
     branches: [ devin/1754064671-monthly-booking-plugin ]
   pull_request:
     branches: ["*"]
+    types: [opened, synchronize, reopened]
     paths-ignore:
       - "docs/**"
       - "**/*.md"
