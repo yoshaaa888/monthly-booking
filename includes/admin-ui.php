@@ -1269,69 +1269,6 @@ class MonthlyBooking_Admin_UI {
         <?php
     }
     
-    private function render_reservation_list() {
-        global $wpdb;
-        
-        $table_name = $wpdb->prefix . 'monthly_reservations';
-        $reservations = $wpdb->get_results(
-            "SELECT r.*, rm.room_name, rm.property_name 
-             FROM $table_name r 
-             LEFT JOIN {$wpdb->prefix}monthly_rooms rm ON r.room_id = rm.room_id 
-             ORDER BY r.created_at DESC"
-        );
-        
-        ?>
-        <div class="wrap">
-            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-            
-            <div class="monthly-booking-admin-content">
-                <div class="reservation-header">
-                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-registration&action=add'); ?>" 
-                       class="button button-primary"><?php _e('新規予約追加', 'monthly-booking'); ?></a>
-                </div>
-                
-                <table class="wp-list-table widefat fixed striped">
-                    <thead>
-                        <tr>
-                            <th><?php _e('ID', 'monthly-booking'); ?></th>
-                            <th><?php _e('部屋', 'monthly-booking'); ?></th>
-                            <th><?php _e('顧客名', 'monthly-booking'); ?></th>
-                            <th><?php _e('チェックイン', 'monthly-booking'); ?></th>
-                            <th><?php _e('チェックアウト', 'monthly-booking'); ?></th>
-                            <th><?php _e('ステータス', 'monthly-booking'); ?></th>
-                            <th><?php _e('操作', 'monthly-booking'); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($reservations)): ?>
-                        <tr>
-                            <td colspan="7" style="text-align: center; padding: 20px;">
-                                <?php _e('予約がありません。', 'monthly-booking'); ?>
-                            </td>
-                        </tr>
-                        <?php else: ?>
-                        <?php foreach ($reservations as $reservation): ?>
-                        <tr>
-                            <td><?php echo esc_html($reservation->id); ?></td>
-                            <td><?php echo esc_html($reservation->room_name); ?></td>
-                            <td><?php echo esc_html($reservation->guest_name); ?></td>
-                            <td><?php echo esc_html($reservation->checkin_date); ?></td>
-                            <td><?php echo esc_html($reservation->checkout_date); ?></td>
-                            <td><?php echo esc_html($reservation->status); ?></td>
-                            <td>
-                                <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-registration&action=edit&id=' . $reservation->id); ?>"><?php _e('編集', 'monthly-booking'); ?></a> |
-                                <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-registration&action=delete&id=' . $reservation->id); ?>" 
-                                   onclick="return confirm('<?php _e('本当に削除しますか？', 'monthly-booking'); ?>')"><?php _e('削除', 'monthly-booking'); ?></a>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <?php
-    }
     
     private function render_feature_disabled_notice() {
         $this->render_reservation_list();
