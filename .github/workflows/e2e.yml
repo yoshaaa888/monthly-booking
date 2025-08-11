@@ -100,10 +100,10 @@ jobs:
         if: failure()
         run: |
           mkdir -p ci-debug
-          npx wp-env run cli "wp core is-installed" > ci-debug/core-installed.txt || true
-          npx wp-env run cli "wp option get home"   > ci-debug/home.txt || true
-          npx wp-env run cli "wp rewrite list"      > ci-debug/rewrite.txt || true
-          npx wp-env run cli "wp post list --post_type=page --fields=ID,post_title,post_name,post_status" > ci-debug/pages.txt || true
+          npx wp-env run cli -- wp core is-installed > ci-debug/core-installed.txt || true
+          npx wp-env run cli -- wp option get home   > ci-debug/home.txt || true
+          npx wp-env run cli -- wp rewrite list      > ci-debug/rewrite.txt || true
+          npx wp-env run cli -- wp post list --post_type=page --fields=ID,post_title,post_name,post_status > ci-debug/pages.txt || true
           cp -f wp-content/debug.log ci-debug/debug.log || true
       - uses: actions/upload-artifact@v4
         if: failure()
