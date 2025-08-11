@@ -70,7 +70,7 @@ jobs:
               --post_type=page --post_status=publish \
               --post_title="Monthly Calendar" \
               --post_name="monthly-calendar" \
-              --post_content="[monthly_calendar]"'
+              --post_content="[monthly_booking_calendar]"'
           else
             echo "monthly-calendar exists: ID=${PID}"
           fi
