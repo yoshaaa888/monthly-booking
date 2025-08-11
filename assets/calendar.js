@@ -1,3 +1,4 @@
+// CI trigger: noop v6 to trigger pull_request synchronize
 // CI trigger: noop change to force PR synchronize event v5
 // CI trigger: synchronize ping v4
 // CI trigger: verify workflow stability
