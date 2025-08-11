@@ -10,13 +10,13 @@ jQuery(document).ready(function($) {
         const isActive = $button.data('is-active');
         
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'toggle_campaign',
                 campaign_id: campaignId,
                 is_active: isActive ? 0 : 1,
-                nonce: monthlyBookingAdmin.nonce
+                nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (response.success) {
@@ -52,8 +52,8 @@ jQuery(document).ready(function($) {
         let firstInvalid = null;
 
         const $room = $form.find('#mbp-room-id');
-        const $start = $form.find('#mbp-start-date');
-        const $end = $form.find('#mbp-end-date');
+        const $start = $form.find('#checkin_date');
+        const $end = $form.find('#checkout_date');
         const $name = $form.find('#mbp-guest-name');
         const $email = $form.find('#mbp-guest-email');
 
@@ -74,18 +74,48 @@ jQuery(document).ready(function($) {
         if (!ok && firstInvalid) firstInvalid.trigger('focus');
         return ok;
     }
+    function escapeHtml(s){ return String(s).replace(/[&<>\"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); }); }
+    function escapeAttr(s){ return escapeHtml(s); }
 
     function refreshReservations() {
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'mbp_reservation_list',
-                nonce: monthlyBookingAdmin.nonce
+                _ajax_nonce: monthlyBookingAdmin.reservationsNonce
             }
         }).done(function(resp) {
-            if (resp && resp.success && resp.data && typeof resp.data.html === 'string') {
-                $('#mbp-reservations-body').html(resp.data.html);
+            if (resp && resp.success && resp.data && Array.isArray(resp.data.reservations)) {
+                const rows = resp.data.reservations.map(function(r){
+                    var propRoom = (r.property_name ? r.property_name : '') + (r.room_name ? ' - ' + r.room_name : '');
+                    var total = r.total_price ? '¥' + Number(r.total_price).toLocaleString() : '';
+                    return '<tr>' +
+                        '<td>' + escapeHtml(r.id) + '</td>' +
+                        '<td>' + escapeHtml(propRoom) + '</td>' +
+                        '<td>' + escapeHtml(r.guest_name || '') + '</td>' +
+                        '<td>' + escapeHtml(r.guest_email || '') + '</td>' +
+                        '<td>' + escapeHtml(r.checkin_date) + '</td>' +
+                        '<td>' + escapeHtml(r.checkout_date) + '</td>' +
+                        '<td>' + escapeHtml(total) + '</td>' +
+                        '<td><span class="status-' + escapeAttr(r.status || '') + '">' + escapeHtml(r.status || '') + '</span></td>' +
+                        '<td>' +
+                          '<button type="button" class="button button-small mbp-reservation-edit"' +
+                            ' data-id="' + escapeAttr(r.id) + '"' +
+                            ' data-room-id="' + escapeAttr(r.room_id || '') + '"' +
+                            ' data-start="' + escapeAttr(r.checkin_date) + '"' +
+                            ' data-end="' + escapeAttr(r.checkout_date) + '"' +
+                            ' data-guest-name="' + escapeAttr(r.guest_name || '') + '"' +
+                            ' data-guest-email="' + escapeAttr(r.guest_email || '') + '"' +
+                            ' data-status="' + escapeAttr(r.status || '') + '"' +
+                            ' data-notes="' + escapeAttr(r.notes || '') + '">' +
+                            '編集' +
+                          '</button> ' +
+                          '<button type="button" class="button button-small button-link-delete mbp-reservation-delete" data-id="' + escapeAttr(r.id) + '">削除</button>' +
+                        '</td>' +
+                    '</tr>';
+                }).join('');
+                $('#mbp-reservations-body').html(rows);
             }
         });
     }
@@ -113,17 +143,17 @@ jQuery(document).ready(function($) {
         const action = id ? 'mbp_reservation_update' : 'mbp_reservation_create';
         const payload = {
             action: action,
-            nonce: monthlyBookingAdmin.nonce,
+            _ajax_nonce: monthlyBookingAdmin.reservationsNonce,
             reservation_id: id || ''
         };
 
-        ['room_id','start_date','end_date','guest_name','guest_email','guest_phone','status','notes'].forEach(name => {
+        ['room_id','checkin_date','checkout_date','guest_name','guest_email','guest_phone','status','notes'].forEach(function(name){
             const v = $form.find('[name="'+name+'"]').val();
             if (typeof v !== 'undefined') payload[name] = v;
         });
 
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: payload
         }).done(function(resp) {
@@ -138,8 +168,8 @@ jQuery(document).ready(function($) {
         }).fail(function(xhr) {
             if (xhr && xhr.status === 409) {
                 renderMessage('error', '別の予約と重複しています。');
-                $('#mbp-start-date, #mbp-end-date').attr('aria-invalid', 'true').addClass('error');
-                $('#mbp-start-date').trigger('focus');
+                $('#checkin_date, #checkout_date').attr('aria-invalid', 'true').addClass('error');
+                $('#checkin_date').trigger('focus');
             } else {
                 renderMessage('error', 'ネットワークエラーが発生しました。');
             }
@@ -149,10 +179,16 @@ jQuery(document).ready(function($) {
     $(document).on('click', '.mbp-reservation-edit', function(e) {
         e.preventDefault();
         const $btn = $(this);
+        const $inlineForm = $('#mbp-reservation-form');
+        if (!$inlineForm.length) {
+            const id = $btn.data('id');
+            window.location.href = 'admin.php?page=monthly-room-booking-registration&action=edit&id=' + encodeURIComponent(id);
+            return;
+        }
         $('#mbp-reservation-id').val($btn.data('id'));
         $('#mbp-room-id').val($btn.data('room-id'));
-        $('#mbp-start-date').val($btn.data('start'));
-        $('#mbp-end-date').val($btn.data('end'));
+        $('#checkin_date').val($btn.data('start'));
+        $('#checkout_date').val($btn.data('end'));
         $('#mbp-guest-name').val($btn.data('guest-name'));
         $('#mbp-guest-email').val($btn.data('guest-email'));
         $('#mbp-guest-phone').val($btn.data('guest-phone') || '');
@@ -170,11 +206,11 @@ jQuery(document).ready(function($) {
         if (!window.confirm('この予約を削除しますか？')) return;
 
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'mbp_reservation_delete',
-                nonce: monthlyBookingAdmin.nonce,
+                _ajax_nonce: monthlyBookingAdmin.reservationsNonce,
                 reservation_id: id
             }
         }).done(function(resp) {
@@ -473,12 +509,12 @@ jQuery(document).ready(function($) {
     
     function loadCampaignAssignments() {
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'get_room_campaign_assignments',
                 room_id: currentRoomId,
-                nonce: monthlyBookingAdmin.nonce
+                nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (response.success) {
@@ -497,11 +533,11 @@ jQuery(document).ready(function($) {
     
     function loadActiveCampaigns() {
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'get_active_campaigns',
-                nonce: monthlyBookingAdmin.nonce
+                nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (response.success) {
@@ -604,7 +640,7 @@ jQuery(document).ready(function($) {
         };
         
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: formData,
             success: function(response) {
@@ -625,12 +661,12 @@ jQuery(document).ready(function($) {
         const $row = $(`.edit-assignment[data-assignment-id="${assignmentId}"]`).closest('tr');
         
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'get_campaign_assignment',
                 assignment_id: assignmentId,
-                nonce: monthlyBookingAdmin.nonce
+                nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (response.success) {
@@ -654,12 +690,12 @@ jQuery(document).ready(function($) {
     
     function deleteCampaignAssignment(assignmentId) {
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'delete_campaign_assignment',
                 assignment_id: assignmentId,
-                nonce: monthlyBookingAdmin.nonce
+                nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (response.success) {
@@ -678,13 +714,13 @@ jQuery(document).ready(function($) {
         const newStatus = currentStatus == 1 ? 0 : 1;
         
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'toggle_assignment_status',
                 assignment_id: assignmentId,
                 is_active: newStatus,
-                nonce: monthlyBookingAdmin.nonce
+                nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (response.success) {
@@ -741,7 +777,7 @@ jQuery(document).ready(function($) {
         }
         
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'check_campaign_period_overlap',
@@ -749,7 +785,7 @@ jQuery(document).ready(function($) {
                 start_date: startDate,
                 end_date: endDate,
                 assignment_id: assignmentId,
-                nonce: monthlyBookingAdmin.nonce
+                nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (!response.success) {

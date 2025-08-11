@@ -97,7 +97,7 @@ test.describe('Reservation Management MVP', () => {
         await page.waitForSelector('.notice-success');
         
         page.on('dialog', dialog => dialog.accept());
-        await page.click('.delete-reservation');
+        await page.click('.mbp-reservation-delete');
         
         await expect(page.locator('.notice-success')).toBeVisible();
         await expect(page.locator('text=削除テスト')).not.toBeVisible();

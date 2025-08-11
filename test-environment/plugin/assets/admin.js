@@ -16,7 +16,7 @@ jQuery(document).ready(function($) {
                 action: 'toggle_campaign',
                 campaign_id: campaignId,
                 is_active: isActive ? 0 : 1,
-                nonce: monthlyBookingAdmin.nonce
+                nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (response.success) {

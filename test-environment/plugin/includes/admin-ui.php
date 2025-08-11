@@ -118,6 +118,23 @@ class MonthlyBooking_Admin_UI {
             MONTHLY_BOOKING_VERSION,
             true
         );
+        wp_localize_script(
+            'monthly-booking-admin',
+            'monthlyBookingAdmin',
+            array(
+                'ajaxurl' => admin_url('admin-ajax.php'),
+                'reservationsNonce' => wp_create_nonce('mbp_reservations_nonce'),
+                'strings' => array(
+                    'saving' => __('保存中...', 'monthly-booking'),
+                    'saveSuccess' => __('保存しました', 'monthly-booking'),
+                    'saveError' => __('保存に失敗しました', 'monthly-booking'),
+                    'deleteSuccess' => __('削除しました', 'monthly-booking'),
+                    'deleteError' => __('削除に失敗しました', 'monthly-booking'),
+                    'confirmDelete' => __('本当に削除しますか？', 'monthly-booking')
+                )
+            )
+        );
+
     }
     
     /**

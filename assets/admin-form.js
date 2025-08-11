@@ -11,14 +11,14 @@ jQuery(document).ready(function($) {
         const action = reservationId ? 'mbp_reservation_update' : 'mbp_reservation_create';
         
         formData.append('action', action);
-        formData.append('_ajax_nonce', monthlyBookingForm.nonce);
+        formData.append('_ajax_nonce', monthlyBookingAdmin.reservationsNonce);
         
         const submitButton = $(this).find('input[type="submit"]');
         const originalText = submitButton.val();
-        submitButton.val(monthlyBookingForm.strings.saving).prop('disabled', true);
+        submitButton.val(monthlyBookingAdmin.strings.saving).prop('disabled', true);
         
         $.ajax({
-            url: monthlyBookingForm.ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: formData,
             processData: false,
@@ -29,7 +29,7 @@ jQuery(document).ready(function($) {
                         window.MonthlyBookingCalendar.refresh();
                     }
                     
-                    showNotice('success', response.data.message || monthlyBookingForm.strings.saveSuccess);
+                    showNotice('success', response.data.message || monthlyBookingAdmin.strings.saveSuccess);
                     
                     setTimeout(function() {
                         window.location.href = 'admin.php?page=monthly-room-booking-registration';
@@ -40,7 +40,7 @@ jQuery(document).ready(function($) {
                 }
             },
             error: function() {
-                showNotice('error', monthlyBookingForm.strings.saveError);
+                showNotice('error', monthlyBookingAdmin.strings.saveError);
             },
             complete: function() {
                 submitButton.val(originalText).prop('disabled', false);
