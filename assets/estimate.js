@@ -118,7 +118,6 @@ jQuery(document).ready(function($) {
         const roomId = $('#room_id').val();
         const moveInDate = $('#move_in_date').val();
         const moveOutDate = $('#move_out_date').val();
-        const stayMonths = $('#stay_months').val();
         const numAdults = $('#num_adults').val();
         const guestName = $('#guest_name').val().trim();
         const guestEmail = $('#guest_email').val().trim();
@@ -143,10 +142,6 @@ jQuery(document).ready(function($) {
             return false;
         }
         
-        if (!stayMonths) {
-            showError('滞在期間を選択してください。');
-            return false;
-        }
         
         if (!numAdults || numAdults < 1) {
             showError('大人の人数を選択してください。');
@@ -196,7 +191,7 @@ jQuery(document).ready(function($) {
         html += '<p><strong>プラン:</strong> ' + estimate.plan_name + '</p>';
         html += '<p><strong>入居日:</strong> ' + estimate.move_in_date + '</p>';
         html += '<p><strong>退去日:</strong> ' + estimate.move_out_date + '</p>';
-        html += '<p><strong>滞在期間:</strong> ' + estimate.stay_days + '日間 (' + estimate.stay_months + 'ヶ月)</p>';
+        html += '<p><strong>滞在期間:</strong> ' + estimate.stay_days + '日間</p>';
         html += '<p><strong>利用人数:</strong> 大人' + estimate.num_adults + '名';
         if (estimate.num_children > 0) {
             html += ', 子ども' + estimate.num_children + '名';
@@ -205,12 +200,27 @@ jQuery(document).ready(function($) {
         html += '</div>';
         
         html += '<div class="estimate-section">';
-        html += '<h4>💰 料金内訳（税込）</h4>';
+        html += '<h4>💰 料金内訳</h4>';
         
-        html += '<div class="cost-item">';
-        html += '<span>日割賃料 (' + formatCurrency(estimate.daily_rent) + '/日 × ' + estimate.stay_days + '日)</span>';
-        html += '<span>' + formatCurrency(estimate.total_rent) + '</span>';
-        html += '</div>';
+        if (estimate.original_daily_rent && estimate.original_daily_rent !== estimate.daily_rent) {
+            html += '<div class="cost-item">';
+            html += '<span>日割賃料（割引前） (' + formatCurrency(estimate.original_daily_rent) + '/日 × ' + estimate.stay_days + '日)</span>';
+            html += '<span>' + formatCurrency(estimate.original_daily_rent * estimate.stay_days) + '</span>';
+            html += '</div>';
+            
+            if (estimate.campaign_details && estimate.campaign_details.campaigns && estimate.campaign_details.campaigns.length > 0) {
+                const campaign = estimate.campaign_details.campaigns[0];
+                html += '<div class="cost-item campaign-discount">';
+                html += '<span>' + campaign.campaign_name + '適用後 (' + formatCurrency(estimate.daily_rent) + '/日 × ' + estimate.stay_days + '日)</span>';
+                html += '<span>' + formatCurrency(estimate.total_rent) + '</span>';
+                html += '</div>';
+            }
+        } else {
+            html += '<div class="cost-item">';
+            html += '<span>日割賃料 (' + formatCurrency(estimate.daily_rent) + '/日 × ' + estimate.stay_days + '日)</span>';
+            html += '<span>' + formatCurrency(estimate.total_rent) + '</span>';
+            html += '</div>';
+        }
         
         html += '<div class="cost-item">';
         html += '<span>共益費 (' + formatCurrency(estimate.daily_utilities) + '/日 × ' + estimate.stay_days + '日)</span>';
@@ -239,16 +249,58 @@ jQuery(document).ready(function($) {
             
             if (estimate.adult_additional_fee > 0) {
                 html += '<div class="cost-subitem">';
-                html += '<span>　├ 大人追加 (' + (estimate.num_adults - 1) + '名 × ¥1,000/日 × ' + estimate.stay_days + '日)</span>';
+                html += '<span>　├ 大人追加 (' + (estimate.num_adults - 1) + '名)</span>';
                 html += '<span>' + formatCurrency(estimate.adult_additional_fee) + '</span>';
                 html += '</div>';
+                
+                if (estimate.adult_additional_rent > 0) {
+                    html += '<div class="cost-subitem-detail">';
+                    html += '<span>　　├ 賃料 (' + (estimate.num_adults - 1) + '名 × ¥900/日 × ' + estimate.stay_days + '日)</span>';
+                    html += '<span>' + formatCurrency(estimate.adult_additional_rent) + '</span>';
+                    html += '</div>';
+                }
+                
+                if (estimate.adult_additional_utilities > 0) {
+                    html += '<div class="cost-subitem-detail">';
+                    html += '<span>　　├ 共益費 (' + (estimate.num_adults - 1) + '名 × ¥200/日 × ' + estimate.stay_days + '日)</span>';
+                    html += '<span>' + formatCurrency(estimate.adult_additional_utilities) + '</span>';
+                    html += '</div>';
+                }
+                
+                if (estimate.adult_bedding_fee > 0) {
+                    html += '<div class="cost-subitem-detail">';
+                    html += '<span>　　└ 布団代 (' + (estimate.num_adults - 1) + '名 × ¥1,100/日 × ' + estimate.stay_days + '日)</span>';
+                    html += '<span>' + formatCurrency(estimate.adult_bedding_fee) + '</span>';
+                    html += '</div>';
+                }
             }
             
             if (estimate.children_additional_fee > 0) {
                 html += '<div class="cost-subitem">';
-                html += '<span>　└ 子ども追加 (' + estimate.num_children + '名 × ¥500/日 × ' + estimate.stay_days + '日)</span>';
+                html += '<span>　└ 子ども追加 (' + estimate.num_children + '名)</span>';
                 html += '<span>' + formatCurrency(estimate.children_additional_fee) + '</span>';
                 html += '</div>';
+                
+                if (estimate.children_additional_rent > 0) {
+                    html += '<div class="cost-subitem-detail">';
+                    html += '<span>　　├ 賃料 (' + estimate.num_children + '名 × ¥450/日 × ' + estimate.stay_days + '日)</span>';
+                    html += '<span>' + formatCurrency(estimate.children_additional_rent) + '</span>';
+                    html += '</div>';
+                }
+                
+                if (estimate.children_additional_utilities > 0) {
+                    html += '<div class="cost-subitem-detail">';
+                    html += '<span>　　├ 共益費 (' + estimate.num_children + '名 × ¥100/日 × ' + estimate.stay_days + '日)</span>';
+                    html += '<span>' + formatCurrency(estimate.children_additional_utilities) + '</span>';
+                    html += '</div>';
+                }
+                
+                if (estimate.children_bedding_fee > 0) {
+                    html += '<div class="cost-subitem-detail">';
+                    html += '<span>　　└ 布団代 (' + estimate.num_children + '名 × ¥1,100/日 × ' + estimate.stay_days + '日)</span>';
+                    html += '<span>' + formatCurrency(estimate.children_bedding_fee) + '</span>';
+                    html += '</div>';
+                }
             }
         }
         
@@ -290,8 +342,37 @@ jQuery(document).ready(function($) {
             }
         }
         
+        if (estimate.non_taxable_subtotal && estimate.taxable_subtotal) {
+            html += '<div class="tax-separation-section">';
+            html += '<h5>📊 税区分別内訳</h5>';
+            
+            html += '<div class="cost-item tax-breakdown">';
+            html += '<span>非課税小計（賃料・共益費）</span>';
+            html += '<span>' + formatCurrency(estimate.non_taxable_subtotal) + '</span>';
+            html += '</div>';
+            
+            html += '<div class="cost-item tax-breakdown">';
+            html += '<span>課税小計（税込）</span>';
+            html += '<span>' + formatCurrency(estimate.taxable_subtotal) + '</span>';
+            html += '</div>';
+            
+            if (estimate.tax_exclusive_amount && estimate.consumption_tax) {
+                html += '<div class="cost-subitem tax-detail">';
+                html += '<span>　├ 税抜金額</span>';
+                html += '<span>' + formatCurrency(estimate.tax_exclusive_amount) + '</span>';
+                html += '</div>';
+                
+                html += '<div class="cost-subitem tax-detail">';
+                html += '<span>　└ 消費税（' + (estimate.tax_rate || 10) + '%）</span>';
+                html += '<span>' + formatCurrency(estimate.consumption_tax) + '</span>';
+                html += '</div>';
+            }
+            
+            html += '</div>';
+        }
+        
         html += '<div class="cost-total">';
-        html += '<span><strong>🎯 合計金額（税込）</strong></span>';
+        html += '<span><strong>🎯 合計金額</strong></span>';
         html += '<span><strong>' + formatCurrency(estimate.final_total) + '</strong></span>';
         html += '</div>';
         
@@ -353,7 +434,6 @@ jQuery(document).ready(function($) {
             room_id: $('#room_id').val(),
             move_in_date: $('#move_in_date').val(),
             move_out_date: $('#move_out_date').val(),
-            stay_months: $('#stay_months').val(),
             num_adults: $('#num_adults').val(),
             num_children: $('#num_children').val(),
             selected_options: selectedOptions,
@@ -453,22 +533,18 @@ jQuery(document).ready(function($) {
                 }
             },
             error: function() {
-                console.error('Failed to load search filters');
             }
         });
     }
     
     function searchProperties() {
         const moveInDate = $('#move_in_date').val();
-        const stayMonths = $('#stay_months').val();
+        const moveOutDate = $('#move_out_date').val();
         
-        if (!moveInDate || !stayMonths) {
+        if (!moveInDate || !moveOutDate) {
             alert(monthlyBookingAjax.selectDatesFirst);
             return;
         }
-        
-        const endDate = new Date(moveInDate);
-        endDate.setMonth(endDate.getMonth() + parseInt(stayMonths));
         
         $.ajax({
             url: monthlyBookingAjax.ajaxurl,
@@ -477,7 +553,7 @@ jQuery(document).ready(function($) {
                 action: 'search_properties',
                 nonce: monthlyBookingAjax.nonce,
                 start_date: moveInDate,
-                end_date: endDate.toISOString().split('T')[0],
+                end_date: moveOutDate,
                 station: $('#station_filter').val(),
                 max_occupants: $('#occupancy_filter').val(),
                 structure: $('#structure_filter').val()
@@ -534,30 +610,32 @@ jQuery(document).ready(function($) {
         searchProperties();
     });
 
-    function determinePlanByDuration(stayDays) {
+    function determinePlanByDuration(moveInDate, moveOutDate) {
+        const stayDays = calculateStayDuration(moveInDate, moveOutDate);
+        const stayMonths = calculateStayMonths(moveInDate, moveOutDate);
         
-        if (stayDays >= 7 && stayDays <= 29) {
+        if (stayDays >= 7 && stayMonths < 1) {
             return { 
                 code: 'SS', 
-                name: 'SS Plan - Compact Studio (15-20㎡)',
+                name: 'SS Plan - スーパーショートプラン',
                 duration: stayDays + '日間'
             };
-        } else if (stayDays >= 30 && stayDays <= 89) {
+        } else if (stayMonths >= 1 && stayMonths < 3) {
             return { 
                 code: 'S', 
-                name: 'S Plan - Standard Studio (20-25㎡)',
+                name: 'S Plan - ショートプラン',
                 duration: stayDays + '日間'
             };
-        } else if (stayDays >= 90 && stayDays <= 179) {
+        } else if (stayMonths >= 3 && stayMonths < 6) {
             return { 
                 code: 'M', 
-                name: 'M Plan - Medium Room (25-35㎡)',
+                name: 'M Plan - ミドルプラン',
                 duration: stayDays + '日間'
             };
-        } else if (stayDays >= 180) {
+        } else if (stayMonths >= 6) {
             return { 
                 code: 'L', 
-                name: 'L Plan - Large Room (35㎡+)',
+                name: 'L Plan - ロングプラン',
                 duration: stayDays + '日間'
             };
         } else {
@@ -584,11 +662,40 @@ jQuery(document).ready(function($) {
         const timeDiff = checkOut.getTime() - checkIn.getTime();
         const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
         
-        return daysDiff;
+        return daysDiff + 1;
     }
     
-    function calculateStayMonths(stayDays) {
-        return Math.ceil(stayDays / 30);
+    function calculateStayMonths(moveInDate, moveOutDate) {
+        if (!moveInDate || !moveOutDate) return 0;
+        
+        const checkIn = new Date(moveInDate);
+        const checkOut = new Date(moveOutDate);
+        
+        let months = 0;
+        let currentDate = new Date(checkIn);
+        
+        while (currentDate < checkOut) {
+            const originalDay = currentDate.getDate();
+            const nextMonth = new Date(currentDate);
+            nextMonth.setMonth(nextMonth.getMonth() + 1);
+            
+            if (nextMonth.getDate() !== originalDay) {
+                nextMonth.setDate(0);
+            }
+            
+            if (nextMonth <= checkOut) {
+                months++;
+                currentDate = new Date(nextMonth);
+            } else {
+                const daysRemaining = Math.floor((checkOut - currentDate) / (1000 * 60 * 60 * 24));
+                if (daysRemaining >= 30) { // Strict 30-day minimum for partial month
+                    months++;
+                }
+                break;
+            }
+        }
+        
+        return months;
     }
     
     function updatePlanDisplay() {
@@ -596,41 +703,7 @@ jQuery(document).ready(function($) {
         const moveOutDate = $('#move_out_date').val();
         
         if (moveInDate && moveOutDate) {
-            const stayDays = calculateStayDuration(moveInDate, moveOutDate);
-            const stayMonths = calculateStayMonths(stayDays);
-            
-            $('#stay_months').val(stayMonths);
-            
-            if (stayDays > 0) {
-                const plan = determinePlanByDuration(stayDays);
-                $('#auto-selected-plan').text(plan.name + ' (' + plan.duration + ')');
-                $('#selected-plan-display').show();
-                
-                if (plan.code) {
-                    $('#selected-plan-display').removeClass('error-plan').addClass('valid-plan');
-                } else {
-                    $('#selected-plan-display').removeClass('valid-plan').addClass('error-plan');
-                }
-            } else {
-                $('#selected-plan-display').hide();
-            }
-            
-            if ($('#estimate-result').is(':visible')) {
-                setTimeout(calculateEstimate, 300);
-            }
-        } else {
-            $('#selected-plan-display').hide();
-            $('#stay_months').val('');
-        }
-    }
-    
-    $('#move_in_date, #move_out_date').on('change', updatePlanDisplay);
-    
-    $('#stay_months').on('change', function() {
-        const stayMonths = parseInt($(this).val());
-        if (stayMonths) {
-            const stayDays = stayMonths * 30; // Approximate conversion
-            const plan = determinePlanByDuration(stayDays);
+            const plan = determinePlanByDuration(moveInDate, moveOutDate);
             $('#auto-selected-plan').text(plan.name + ' (' + plan.duration + ')');
             $('#selected-plan-display').show();
             
@@ -639,14 +712,17 @@ jQuery(document).ready(function($) {
             } else {
                 $('#selected-plan-display').removeClass('valid-plan').addClass('error-plan');
             }
+            
+            if ($('#estimate-result').is(':visible')) {
+                setTimeout(calculateEstimate, 300);
+            }
         } else {
             $('#selected-plan-display').hide();
         }
-        
-        if ($('#estimate-result').is(':visible')) {
-            setTimeout(calculateEstimate, 300);
-        }
-    });
+    }
+    
+    $('#move_in_date, #move_out_date').on('change', updatePlanDisplay);
+    
 
     $(document).on('click', '#submit-booking-btn', function(e) {
         e.preventDefault();
@@ -681,7 +757,6 @@ jQuery(document).ready(function($) {
             room_id: $('#room_id').val(),
             move_in_date: estimate.move_in_date,
             move_out_date: estimate.move_out_date,
-            stay_months: estimate.stay_months,
             plan_type: estimate.plan,
             num_adults: estimate.num_adults,
             num_children: estimate.num_children,

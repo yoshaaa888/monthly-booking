@@ -23,6 +23,8 @@ jQuery(document).ready(function($) {
         
         $('.calendar-header h3').text(monthNames[month] + ' ' + year);
         
+        announceMonthChange(year, month);
+        
         $('.calendar-grid').empty();
         
         dayNames.forEach(day => {
@@ -78,7 +80,7 @@ jQuery(document).ready(function($) {
             url: monthlyBookingAjax.ajaxurl,
             type: 'POST',
             data: {
-                action: 'get_calendar_bookings',
+                action: 'mbp_load_calendar',
                 month: month + 1,
                 year: year,
                 nonce: monthlyBookingAjax.nonce
@@ -144,10 +146,217 @@ jQuery(document).ready(function($) {
             
             $(document).trigger('monthlyBookingDaySelected', [date, $day]);
         });
+        
+        const calendarGrid = document.querySelector('.calendar-grid');
+        console.log('Calendar grid found:', calendarGrid);
+        if (calendarGrid) {
+            calendarGrid.addEventListener('keydown', function(e) {
+                const currentCell = e.target;
+                if (!currentCell.classList.contains('calendar-day') || currentCell.getAttribute('tabindex') !== '0') {
+                    return;
+                }
+                
+                const allCells = Array.from(calendarGrid.querySelectorAll('.calendar-day:not(.other-month)'));
+                const currentIndex = allCells.indexOf(currentCell);
+                let targetIndex = -1;
+                
+                switch(e.key) {
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        targetIndex = Math.min(currentIndex + 1, allCells.length - 1);
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        targetIndex = Math.max(currentIndex - 1, 0);
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        targetIndex = Math.min(currentIndex + 7, allCells.length - 1);
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        targetIndex = Math.max(currentIndex - 7, 0);
+                        break;
+                    case 'Home':
+                        e.preventDefault();
+                        targetIndex = 0;
+                        break;
+                    case 'End':
+                        e.preventDefault();
+                        targetIndex = allCells.length - 1;
+                        break;
+                    case 'PageDown':
+                        e.preventDefault();
+                        handleMonthNavigation('next', currentIndex);
+                        return;
+                    case 'PageUp':
+                        e.preventDefault();
+                        handleMonthNavigation('prev', currentIndex);
+                        return;
+                    case 'Enter':
+                    case ' ':
+                        e.preventDefault();
+                        currentCell.click();
+                        break;
+                    case 'Tab':
+                        return;
+                    default:
+                        return;
+                }
+                
+                if (targetIndex >= 0 && allCells[targetIndex]) {
+                    const targetCell = allCells[targetIndex];
+                    setRovingTabindex(targetCell);
+                    targetCell.focus();
+                }
+            });
+        }
+        
+        function handleMonthNavigation(direction, currentIndex) {
+            const currentColumn = currentIndex % 7;
+            const navButton = document.querySelector(direction === 'next' ? '.calendar-next' : '.calendar-prev');
+            
+            if (navButton) {
+                navButton.click();
+                setTimeout(() => {
+                    const calendarGrid = document.querySelector('.calendar-grid');
+                    if (calendarGrid) {
+                        const newCells = Array.from(calendarGrid.querySelectorAll('.calendar-day:not(.other-month)'));
+                        const targetCell = newCells[Math.min(currentColumn, newCells.length - 1)];
+                        if (targetCell) {
+                            setRovingTabindex(targetCell);
+                            targetCell.focus();
+                        }
+                    }
+                }, 150);
+            }
+        }
+        
+        function setRovingTabindex(activeCell) {
+            const allCells = document.querySelectorAll('.calendar-day:not(.other-month)');
+            allCells.forEach(cell => {
+                cell.setAttribute('tabindex', '-1');
+            });
+            activeCell.setAttribute('tabindex', '0');
+        }
+    }
+    
+    let lastAnnouncementTime = 0;
+    const ANNOUNCEMENT_THROTTLE = 500; // 500ms throttle
+    
+    function announceMonthChange(year, month) {
+        const now = Date.now();
+        if (now - lastAnnouncementTime < ANNOUNCEMENT_THROTTLE) {
+            return;
+        }
+        lastAnnouncementTime = now;
+        
+        const liveRegion = document.getElementById('calendar-announcements');
+        if (liveRegion) {
+            const monthName = monthNames[month];
+            const announcement = `${year}年${monthName}を表示`;
+            liveRegion.textContent = announcement;
+        }
     }
     
     if ($('.monthly-booking-calendar').length) {
         initCalendar();
+        initTooltips();
+        
+        setTimeout(() => {
+            const firstCell = document.querySelector('.calendar-day[tabindex="0"]');
+            if (firstCell) {
+                setRovingTabindex(firstCell);
+            }
+        }, 100);
+    }
+    
+    function initTooltips() {
+        const calendarGrid = document.querySelector('.calendar-grid');
+        if (!calendarGrid) return;
+        
+        let currentTooltip = null;
+        let currentFocusedElement = null;
+        
+        calendarGrid.addEventListener('mouseenter', function(e) {
+            const target = e.target.closest('.calendar-day[aria-describedby]');
+            if (target) {
+                showTooltip(target);
+            }
+        }, true);
+        
+        calendarGrid.addEventListener('mouseleave', function(e) {
+            const target = e.target.closest('.calendar-day[aria-describedby]');
+            if (target) {
+                hideTooltip(target);
+            }
+        }, true);
+        
+        calendarGrid.addEventListener('focus', function(e) {
+            const target = e.target.closest('.calendar-day[aria-describedby]');
+            if (target) {
+                currentFocusedElement = target;
+                showTooltip(target);
+            }
+        }, true);
+        
+        calendarGrid.addEventListener('blur', function(e) {
+            const target = e.target.closest('.calendar-day[aria-describedby]');
+            if (target) {
+                hideTooltip(target);
+                currentFocusedElement = null;
+            }
+        }, true);
+        
+        calendarGrid.addEventListener('touchstart', function(e) {
+            const target = e.target.closest('.calendar-day[aria-describedby]');
+            if (target) {
+                e.preventDefault(); // Prevent mouse events
+                showTooltip(target);
+            }
+        }, true);
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && currentTooltip) {
+                hideAllTooltips();
+                if (currentFocusedElement) {
+                    currentFocusedElement.focus();
+                }
+            }
+        });
+        
+        function showTooltip(dayElement) {
+            hideAllTooltips();
+            
+            const tooltipId = dayElement.getAttribute('aria-describedby');
+            const tooltip = document.getElementById(tooltipId);
+            if (tooltip) {
+                tooltip.removeAttribute('aria-hidden');
+                tooltip.style.display = 'block';
+                currentTooltip = tooltip;
+            }
+        }
+        
+        function hideTooltip(dayElement) {
+            const tooltipId = dayElement.getAttribute('aria-describedby');
+            const tooltip = document.getElementById(tooltipId);
+            if (tooltip) {
+                tooltip.setAttribute('aria-hidden', 'true');
+                tooltip.style.display = 'none';
+                if (currentTooltip === tooltip) {
+                    currentTooltip = null;
+                }
+            }
+        }
+        
+        function hideAllTooltips() {
+            const allTooltips = calendarGrid.querySelectorAll('.campaign-tooltip');
+            allTooltips.forEach(tooltip => {
+                tooltip.setAttribute('aria-hidden', 'true');
+                tooltip.style.display = 'none';
+            });
+            currentTooltip = null;
+        }
     }
     
     window.MonthlyBookingCalendar = {

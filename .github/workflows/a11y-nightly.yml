@@ -1,0 +1,129 @@
+name: a11y-nightly
+
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch: {}
+  pull_request:
+    branches: ["*"]
+    types: [opened, synchronize, reopened, labeled]
+
+jobs:
+  a11y:
+    if: >
+      github.event_name != 'pull_request' ||
+      contains(join(fromJson(toJson(github.event.pull_request.labels)).*.name, ','), 'ci:a11y')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install docker-compose (shim for wp-env)
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          /usr/local/bin/docker-compose version
+
+      - name: Docker sanity
+        run: |
+          docker --version
+          docker compose version || true
+
+      - name: Install @wordpress/env globally
+        run: npm i -g @wordpress/env
+
+      - name: Start WordPress env
+        env:
+          DOCKER_COMPOSE_CMD: "docker compose"
+        run: wp-env start
+
+      - name: Make wp-setup executable
+        run: chmod +x .github/scripts/wp-setup.sh
+
+      - name: WordPress bootstrap (shared script)
+        env:
+          DB_WAIT_MAX: "60"
+          DB_WAIT_INTERVAL: "2"
+        run: .github/scripts/wp-setup.sh
+
+      - name: Finalize permalinks & calendar page (no pager, inside container)
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wp-env run cli -- wp rewrite structure '/%postname%/' --hard
+          npx wp-env run cli -- wp rewrite flush --hard
+          PID=$(npx wp-env run cli -- bash -lc 'WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post list --post_type=page --pagename=monthly-calendar --format=ids || true')
+          if [ -z "${PID}" ]; then
+            echo "Creating monthly-calendar page..."
+            npx wp-env run cli -- bash -lc 'WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post create \
+              --post_type=page --post_status=publish \
+              --post_title="Monthly Calendar" \
+              --post_name="monthly-calendar" \
+              --post_content="[monthly_calendar]"'
+          else
+            echo "monthly-calendar exists: ID=${PID}"
+          fi
+
+      - name: Export PW_BASE_URL from WP
+        run: echo "PW_BASE_URL=$(npx wp-env run cli -- wp option get home)" >> $GITHUB_ENV
+
+      - name: Health check /monthly-calendar/ (HTTP 200 within 60s)
+        shell: bash
+        run: |
+          set -e
+          URL="${PW_BASE_URL%/}/monthly-calendar/"
+          echo "Health checking: ${URL}"
+          for i in {1..30}; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || true)
+            echo "Attempt $i: HTTP $CODE"
+            if [ "$CODE" = "200" ]; then
+              echo "OK"; exit 0
+            fi
+            sleep 2
+          done
+          echo "Monthly calendar did not become ready in time"; exit 1
+
+      - name: Run a11y suite
+        run: npm run test:a11y
+
+      - name: Upload a11y report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-report
+          path: |
+            a11y-report/**
+            playwright-report/**
+            axe-report/**
+            ./**/a11y-report/**
+
+      - name: Collect debug artifacts (if fail)
+        if: failure()
+        run: |
+          mkdir -p a11y-debug
+          npx wp-env run cli "wp option get siteurl" > a11y-debug/siteurl.txt || true
+          npx wp-env run cli "wp option get home" > a11y-debug/home.txt || true
+          npx wp-env run cli "wp option get permalink_structure" > a11y-debug/permalink.txt || true
+          npx wp-env run cli "wp post list --post_type=page --fields=ID,post_title,post_name,post_status" > a11y-debug/pages.txt || true
+          npx wp-env run cli "wp plugin list" > a11y-debug/plugins.txt || true
+          npx wp-env run cli "wp rewrite list" > a11y-debug/rewrite-rules.txt || true
+          cp -f wp-content/debug.log a11y-debug/debug.log || true
+
+      - name: Upload a11y debug artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-debug
+          path: a11y-debug/**
+          retention-days: 7

@@ -13,6 +13,36 @@
     overflow: hidden;
 }
 
+.room-selection {
+    margin-top: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-top: 1px solid #ddd;
+}
+
+.room-selection label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+.room-selector {
+    width: 100%;
+    max-width: 300px;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    background: #fff;
+}
+
+.room-selector:focus {
+    outline: none;
+    border-color: #0073aa;
+    box-shadow: 0 0 0 2px rgba(0, 115, 170, 0.2);
+}
+
 .property-search-filters {
     display: flex;
     gap: 10px;
@@ -68,6 +98,26 @@
     margin: 0;
     font-size: 24px;
     font-weight: 600;
+}
+
+.calendar-month {
+    margin-bottom: 30px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.month-header {
+    background: #f8f9fa;
+    padding: 15px 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.month-header h4 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
 }
 
 .calendar-nav {
@@ -146,6 +196,48 @@
     color: #ef6c00;
 }
 
+.calendar-day.campaign {
+    background: #fff3e0;
+    color: #f57c00;
+    position: relative;
+}
+
+.calendar-day.campaign:hover .campaign-tooltip {
+    display: block;
+}
+
+.campaign-tooltip {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    margin-top: 5px;
+    pointer-events: none;
+}
+
+.campaign-tooltip[aria-hidden="false"] {
+    display: block;
+}
+
+.campaign-tooltip::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 5px solid #333;
+}
+
 .day-number {
     font-weight: 600;
     font-size: 16px;
@@ -153,11 +245,10 @@
 }
 
 .day-status {
-    font-size: 11px;
-    padding: 2px 6px;
-    border-radius: 12px;
-    display: inline-block;
+    font-size: 14px;
+    font-weight: bold;
     margin-top: 4px;
+    text-align: center;
 }
 
 .status-booked {
@@ -201,25 +292,114 @@
 
 .legend-available { background: #e8f5e8; }
 .legend-booked { background: #ffebee; }
-.legend-cleaning { background: #fff3e0; }
+.legend-campaign { background: #fff3e0; }
 .legend-today { background: #e3f2fd; border-color: #2196f3; }
+
+/* Calendar day focus and accessibility */
+.calendar-day:focus {
+    outline: 2px solid #0073aa;
+    outline-offset: -2px;
+}
+
+.calendar-day[tabindex="0"]:focus {
+    background-color: rgba(0, 115, 170, 0.1);
+}
+
+/* Screen reader only content */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    font-style: italic;
+}
+
+.error {
+    text-align: center;
+    padding: 20px;
+    color: #d63638;
+    background: #ffebee;
+    border: 1px solid #ffcdd2;
+    border-radius: 4px;
+    margin: 20px;
+}
+
+.no-room-selected {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    font-style: italic;
+}
 
 /* Responsive design */
 @media (max-width: 768px) {
+    .monthly-booking-calendar-container {
+        margin: 10px;
+    }
+    
     .calendar-grid {
-        font-size: 12px;
+        font-size: 11px;
     }
     
     .calendar-day {
-        min-height: 60px;
-        padding: 4px;
+        min-height: 50px;
+        padding: 3px;
     }
     
     .day-number {
-        font-size: 14px;
+        font-size: 12px;
+    }
+    
+    .day-status {
+        font-size: 12px;
+    }
+    
+    .calendar-header {
+        padding: 15px;
+    }
+    
+    .calendar-header h3 {
+        font-size: 20px;
+    }
+    
+    .month-header {
+        padding: 10px 15px;
+    }
+    
+    .month-header h4 {
+        font-size: 16px;
     }
     
     .calendar-legend {
-        gap: 15px;
+        gap: 10px;
+        padding: 15px;
+    }
+    
+    .legend-item {
+        font-size: 12px;
+    }
+    
+    .room-selection {
+        padding: 10px;
+    }
+    
+    .room-selector {
+        font-size: 13px;
+    }
+    
+    .campaign-tooltip {
+        font-size: 11px;
+        padding: 6px 8px;
     }
 }

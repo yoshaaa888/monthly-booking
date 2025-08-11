@@ -55,7 +55,6 @@ class MonthlyBooking_Booking_Logic {
             'room_id' => intval($_POST['room_id']),
             'move_in_date' => sanitize_text_field($_POST['move_in_date']),
             'move_out_date' => sanitize_text_field($_POST['move_out_date']),
-            'stay_months' => intval($_POST['stay_months']),
             'plan_type' => sanitize_text_field($_POST['plan_type']),
             'num_adults' => intval($_POST['num_adults']),
             'num_children' => intval($_POST['num_children']),
@@ -372,7 +371,7 @@ class MonthlyBooking_Booking_Logic {
         
         foreach ($selected_options as $option_id => $quantity) {
             $option = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM $options_table WHERE id = %d AND is_active = 1",
+                "SELECT * FROM $options_table WHERE option_id = %d AND is_active = 1",
                 intval($option_id)
             ));
             
@@ -460,7 +459,6 @@ class MonthlyBooking_Booking_Logic {
         $room_id = intval($_POST['room_id']);
         $move_in_date = sanitize_text_field($_POST['move_in_date']);
         $move_out_date = sanitize_text_field($_POST['move_out_date']);
-        $stay_months = intval($_POST['stay_months']);
         $num_adults = isset($_POST['num_adults']) ? intval($_POST['num_adults']) : 1;
         $num_children = isset($_POST['num_children']) ? intval($_POST['num_children']) : 0;
         $selected_options = isset($_POST['selected_options']) ? $_POST['selected_options'] : array();
@@ -477,7 +475,7 @@ class MonthlyBooking_Booking_Logic {
             wp_send_json_error(__('滞在期間は最低7日間必要です。', 'monthly-booking'));
         }
         
-        if (empty($room_id) || empty($move_in_date) || empty($move_out_date) || empty($stay_months)) {
+        if (empty($room_id) || empty($move_in_date) || empty($move_out_date)) {
             wp_send_json_error(__('必須項目をすべて入力してください。', 'monthly-booking'));
         }
         
@@ -497,7 +495,7 @@ class MonthlyBooking_Booking_Logic {
             wp_send_json_error(__('Number of children must be between 0 and 10.', 'monthly-booking'));
         }
         
-        $estimate_data = $this->calculate_plan_estimate($plan, $move_in_date, $stay_months, $num_adults, $num_children, $selected_options, $room_id);
+        $estimate_data = $this->calculate_plan_estimate($plan, $move_in_date, $move_out_date, $num_adults, $num_children, $selected_options, $room_id);
         
         $estimate_data['guest_info'] = array(
             'name' => $guest_name,
@@ -511,14 +509,13 @@ class MonthlyBooking_Booking_Logic {
     /**
      * Calculate estimate based on plan and duration with person count and options
      */
-    public function calculate_plan_estimate($plan, $move_in_date, $stay_months, $num_adults = 1, $num_children = 0, $selected_options = array(), $room_id = null) {
+    public function calculate_plan_estimate($plan, $move_in_date, $move_out_date, $num_adults = 1, $num_children = 0, $selected_options = array(), $room_id = null) {
         global $wpdb;
         
-        $move_out_date = $this->calculate_move_out_date($move_in_date, $stay_months);
         $stay_days = $this->calculate_stay_days($move_in_date, $move_out_date);
         
         $room_info = $this->get_room_info_for_estimate($room_id);
-        $daily_rent = $room_info ? $room_info->daily_rent : $this->get_default_daily_rent($plan);
+        $daily_rent = ($room_info && $room_info->daily_rent) ? $room_info->daily_rent : $this->get_default_daily_rent($plan);
         
         
         $total_rent = $daily_rent * $stay_days;
@@ -553,7 +550,7 @@ class MonthlyBooking_Booking_Logic {
             'plan_name' => $this->get_plan_name($plan),
             'move_in_date' => $move_in_date,
             'move_out_date' => $move_out_date,
-            'stay_months' => $stay_months,
+            'stay_months' => $this->calculate_stay_months($move_in_date, $move_out_date),
             'stay_days' => $stay_days,
             'num_adults' => $num_adults,
             'num_children' => $num_children,
@@ -631,18 +628,19 @@ class MonthlyBooking_Booking_Logic {
     }
     
     /**
-     * Automatically determine plan based on stay duration
+     * Automatically determine plan based on stay duration using calendar months
      */
-    private function determine_plan_by_duration($stay_months) {
-        $stay_days = $stay_months * 30;
+    private function determine_plan_by_duration($move_in_date, $move_out_date) {
+        $stay_days = $this->calculate_stay_days($move_in_date, $move_out_date);
+        $stay_months = $this->calculate_stay_months($move_in_date, $move_out_date);
         
-        if ($stay_days >= 7 && $stay_days <= 29) {
+        if ($stay_days >= 7 && $stay_months < 1) {
             return 'SS';
-        } elseif ($stay_days >= 30 && $stay_days <= 89) {
+        } elseif ($stay_months >= 1 && $stay_months < 3) {
             return 'S';
-        } elseif ($stay_days >= 90 && $stay_days <= 179) {
+        } elseif ($stay_months >= 3 && $stay_months < 6) {
             return 'M';
-        } elseif ($stay_days >= 180) {
+        } elseif ($stay_months >= 6) {
             return 'L';
         } else {
             return null;
@@ -686,25 +684,50 @@ class MonthlyBooking_Booking_Logic {
      */
     private function get_plan_name($plan) {
         $plan_names = array(
-            'SS' => __('SS Plan - Compact Studio (15-20㎡)', 'monthly-booking'),
-            'S'  => __('S Plan - Standard Studio (20-25㎡)', 'monthly-booking'),
-            'M'  => __('M Plan - Medium Room (25-35㎡)', 'monthly-booking'),
-            'L'  => __('L Plan - Large Room (35㎡+)', 'monthly-booking')
+            'SS' => __('SS Plan - スーパーショートプラン', 'monthly-booking'),
+            'S'  => __('S Plan - ショートプラン', 'monthly-booking'),
+            'M'  => __('M Plan - ミドルプラン', 'monthly-booking'),
+            'L'  => __('L Plan - ロングプラン', 'monthly-booking')
         );
         
         return isset($plan_names[$plan]) ? $plan_names[$plan] : $plan_names['M'];
     }
     
-    /**
-     * Calculate move-out date from move-in date and stay months
-     */
-    private function calculate_move_out_date($move_in_date, $stay_months) {
-        $start_date = new DateTime($move_in_date);
-        $end_date = clone $start_date;
-        $end_date->modify("+{$stay_months} months");
-        return $end_date->format('Y-m-d');
-    }
     
+    /**
+     * Calculate calendar-based months between two dates
+     */
+    private function calculate_stay_months($move_in_date, $move_out_date) {
+        $check_in = new DateTime($move_in_date);
+        $check_out = new DateTime($move_out_date);
+        
+        $months = 0;
+        $current_date = clone $check_in;
+        $original_day = (int)$check_in->format('d');
+        
+        while ($current_date < $check_out) {
+            $next_month = clone $current_date;
+            $next_month->modify('+1 month');
+            
+            if ((int)$next_month->format('d') !== $original_day) {
+                $next_month->modify('last day of previous month');
+            }
+            
+            if ($next_month <= $check_out) {
+                $months++;
+                $current_date = clone $next_month;
+            } else {
+                $days_remaining = $current_date->diff($check_out)->days;
+                if ($days_remaining >= 30) { // Strict 30-day minimum for partial month
+                    $months++;
+                }
+                break;
+            }
+        }
+        
+        return $months;
+    }
+
     /**
      * Get room information for estimate calculation
      */
@@ -720,7 +743,7 @@ class MonthlyBooking_Booking_Logic {
         
         $table_name = $wpdb->prefix . 'monthly_rooms';
         return $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM $table_name WHERE id = %d AND is_active = 1",
+            "SELECT * FROM $table_name WHERE room_id = %d AND is_active = 1",
             $room_id
         ));
     }

@@ -55,7 +55,6 @@ class MonthlyBooking_Booking_Logic {
             'room_id' => intval($_POST['room_id']),
             'move_in_date' => sanitize_text_field($_POST['move_in_date']),
             'move_out_date' => sanitize_text_field($_POST['move_out_date']),
-            'stay_months' => intval($_POST['stay_months']),
             'plan_type' => sanitize_text_field($_POST['plan_type']),
             'num_adults' => intval($_POST['num_adults']),
             'num_children' => intval($_POST['num_children']),
@@ -121,9 +120,8 @@ class MonthlyBooking_Booking_Logic {
         $interval = $start->diff($end);
         $days = $interval->days;
         
-        $options = get_option('monthly_booking_options');
-        $base_price = isset($options['default_price']) ? floatval($options['default_price']) : 100000;
-        $cleaning_days = isset($options['cleaning_days']) ? intval($options['cleaning_days']) : 3;
+        $base_price = 100000;
+        $cleaning_days = 3;
         
         $months = ceil($days / 30);
         $base_total = $base_price * $months;
@@ -372,7 +370,7 @@ class MonthlyBooking_Booking_Logic {
         
         foreach ($selected_options as $option_id => $quantity) {
             $option = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM $options_table WHERE id = %d AND is_active = 1",
+                "SELECT * FROM $options_table WHERE option_id = %d AND is_active = 1",
                 intval($option_id)
             ));
             
@@ -435,14 +433,12 @@ class MonthlyBooking_Booking_Logic {
         ));
         
         if (is_wp_error($response)) {
-            error_log('Monthly Booking: External accounting system error - ' . $response->get_error_message());
             return array('success' => false, 'error' => $response->get_error_message());
         }
         
         $response_code = wp_remote_retrieve_response_code($response);
         $response_body = wp_remote_retrieve_body($response);
         
-        error_log('Monthly Booking: External accounting system response - Code: ' . $response_code . ', Body: ' . $response_body);
         
         return array(
             'success' => $response_code >= 200 && $response_code < 300,
@@ -460,7 +456,6 @@ class MonthlyBooking_Booking_Logic {
         $room_id = intval($_POST['room_id']);
         $move_in_date = sanitize_text_field($_POST['move_in_date']);
         $move_out_date = sanitize_text_field($_POST['move_out_date']);
-        $stay_months = intval($_POST['stay_months']);
         $num_adults = isset($_POST['num_adults']) ? intval($_POST['num_adults']) : 1;
         $num_children = isset($_POST['num_children']) ? intval($_POST['num_children']) : 0;
         $selected_options = isset($_POST['selected_options']) ? $_POST['selected_options'] : array();
@@ -477,7 +472,7 @@ class MonthlyBooking_Booking_Logic {
             wp_send_json_error(__('滞在期間は最低7日間必要です。', 'monthly-booking'));
         }
         
-        if (empty($room_id) || empty($move_in_date) || empty($move_out_date) || empty($stay_months)) {
+        if (empty($room_id) || empty($move_in_date) || empty($move_out_date)) {
             wp_send_json_error(__('必須項目をすべて入力してください。', 'monthly-booking'));
         }
         
@@ -497,7 +492,7 @@ class MonthlyBooking_Booking_Logic {
             wp_send_json_error(__('Number of children must be between 0 and 10.', 'monthly-booking'));
         }
         
-        $estimate_data = $this->calculate_plan_estimate($plan, $move_in_date, $stay_months, $num_adults, $num_children, $selected_options, $room_id);
+        $estimate_data = $this->calculate_plan_estimate($plan, $move_in_date, $move_out_date, $num_adults, $num_children, $selected_options, $room_id);
         
         $estimate_data['guest_info'] = array(
             'name' => $guest_name,
@@ -511,28 +506,83 @@ class MonthlyBooking_Booking_Logic {
     /**
      * Calculate estimate based on plan and duration with person count and options
      */
-    public function calculate_plan_estimate($plan, $move_in_date, $stay_months, $num_adults = 1, $num_children = 0, $selected_options = array(), $room_id = null) {
+    public function calculate_plan_estimate($plan, $move_in_date, $move_out_date, $num_adults = 1, $num_children = 0, $selected_options = array(), $room_id = null) {
         global $wpdb;
         
-        $move_out_date = $this->calculate_move_out_date($move_in_date, $stay_months);
+        $debug_info = array();
+        $debug_info[] = "calculate_plan_estimate called with move_in_date=$move_in_date, move_out_date=$move_out_date";
+        
         $stay_days = $this->calculate_stay_days($move_in_date, $move_out_date);
+        $debug_info[] = "calculate_stay_days returned $stay_days days";
         
         $room_info = $this->get_room_info_for_estimate($room_id);
-        $daily_rent = $room_info ? $room_info->daily_rent : $this->get_default_daily_rent($plan);
+        if (!$room_info || !$room_info->daily_rent) {
+            wp_send_json_error(__('部屋情報が見つかりません。部屋を選択してください。', 'monthly-booking'));
+            return;
+        }
+        $daily_rent = $room_info->daily_rent;
+        $debug_info[] = "daily_rent=$daily_rent, room_info daily_rent=" . $room_info->daily_rent;
         
+        if (!class_exists('MonthlyBooking_Campaign_Manager')) {
+            require_once plugin_dir_path(__FILE__) . 'campaign-manager.php';
+        }
+        
+        $campaign_manager = new MonthlyBooking_Campaign_Manager();
+        
+        if ($room_id) {
+            $applicable_campaigns = $campaign_manager->get_best_applicable_campaign_for_room(
+                $room_id, 
+                $move_in_date, 
+                $move_out_date, 
+                $daily_rent * $stay_days
+            );
+        } else {
+            $applicable_campaigns = $campaign_manager->get_applicable_campaigns($move_in_date, $stay_days);
+        }
+        
+        if ($applicable_campaigns && !empty($applicable_campaigns)) {
+            $campaign = $applicable_campaigns[0];
+            if ($campaign['discount_type'] === 'percentage') {
+                $original_daily_rent = $daily_rent;
+                $daily_rent = $daily_rent * (1 - ($campaign['discount_value'] / 100));
+                $debug_info[] = "Daily rent discount applied: {$campaign['name']} ({$campaign['discount_value']}%) - reduced from ¥$original_daily_rent to ¥$daily_rent";
+            }
+        }
         
         $total_rent = $daily_rent * $stay_days;
         
-        $daily_utilities = ($plan === 'SS') ? 2500 : 2000;
+        require_once(plugin_dir_path(__FILE__) . 'fee-manager.php');
+        $fee_manager = Monthly_Booking_Fee_Manager::get_instance();
+        
+        $daily_utilities = ($plan === 'SS') 
+            ? $fee_manager->get_fee('utilities_ss_daily', 2500)
+            : $fee_manager->get_fee('utilities_other_daily', 2000);
         $total_utilities = $daily_utilities * $stay_days;
         
-        $cleaning_fee = 38500;  // 清掃費
-        $key_fee = 11000;       // 鍵手数料
-        $bedding_fee = 11000;   // 布団代
+        $cleaning_fee = $fee_manager->get_fee('cleaning_fee', 38500);
+        $key_fee = $fee_manager->get_fee('key_fee', 11000);
+        $bedding_fee = $fee_manager->get_fee('bedding_fee_daily', 1100) * $stay_days;
         $initial_costs = $cleaning_fee + $key_fee + $bedding_fee;
         
-        $adult_additional_fee = max(0, ($num_adults - 1)) * 1000 * $stay_days;
-        $children_additional_fee = $num_children * 500 * $stay_days;
+        $additional_adults = max(0, ($num_adults - 1));
+        $additional_children = $num_children;
+        
+        $adult_rent_daily = $fee_manager->get_fee('additional_adult_rent', 900);
+        $adult_utilities_daily = $fee_manager->get_fee('additional_adult_utilities', 200);
+        $children_rent_daily = $fee_manager->get_fee('additional_child_rent', 450);
+        $children_utilities_daily = $fee_manager->get_fee('additional_child_utilities', 100);
+        $bedding_daily = $fee_manager->get_fee('bedding_fee_daily', 1100);
+        
+        $adult_additional_rent = $additional_adults * $adult_rent_daily * $stay_days;
+        $adult_additional_utilities = $additional_adults * $adult_utilities_daily * $stay_days;
+        $adult_bedding_fee = $additional_adults * $bedding_daily * $stay_days;
+        $adult_additional_fee = $adult_additional_rent + $adult_additional_utilities + $adult_bedding_fee;
+        
+        $children_additional_rent = $additional_children * $children_rent_daily * $stay_days;
+        $children_additional_utilities = $additional_children * $children_utilities_daily * $stay_days;
+        $children_bedding_fee = $additional_children * $bedding_daily * $stay_days;
+        $children_additional_fee = $children_additional_rent + $children_additional_utilities + $children_bedding_fee;
+        
         $person_additional_fee = $adult_additional_fee + $children_additional_fee;
         
         // 5. Options calculation with bundle discounts
@@ -541,24 +591,44 @@ class MonthlyBooking_Booking_Logic {
         $options_discount = $options_data['discount'];
         $options_final = $options_total - $options_discount;
         
-        $subtotal = $total_rent + $total_utilities + $initial_costs + $person_additional_fee + $options_final;
+        // Priority 4: Tax separation calculation
+        $non_taxable_subtotal = $total_rent + $total_utilities + 
+                               $adult_additional_rent + $adult_additional_utilities +
+                               $children_additional_rent + $children_additional_utilities;
         
-        // 6. Campaign discounts (早割・即入居割)
+        $taxable_base_fees = $cleaning_fee + $key_fee + $bedding_fee;
+        $taxable_person_fees = $adult_bedding_fee + $children_bedding_fee;
+        $taxable_subtotal_before_discount = $taxable_base_fees + $taxable_person_fees + $options_total;
+        
+        $taxable_subtotal = $taxable_subtotal_before_discount - $options_discount;
+        
+        $tax_rate = 0.10;
+        $tax_exclusive_amount = $taxable_subtotal / (1 + $tax_rate);
+        $consumption_tax = $taxable_subtotal - $tax_exclusive_amount;
+        
+        $subtotal = $non_taxable_subtotal + $taxable_subtotal;
+        
+        // 6. Campaign discounts (早割・即入居割) - apply to entire subtotal
         $campaign_data = $this->calculate_step3_campaign_discount($move_in_date, $move_out_date, $subtotal);
         
         $final_total = $subtotal - $campaign_data['discount_amount'];
         
+        $final_stay_months = $this->calculate_stay_months($move_in_date, $move_out_date);
+        $debug_info[] = "Final result - move_out_date=$move_out_date, stay_days=$stay_days, stay_months=$final_stay_months";
+        
         return array(
+            'debug_info' => $debug_info,
             'plan' => $plan,
             'plan_name' => $this->get_plan_name($plan),
             'move_in_date' => $move_in_date,
             'move_out_date' => $move_out_date,
-            'stay_months' => $stay_months,
+            'stay_months' => $final_stay_months,
             'stay_days' => $stay_days,
             'num_adults' => $num_adults,
             'num_children' => $num_children,
             
             'daily_rent' => $daily_rent,
+            'original_daily_rent' => isset($original_daily_rent) ? $original_daily_rent : $daily_rent,
             'total_rent' => $total_rent,
             'daily_utilities' => $daily_utilities,
             'total_utilities' => $total_utilities,
@@ -569,7 +639,13 @@ class MonthlyBooking_Booking_Logic {
             'initial_costs' => $initial_costs,
             
             'adult_additional_fee' => $adult_additional_fee,
+            'adult_additional_rent' => $adult_additional_rent,
+            'adult_additional_utilities' => $adult_additional_utilities,
+            'adult_bedding_fee' => $adult_bedding_fee,
             'children_additional_fee' => $children_additional_fee,
+            'children_additional_rent' => $children_additional_rent,
+            'children_additional_utilities' => $children_additional_utilities,
+            'children_bedding_fee' => $children_bedding_fee,
             'person_additional_fee' => $person_additional_fee,
             
             'options_total' => $options_total,
@@ -588,7 +664,13 @@ class MonthlyBooking_Booking_Logic {
             'final_total' => $final_total,
             'currency' => '¥',
             
-            'tax_note' => __('全て税込価格です', 'monthly-booking')
+            'non_taxable_subtotal' => $non_taxable_subtotal,
+            'taxable_subtotal' => $taxable_subtotal,
+            'tax_exclusive_amount' => $tax_exclusive_amount,
+            'consumption_tax' => $consumption_tax,
+            'tax_rate' => $tax_rate * 100, // Convert to percentage for display
+            
+            'tax_note' => __('非課税項目と課税項目を分離表示', 'monthly-booking')
         );
     }
     
@@ -631,18 +713,19 @@ class MonthlyBooking_Booking_Logic {
     }
     
     /**
-     * Automatically determine plan based on stay duration
+     * Automatically determine plan based on stay duration using calendar months
      */
-    private function determine_plan_by_duration($stay_months) {
-        $stay_days = $stay_months * 30;
+    private function determine_plan_by_duration($move_in_date, $move_out_date) {
+        $stay_days = $this->calculate_stay_days($move_in_date, $move_out_date);
+        $stay_months = $this->calculate_stay_months($move_in_date, $move_out_date);
         
-        if ($stay_days >= 7 && $stay_days <= 29) {
+        if ($stay_days >= 7 && $stay_months < 1) {
             return 'SS';
-        } elseif ($stay_days >= 30 && $stay_days <= 89) {
+        } elseif ($stay_months >= 1 && $stay_months < 3) {
             return 'S';
-        } elseif ($stay_days >= 90 && $stay_days <= 179) {
+        } elseif ($stay_months >= 3 && $stay_months < 6) {
             return 'M';
-        } elseif ($stay_days >= 180) {
+        } elseif ($stay_months >= 6) {
             return 'L';
         } else {
             return null;
@@ -667,7 +750,7 @@ class MonthlyBooking_Booking_Logic {
     }
     
     /**
-     * Calculate exact days between two dates
+     * Calculate exact days between two dates (inclusive checkout)
      */
     private function calculate_stay_days($move_in_date, $move_out_date) {
         $check_in = new DateTime($move_in_date);
@@ -678,7 +761,7 @@ class MonthlyBooking_Booking_Logic {
         }
         
         $interval = $check_in->diff($check_out);
-        return $interval->days;
+        return $interval->days + 1;
     }
     
     /**
@@ -686,25 +769,50 @@ class MonthlyBooking_Booking_Logic {
      */
     private function get_plan_name($plan) {
         $plan_names = array(
-            'SS' => __('SS Plan - Compact Studio (15-20㎡)', 'monthly-booking'),
-            'S'  => __('S Plan - Standard Studio (20-25㎡)', 'monthly-booking'),
-            'M'  => __('M Plan - Medium Room (25-35㎡)', 'monthly-booking'),
-            'L'  => __('L Plan - Large Room (35㎡+)', 'monthly-booking')
+            'SS' => __('SS Plan - スーパーショートプラン', 'monthly-booking'),
+            'S'  => __('S Plan - ショートプラン', 'monthly-booking'),
+            'M'  => __('M Plan - ミドルプラン', 'monthly-booking'),
+            'L'  => __('L Plan - ロングプラン', 'monthly-booking')
         );
         
         return isset($plan_names[$plan]) ? $plan_names[$plan] : $plan_names['M'];
     }
     
-    /**
-     * Calculate move-out date from move-in date and stay months
-     */
-    private function calculate_move_out_date($move_in_date, $stay_months) {
-        $start_date = new DateTime($move_in_date);
-        $end_date = clone $start_date;
-        $end_date->modify("+{$stay_months} months");
-        return $end_date->format('Y-m-d');
-    }
     
+    /**
+     * Calculate calendar-based months between two dates
+     */
+    private function calculate_stay_months($move_in_date, $move_out_date) {
+        $check_in = new DateTime($move_in_date);
+        $check_out = new DateTime($move_out_date);
+        
+        $months = 0;
+        $current_date = clone $check_in;
+        $original_day = (int)$check_in->format('d');
+        
+        while ($current_date < $check_out) {
+            $next_month = clone $current_date;
+            $next_month->modify('+1 month');
+            
+            if ((int)$next_month->format('d') !== $original_day) {
+                $next_month->modify('last day of previous month');
+            }
+            
+            if ($next_month <= $check_out) {
+                $months++;
+                $current_date = clone $next_month;
+            } else {
+                $days_remaining = $current_date->diff($check_out)->days;
+                if ($days_remaining >= 30) { // Strict 30-day minimum for partial month
+                    $months++;
+                }
+                break;
+            }
+        }
+        
+        return $months;
+    }
+
     /**
      * Get room information for estimate calculation
      */
@@ -720,43 +828,37 @@ class MonthlyBooking_Booking_Logic {
         
         $table_name = $wpdb->prefix . 'monthly_rooms';
         return $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM $table_name WHERE id = %d AND is_active = 1",
+            "SELECT * FROM $table_name WHERE room_id = %d AND is_active = 1",
             $room_id
         ));
     }
     
-    /**
-     * Get default daily rent for plan if no room specified
-     */
-    private function get_default_daily_rent($plan) {
-        $default_rents = array(
-            'SS' => 2500,
-            'S'  => 2000,
-            'M'  => 1900,
-            'L'  => 1800
-        );
-        
-        return isset($default_rents[$plan]) ? $default_rents[$plan] : 2000;
-    }
     
     /**
      * Calculate Step 3 campaign discounts using new campaign manager
      */
-    private function calculate_step3_campaign_discount($move_in_date, $move_out_date, $base_total) {
+    /**
+     * 統合キャンペーン割引適用関数
+     * 
+     * @param string $move_in_date チェックイン日
+     * @param float $base_total 基本料金合計
+     * @return array 割引情報配列
+     */
+    private function apply_campaign_discount($move_in_date, $base_total, $stay_days = null) {
         if (!class_exists('MonthlyBooking_Campaign_Manager')) {
             require_once plugin_dir_path(__FILE__) . 'campaign-manager.php';
         }
         
         $campaign_manager = new MonthlyBooking_Campaign_Manager();
-        $campaign_info = $campaign_manager->calculate_campaign_discount($move_in_date, $base_total, $base_total);
+        $campaign_info = $campaign_manager->calculate_campaign_discount($move_in_date, $base_total, $base_total, $stay_days);
         
         $applied_campaigns = array();
         if ($campaign_info['campaign_name']) {
             $applied_campaigns[] = array(
                 'name' => $campaign_info['campaign_name'],
                 'description' => $campaign_info['campaign_description'],
-                'discount_type' => 'percentage',
-                'discount_value' => $campaign_info['campaign_type'] === 'early' ? 10 : 20,
+                'discount_type' => $campaign_info['discount_type'],
+                'discount_value' => $campaign_info['discount_value'],
                 'discount_amount' => $campaign_info['discount_amount'],
                 'badge' => $campaign_info['campaign_badge']
             );
@@ -768,6 +870,70 @@ class MonthlyBooking_Booking_Logic {
             'campaign_badge' => $campaign_info['campaign_badge'],
             'campaign_type' => $campaign_info['campaign_type']
         );
+    }
+    
+    /**
+     * Apply room-specific campaign discount
+     */
+    private function apply_room_campaign_discount($room_id, $move_in_date, $move_out_date, $base_total, $stay_days = null) {
+        if (!class_exists('MonthlyBooking_Campaign_Manager')) {
+            require_once plugin_dir_path(__FILE__) . 'campaign-manager.php';
+        }
+        
+        $campaign_manager = new MonthlyBooking_Campaign_Manager();
+        $applicable_campaigns = $campaign_manager->get_best_applicable_campaign_for_room(
+            $room_id, 
+            $move_in_date, 
+            $move_out_date, 
+            $base_total
+        );
+        
+        if (!$applicable_campaigns || empty($applicable_campaigns)) {
+            $campaign_info = $campaign_manager->calculate_campaign_discount($move_in_date, $base_total, $base_total, $stay_days);
+        } else {
+            $campaign = $applicable_campaigns[0];
+            $campaign_info = array(
+                'discount_amount' => $campaign['discount_amount'],
+                'campaign_name' => $campaign['name'],
+                'campaign_badge' => $campaign['badge'],
+                'campaign_type' => $campaign['type'],
+                'campaign_description' => $campaign['description'],
+                'discount_type' => $campaign['discount_type'],
+                'discount_value' => $campaign['discount_value'],
+                'days_until_checkin' => $campaign['days_until_checkin']
+            );
+        }
+        
+        $applied_campaigns = array();
+        if ($campaign_info['campaign_name']) {
+            $applied_campaigns[] = array(
+                'name' => $campaign_info['campaign_name'],
+                'description' => $campaign_info['campaign_description'],
+                'discount_type' => $campaign_info['discount_type'],
+                'discount_value' => $campaign_info['discount_value'],
+                'discount_amount' => $campaign_info['discount_amount'],
+                'badge' => $campaign_info['campaign_badge']
+            );
+        }
+        
+        return array(
+            'discount_amount' => $campaign_info['discount_amount'],
+            'campaigns' => $applied_campaigns,
+            'campaign_badge' => $campaign_info['campaign_badge'],
+            'campaign_type' => $campaign_info['campaign_type']
+        );
+    }
+
+    private function calculate_step3_campaign_discount($move_in_date, $move_out_date, $base_total) {
+        $stay_days = $this->calculate_stay_days($move_in_date, $move_out_date);
+        
+        $room_id = isset($this->current_room_id) ? $this->current_room_id : null;
+        
+        if ($room_id) {
+            return $this->apply_room_campaign_discount($room_id, $move_in_date, $move_out_date, $base_total, $stay_days);
+        } else {
+            return $this->apply_campaign_discount($move_in_date, $base_total, $stay_days);
+        }
     }
     
     /**
@@ -898,7 +1064,24 @@ class MonthlyBooking_Booking_Logic {
             $discount += $additional_discount;
         }
         
-        return min($discount, 2000);
+        require_once(plugin_dir_path(__FILE__) . 'fee-manager.php');
+        $fee_manager = Monthly_Booking_Fee_Manager::get_instance();
+        
+        $base_discount = $fee_manager->get_fee('option_discount_base', 500);
+        $additional_discount_per_item = $fee_manager->get_fee('option_discount_additional', 300);
+        $max_discount = $fee_manager->get_fee('option_discount_max', 2000);
+        
+        $discount = 0;
+        
+        if ($count == 2) {
+            $discount = $base_discount;
+        } elseif ($count >= 3) {
+            $additional_options = $count - 2;
+            $additional_discount = $additional_options * $additional_discount_per_item;
+            $discount = $base_discount + $additional_discount;
+        }
+        
+        return min($discount, $max_discount);
     }
     
     /**
