@@ -74,6 +74,8 @@ jQuery(document).ready(function($) {
         if (!ok && firstInvalid) firstInvalid.trigger('focus');
         return ok;
     }
+    function escapeHtml(s){ return String(s).replace(/[&<>\"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); }); }
+    function escapeAttr(s){ return escapeHtml(s); }
 
     function refreshReservations() {
         $.ajax({
@@ -81,11 +83,39 @@ jQuery(document).ready(function($) {
             type: 'POST',
             data: {
                 action: 'mbp_reservation_list',
-                nonce: monthlyBookingAdmin.nonce
+                _ajax_nonce: monthlyBookingAdmin.reservationsNonce
             }
         }).done(function(resp) {
-            if (resp && resp.success && resp.data && typeof resp.data.html === 'string') {
-                $('#mbp-reservations-body').html(resp.data.html);
+            if (resp && resp.success && resp.data && Array.isArray(resp.data.reservations)) {
+                const rows = resp.data.reservations.map(function(r){
+                    var propRoom = (r.property_name ? r.property_name : '') + (r.room_name ? ' - ' + r.room_name : '');
+                    var total = r.total_price ? '¥' + Number(r.total_price).toLocaleString() : '';
+                    return '<tr>' +
+                        '<td>' + escapeHtml(r.id) + '</td>' +
+                        '<td>' + escapeHtml(propRoom) + '</td>' +
+                        '<td>' + escapeHtml(r.guest_name || '') + '</td>' +
+                        '<td>' + escapeHtml(r.guest_email || '') + '</td>' +
+                        '<td>' + escapeHtml(r.checkin_date) + '</td>' +
+                        '<td>' + escapeHtml(r.checkout_date) + '</td>' +
+                        '<td>' + escapeHtml(total) + '</td>' +
+                        '<td><span class="status-' + escapeAttr(r.status || '') + '">' + escapeHtml(r.status || '') + '</span></td>' +
+                        '<td>' +
+                          '<button type="button" class="button button-small mbp-reservation-edit"' +
+                            ' data-id="' + escapeAttr(r.id) + '"' +
+                            ' data-room-id="' + escapeAttr(r.room_id || '') + '"' +
+                            ' data-start="' + escapeAttr(r.checkin_date) + '"' +
+                            ' data-end="' + escapeAttr(r.checkout_date) + '"' +
+                            ' data-guest-name="' + escapeAttr(r.guest_name || '') + '"' +
+                            ' data-guest-email="' + escapeAttr(r.guest_email || '') + '"' +
+                            ' data-status="' + escapeAttr(r.status || '') + '"' +
+                            ' data-notes="' + escapeAttr(r.notes || '') + '">' +
+                            '編集' +
+                          '</button> ' +
+                          '<button type="button" class="button button-small button-link-delete mbp-reservation-delete" data-id="' + escapeAttr(r.id) + '">削除</button>' +
+                        '</td>' +
+                    '</tr>';
+                }).join('');
+                $('#mbp-reservations-body').html(rows);
             }
         });
     }
@@ -113,14 +143,16 @@ jQuery(document).ready(function($) {
         const action = id ? 'mbp_reservation_update' : 'mbp_reservation_create';
         const payload = {
             action: action,
-            nonce: monthlyBookingAdmin.nonce,
+            _ajax_nonce: monthlyBookingAdmin.reservationsNonce,
             reservation_id: id || ''
         };
 
-        ['room_id','start_date','end_date','guest_name','guest_email','guest_phone','status','notes'].forEach(name => {
+        ['room_id','start_date','end_date','guest_name','guest_email','guest_phone','status','notes'].forEach(function(name){
             const v = $form.find('[name="'+name+'"]').val();
             if (typeof v !== 'undefined') payload[name] = v;
         });
+        if (payload.start_date && !payload.checkin_date) payload.checkin_date = payload.start_date;
+        if (payload.end_date && !payload.checkout_date) payload.checkout_date = payload.end_date;
 
         $.ajax({
             url: ajaxurl,
@@ -149,6 +181,12 @@ jQuery(document).ready(function($) {
     $(document).on('click', '.mbp-reservation-edit', function(e) {
         e.preventDefault();
         const $btn = $(this);
+        const $inlineForm = $('#mbp-reservation-form');
+        if (!$inlineForm.length) {
+            const id = $btn.data('id');
+            window.location.href = 'admin.php?page=monthly-room-booking-registration&action=edit&id=' + encodeURIComponent(id);
+            return;
+        }
         $('#mbp-reservation-id').val($btn.data('id'));
         $('#mbp-room-id').val($btn.data('room-id'));
         $('#mbp-start-date').val($btn.data('start'));
@@ -174,7 +212,7 @@ jQuery(document).ready(function($) {
             type: 'POST',
             data: {
                 action: 'mbp_reservation_delete',
-                nonce: monthlyBookingAdmin.nonce,
+                _ajax_nonce: monthlyBookingAdmin.reservationsNonce,
                 reservation_id: id
             }
         }).done(function(resp) {

@@ -123,7 +123,8 @@ class MonthlyBooking_Admin_UI {
             'monthlyBookingAdmin',
             array(
                 'ajaxurl' => admin_url('admin-ajax.php'),
-                'nonce'   => wp_create_nonce('monthly_booking_admin')
+                'nonce'   => wp_create_nonce('monthly_booking_admin'),
+                'reservationsNonce' => wp_create_nonce('mbp_reservations_nonce')
             )
         );
     }
