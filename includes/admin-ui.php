@@ -519,7 +519,7 @@ class MonthlyBooking_Admin_UI {
                                             <label for="start-date"><?php _e('Start Date', 'monthly-booking'); ?></label>
                                         </th>
                                         <td>
-                                            <input type="date" id="start-date" name="start_date" required>
+                                            <input type="date" id="start-date" name="checkin_date" required>
                                             <p class="description"><?php _e('Campaign application start date.', 'monthly-booking'); ?></p>
                                         </td>
                                     </tr>
@@ -529,7 +529,7 @@ class MonthlyBooking_Admin_UI {
                                             <label for="end-date"><?php _e('End Date', 'monthly-booking'); ?></label>
                                         </th>
                                         <td>
-                                            <input type="date" id="end-date" name="end_date" required>
+                                            <input type="date" id="end-date" name="checkout_date" required>
                                             <p class="description"><?php _e('Campaign application end date.', 'monthly-booking'); ?></p>
                                         </td>
                                     </tr>
@@ -1392,9 +1392,9 @@ class MonthlyBooking_Admin_UI {
         }
         
         wp_enqueue_script('monthly-booking-admin-form', plugin_dir_url(__FILE__) . '../assets/admin-form.js', array('jquery'), '1.7.0', true);
-        wp_localize_script('monthly-booking-admin-form', 'monthlyBookingForm', array(
+        wp_localize_script('monthly-booking-admin', 'monthlyBookingAdmin', array(
             'ajaxurl' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('mbp_reservations_nonce'),
+            'reservationsNonce' => wp_create_nonce('mbp_reservations_nonce'),
             'strings' => array(
                 'saving' => __('保存中...', 'monthly-booking'),
                 'saveSuccess' => __('予約が保存されました。', 'monthly-booking'),
@@ -1813,14 +1813,14 @@ class MonthlyBooking_Admin_UI {
                             <tr>
                                 <th><label for="start_date"><?php _e('開始日', 'monthly-booking'); ?></label></th>
                                 <td>
-                                    <input type="date" name="start_date" id="start_date" class="regular-text" required min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
+                                    <input type="date" name="checkin_date" id="start_date" class="regular-text" required min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
                                     <p class="description"><?php _e('本日から180日後まで設定可能です', 'monthly-booking'); ?></p>
                                 </td>
                             </tr>
                             <tr>
                                 <th><label for="end_date"><?php _e('終了日', 'monthly-booking'); ?></label></th>
                                 <td>
-                                    <input type="date" name="end_date" id="end_date" class="regular-text" required max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
+                                    <input type="date" name="checkout_date" id="checkout_date" class="regular-text" required max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
                                     <p class="description"><?php _e('最大180日後まで設定可能です', 'monthly-booking'); ?></p>
                                 </td>
                             </tr>

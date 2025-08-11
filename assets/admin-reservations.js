@@ -1,10 +1,10 @@
 jQuery(document).ready(function($) {
     'use strict';
     
-    $('.delete-reservation').on('click', function(e) {
+    $('.mbp-reservation-delete').on('click', function(e) {
         e.preventDefault();
         
-        if (!confirm(monthlyBookingReservations.strings.confirmDelete)) {
+        if (!confirm(monthlyBookingAdmin.strings.confirmDelete)) {
             return;
         }
         
@@ -12,12 +12,12 @@ jQuery(document).ready(function($) {
         const row = $(this).closest('tr');
         
         $.ajax({
-            url: monthlyBookingReservations.ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'mbp_reservation_delete',
                 reservation_id: reservationId,
-                _ajax_nonce: monthlyBookingReservations.nonce
+                _ajax_nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (response.success) {
@@ -33,13 +33,13 @@ jQuery(document).ready(function($) {
                         }
                     });
                     
-                    showNotice('success', response.data.message || monthlyBookingReservations.strings.deleteSuccess);
+                    showNotice('success', response.data.message || monthlyBookingAdmin.strings.deleteSuccess);
                 } else {
-                    showNotice('error', response.data || monthlyBookingReservations.strings.deleteError);
+                    showNotice('error', response.data || monthlyBookingAdmin.strings.deleteError);
                 }
             },
             error: function() {
-                showNotice('error', monthlyBookingReservations.strings.deleteError);
+                showNotice('error', monthlyBookingAdmin.strings.deleteError);
             }
         });
     });

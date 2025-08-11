@@ -16,7 +16,7 @@ jQuery(document).ready(function($) {
                 action: 'toggle_campaign',
                 campaign_id: campaignId,
                 is_active: isActive ? 0 : 1,
-                nonce: monthlyBookingAdmin.nonce
+                nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (response.success) {
@@ -52,8 +52,8 @@ jQuery(document).ready(function($) {
         let firstInvalid = null;
 
         const $room = $form.find('#mbp-room-id');
-        const $start = $form.find('#mbp-start-date');
-        const $end = $form.find('#mbp-end-date');
+        const $start = $form.find('#checkin_date');
+        const $end = $form.find('#checkout_date');
         const $name = $form.find('#mbp-guest-name');
         const $email = $form.find('#mbp-guest-email');
 
@@ -170,8 +170,8 @@ jQuery(document).ready(function($) {
         }).fail(function(xhr) {
             if (xhr && xhr.status === 409) {
                 renderMessage('error', '別の予約と重複しています。');
-                $('#mbp-start-date, #mbp-end-date').attr('aria-invalid', 'true').addClass('error');
-                $('#mbp-start-date').trigger('focus');
+                $('#checkin_date, #checkout_date').attr('aria-invalid', 'true').addClass('error');
+                $('#checkin_date').trigger('focus');
             } else {
                 renderMessage('error', 'ネットワークエラーが発生しました。');
             }
@@ -189,8 +189,8 @@ jQuery(document).ready(function($) {
         }
         $('#mbp-reservation-id').val($btn.data('id'));
         $('#mbp-room-id').val($btn.data('room-id'));
-        $('#mbp-start-date').val($btn.data('start'));
-        $('#mbp-end-date').val($btn.data('end'));
+        $('#checkin_date').val($btn.data('start'));
+        $('#checkout_date').val($btn.data('end'));
         $('#mbp-guest-name').val($btn.data('guest-name'));
         $('#mbp-guest-email').val($btn.data('guest-email'));
         $('#mbp-guest-phone').val($btn.data('guest-phone') || '');
@@ -516,7 +516,7 @@ jQuery(document).ready(function($) {
             data: {
                 action: 'get_room_campaign_assignments',
                 room_id: currentRoomId,
-                nonce: monthlyBookingAdmin.nonce
+                nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (response.success) {
@@ -539,7 +539,7 @@ jQuery(document).ready(function($) {
             type: 'POST',
             data: {
                 action: 'get_active_campaigns',
-                nonce: monthlyBookingAdmin.nonce
+                nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (response.success) {
@@ -668,7 +668,7 @@ jQuery(document).ready(function($) {
             data: {
                 action: 'get_campaign_assignment',
                 assignment_id: assignmentId,
-                nonce: monthlyBookingAdmin.nonce
+                nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (response.success) {
@@ -697,7 +697,7 @@ jQuery(document).ready(function($) {
             data: {
                 action: 'delete_campaign_assignment',
                 assignment_id: assignmentId,
-                nonce: monthlyBookingAdmin.nonce
+                nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (response.success) {
@@ -722,7 +722,7 @@ jQuery(document).ready(function($) {
                 action: 'toggle_assignment_status',
                 assignment_id: assignmentId,
                 is_active: newStatus,
-                nonce: monthlyBookingAdmin.nonce
+                nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (response.success) {
@@ -787,7 +787,7 @@ jQuery(document).ready(function($) {
                 start_date: startDate,
                 end_date: endDate,
                 assignment_id: assignmentId,
-                nonce: monthlyBookingAdmin.nonce
+                nonce: monthlyBookingAdmin.reservationsNonce
             },
             success: function(response) {
                 if (!response.success) {
