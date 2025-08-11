@@ -381,4 +381,4 @@ jQuery(document).ready(function($) {
     };
 });
 // CI trigger: minimal change to test workflow execution (important-comment)
-// CI trigger: verify PR synchronize event v2
+// CI trigger: verify PR synchronize event v3
