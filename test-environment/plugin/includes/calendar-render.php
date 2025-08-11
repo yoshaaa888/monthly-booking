@@ -226,7 +226,6 @@ class MonthlyBooking_Calendar_Render {
                     <div class="form-row">
                         <label for="room_id"><?php _e('部屋選択', 'monthly-booking'); ?> <span class="required">*</span></label>
                         <select id="room_id" name="room_id" required>
-<<<<<<< HEAD
                             <option value=""><?php _e('部屋を選択してください...', 'monthly-booking'); ?></option>
                             <?php
                             global $wpdb;
