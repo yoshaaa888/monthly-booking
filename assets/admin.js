@@ -10,7 +10,7 @@ jQuery(document).ready(function($) {
         const isActive = $button.data('is-active');
         
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'toggle_campaign',
@@ -79,7 +79,7 @@ jQuery(document).ready(function($) {
 
     function refreshReservations() {
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'mbp_reservation_list',
@@ -153,7 +153,7 @@ jQuery(document).ready(function($) {
         });
 
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: payload
         }).done(function(resp) {
@@ -206,7 +206,7 @@ jQuery(document).ready(function($) {
         if (!window.confirm('この予約を削除しますか？')) return;
 
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'mbp_reservation_delete',
@@ -509,7 +509,7 @@ jQuery(document).ready(function($) {
     
     function loadCampaignAssignments() {
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'get_room_campaign_assignments',
@@ -533,7 +533,7 @@ jQuery(document).ready(function($) {
     
     function loadActiveCampaigns() {
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'get_active_campaigns',
@@ -640,7 +640,7 @@ jQuery(document).ready(function($) {
         };
         
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: formData,
             success: function(response) {
@@ -661,7 +661,7 @@ jQuery(document).ready(function($) {
         const $row = $(`.edit-assignment[data-assignment-id="${assignmentId}"]`).closest('tr');
         
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'get_campaign_assignment',
@@ -690,7 +690,7 @@ jQuery(document).ready(function($) {
     
     function deleteCampaignAssignment(assignmentId) {
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'delete_campaign_assignment',
@@ -714,7 +714,7 @@ jQuery(document).ready(function($) {
         const newStatus = currentStatus == 1 ? 0 : 1;
         
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'toggle_assignment_status',
@@ -777,7 +777,7 @@ jQuery(document).ready(function($) {
         }
         
         $.ajax({
-            url: ajaxurl,
+            url: monthlyBookingAdmin.ajaxurl,
             type: 'POST',
             data: {
                 action: 'check_campaign_period_overlap',
