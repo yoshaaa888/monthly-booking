@@ -1,4 +1,4 @@
-// CI trigger: noop v10 to trigger pull_request synchronize
+// CI trigger: noop v11 to trigger pull_request synchronize
 // CI trigger: noop v9 to trigger second pull_request synchronize
 // CI trigger: noop v8 to trigger pull_request synchronize again
 // CI trigger: noop v7 to trigger second pull_request synchronize
