@@ -1,21 +1,18 @@
 const { defineConfig, devices } = require('@playwright/test');
 
-const isCI = !!process.env.CI;
-const baseURL = process.env.PW_BASE_URL || 'http://localhost:8888';
-
 module.exports = defineConfig({
   testDir: './tests',
   fullyParallel: true,
-  forbidOnly: isCI,
-  retries: isCI ? 2 : 0,
-  workers: isCI ? 2 : undefined,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
   reporter: [
     ['list'],
     ['html', { outputFolder: 'playwright-report' }],
     ['json', { outputFile: 'test-results/results.json' }]
   ],
   use: {
-    baseURL: baseURL,
+    baseURL: process.env.PW_BASE_URL || 'http://localhost:8888',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -42,12 +39,10 @@ module.exports = defineConfig({
       use: { ...devices['iPhone 12'] },
     },
   ],
-  ...(process.env.CI ? {} : {
-    webServer: {
-      command: 'echo "WordPress Local environment should be running at http://t-monthlycampaign.local"',
-      url: 'http://t-monthlycampaign.local',
-      reuseExistingServer: true,
-      timeout: 120000,
-    }
-  }),
+  webServer: process.env.PW_BASE_URL ? undefined : {
+    command: 'echo "WordPress Local environment should be running at http://t-monthlycampaign.local"',
+    url: 'http://t-monthlycampaign.local',
+    reuseExistingServer: true,
+    timeout: 120000,
+  },
 });

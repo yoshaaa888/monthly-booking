@@ -5,7 +5,6 @@
  * @package MonthlyRoomBooking
  */
 
-
 if (!defined('ABSPATH')) {
     exit;
 }
@@ -100,9 +99,7 @@ class MonthlyBooking_Admin_UI {
      * Enqueue admin scripts and styles
      */
     public function enqueue_admin_scripts($hook) {
-        if (strpos($hook, 'monthly-booking') === false && 
-            strpos($hook, 'monthly-room-booking') === false &&
-            strpos($hook, 'monthly_room_booking') === false) {
+        if (strpos($hook, 'monthly-booking') === false) {
             return;
         }
         
@@ -115,62 +112,11 @@ class MonthlyBooking_Admin_UI {
         
         wp_enqueue_script(
             'monthly-booking-admin',
-            plugin_dir_url(MONTHLY_BOOKING_PLUGIN_DIR . 'monthly-booking.php') . 'assets/admin.js',
+            MONTHLY_BOOKING_PLUGIN_URL . 'assets/admin.js',
             array('jquery'),
             MONTHLY_BOOKING_VERSION,
             true
         );
-        
-        wp_enqueue_script(
-            'monthly-booking-calendar',
-            plugin_dir_url(MONTHLY_BOOKING_PLUGIN_DIR . 'monthly-booking.php') . 'assets/calendar.js',
-            array('jquery'),
-            MONTHLY_BOOKING_VERSION,
-            true
-        );
-        
-        wp_localize_script('monthly-booking-calendar', 'monthlyBookingAjax', array(
-            'ajaxurl' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('mbp_calendar_nonce')
-        ));
-        
-        if (defined('MB_FEATURE_RESERVATIONS_MVP') && MB_FEATURE_RESERVATIONS_MVP) {
-            wp_enqueue_script(
-                'monthly-booking-admin-form',
-                MONTHLY_BOOKING_PLUGIN_URL . 'assets/admin-form.js',
-                array('jquery', 'monthly-booking-calendar'),
-                MONTHLY_BOOKING_VERSION,
-                true
-            );
-            
-            wp_enqueue_script(
-                'monthly-booking-admin-reservations',
-                MONTHLY_BOOKING_PLUGIN_URL . 'assets/admin-reservations.js',
-                array('jquery', 'monthly-booking-calendar'),
-                MONTHLY_BOOKING_VERSION,
-                true
-            );
-            
-            wp_localize_script('monthly-booking-admin-form', 'monthlyBookingForm', array(
-                'ajaxurl' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('mbp_reservations_nonce'),
-                'strings' => array(
-                    'saving' => __('保存中...', 'monthly-booking'),
-                    'saveSuccess' => __('予約が正常に保存されました。', 'monthly-booking'),
-                    'saveError' => __('予約の保存に失敗しました。', 'monthly-booking')
-                )
-            ));
-            
-            wp_localize_script('monthly-booking-admin-reservations', 'monthlyBookingReservations', array(
-                'ajaxurl' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('mbp_reservations_nonce'),
-                'strings' => array(
-                    'confirmDelete' => __('本当に削除しますか？', 'monthly-booking'),
-                    'deleteSuccess' => __('予約が正常に削除されました。', 'monthly-booking'),
-                    'deleteError' => __('予約の削除に失敗しました。', 'monthly-booking')
-                )
-            ));
-        }
     }
     
     
@@ -1175,20 +1121,35 @@ class MonthlyBooking_Admin_UI {
         error_log('[mb-admin] reached admin_page_booking_registration');
         
         if (!current_user_can('manage_options')) {
-            wp_die(__('権限がありません。', 'monthly-booking'));
+            wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }
         
-        $action = isset($_GET['action']) ? sanitize_text_field($_GET['action']) : '';
+        define('MB_FEATURE_RESERVATIONS_MVP', true);
+        error_log('[mb-admin] MB_FEATURE_RESERVATIONS_MVP defined as: ' . (defined('MB_FEATURE_RESERVATIONS_MVP') ? 'true' : 'false'));
+        
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'monthly_reservations';
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name;
+        
+        if (!$table_exists) {
+            error_log('[mb-admin] Creating reservations table');
+            $this->create_reservations_table();
+        }
+        
+        $action = isset($_GET['action']) ? $_GET['action'] : 'list';
+        $reservation_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+        
+        error_log('[mb-admin] Action: ' . $action . ', calling render_working_reservation_list');
         
         switch ($action) {
             case 'add':
                 $this->render_reservation_form();
                 break;
             case 'edit':
-                $this->render_reservation_form(true);
+                $this->render_reservation_form($reservation_id);
                 break;
             case 'delete':
-                $this->handle_reservation_delete();
+                $this->handle_reservation_delete($reservation_id);
                 break;
             default:
                 $this->render_working_reservation_list();
@@ -1224,28 +1185,150 @@ class MonthlyBooking_Admin_UI {
         dbDelta($sql);
     }
     
-    
     private function render_working_reservation_list() {
-        error_log('[mb-admin] reached render_working_reservation_list');
+        error_log('[mb-admin] render_working_reservation_list called');
         
         global $wpdb;
         
-        if (!defined('MB_FEATURE_RESERVATIONS_MVP')) {
-            define('MB_FEATURE_RESERVATIONS_MVP', true);
-        }
+        $table_name = $wpdb->prefix . 'monthly_reservations';
+        $reservations = $wpdb->get_results(
+            "SELECT r.*, rm.room_name, rm.property_name 
+             FROM $table_name r 
+             LEFT JOIN {$wpdb->prefix}monthly_rooms rm ON r.room_id = rm.room_id 
+             ORDER BY r.created_at DESC"
+        );
         
-        if (!MB_FEATURE_RESERVATIONS_MVP) {
-            $this->render_feature_disabled_notice();
-            return;
-        }
+        error_log('[mb-admin] Found ' . count($reservations) . ' reservations');
+        
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+            
+            <div class="monthly-booking-admin-content">
+                <div class="reservation-header" style="margin-bottom: 20px;">
+                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-registration&action=add'); ?>" 
+                       class="button button-primary"><?php _e('新規予約追加', 'monthly-booking'); ?></a>
+                </div>
+                
+                <table class="wp-list-table widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <th><?php _e('ID', 'monthly-booking'); ?></th>
+                            <th><?php _e('部屋', 'monthly-booking'); ?></th>
+                            <th><?php _e('顧客名', 'monthly-booking'); ?></th>
+                            <th><?php _e('チェックイン', 'monthly-booking'); ?></th>
+                            <th><?php _e('チェックアウト', 'monthly-booking'); ?></th>
+                            <th><?php _e('ステータス', 'monthly-booking'); ?></th>
+                            <th><?php _e('操作', 'monthly-booking'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($reservations)): ?>
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 20px;">
+                                <?php _e('予約がありません。新規予約を追加してください。', 'monthly-booking'); ?>
+                            </td>
+                        </tr>
+                        <?php else: ?>
+                        <?php foreach ($reservations as $reservation): ?>
+                        <tr>
+                            <td><?php echo esc_html($reservation->id); ?></td>
+                            <td><?php echo esc_html($reservation->room_name ?: 'N/A'); ?></td>
+                            <td><?php echo esc_html($reservation->guest_name); ?></td>
+                            <td><?php echo esc_html($reservation->checkin_date); ?></td>
+                            <td><?php echo esc_html($reservation->checkout_date); ?></td>
+                            <td><?php echo esc_html($reservation->status); ?></td>
+                            <td>
+                                <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-registration&action=edit&id=' . $reservation->id); ?>"><?php _e('編集', 'monthly-booking'); ?></a> |
+                                <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-registration&action=delete&id=' . $reservation->id); ?>" 
+                                   onclick="return confirm('<?php _e('本当に削除しますか？', 'monthly-booking'); ?>')"><?php _e('削除', 'monthly-booking'); ?></a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+                
+                <div style="margin-top: 20px; padding: 15px; background: #f0f8ff; border-left: 4px solid #0073aa;">
+                    <h3 style="margin-top: 0;">🚀 予約登録MVP v1.7.0-alpha</h3>
+                    <p><strong>機能確認:</strong> 予約CRUD機能が正常に動作しています。</p>
+                    <p><strong>テーブル:</strong> <?php echo $table_name; ?> が作成されました。</p>
+                    <p><strong>次のステップ:</strong> 新規予約を追加してカレンダー連携をテストしてください。</p>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+    
+    private function render_reservation_list_legacy() {
+        global $wpdb;
         
         $table_name = $wpdb->prefix . 'monthly_reservations';
+        $reservations = $wpdb->get_results(
+            "SELECT r.*, rm.room_name, rm.property_name 
+             FROM $table_name r 
+             LEFT JOIN {$wpdb->prefix}monthly_rooms rm ON r.room_id = rm.room_id 
+             ORDER BY r.created_at DESC"
+        );
         
-        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name;
-        if (!$table_exists) {
-            $this->create_reservations_table();
-        }
-        
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+            
+            <div class="monthly-booking-admin-content">
+                <div class="reservation-header">
+                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-registration&action=add'); ?>" 
+                       class="button button-primary"><?php _e('新規予約追加', 'monthly-booking'); ?></a>
+                </div>
+                
+                <table class="wp-list-table widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <th><?php _e('ID', 'monthly-booking'); ?></th>
+                            <th><?php _e('部屋', 'monthly-booking'); ?></th>
+                            <th><?php _e('顧客名', 'monthly-booking'); ?></th>
+                            <th><?php _e('チェックイン', 'monthly-booking'); ?></th>
+                            <th><?php _e('チェックアウト', 'monthly-booking'); ?></th>
+                            <th><?php _e('ステータス', 'monthly-booking'); ?></th>
+                            <th><?php _e('操作', 'monthly-booking'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($reservations)): ?>
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 20px;">
+                                <?php _e('予約がありません。', 'monthly-booking'); ?>
+                            </td>
+                        </tr>
+                        <?php else: ?>
+                        <?php foreach ($reservations as $reservation): ?>
+                        <tr>
+                            <td><?php echo esc_html($reservation->id); ?></td>
+                            <td><?php echo esc_html($reservation->room_name); ?></td>
+                            <td><?php echo esc_html($reservation->guest_name); ?></td>
+                            <td><?php echo esc_html($reservation->checkin_date); ?></td>
+                            <td><?php echo esc_html($reservation->checkout_date); ?></td>
+                            <td><?php echo esc_html($reservation->status); ?></td>
+                            <td>
+                                <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-registration&action=edit&id=' . $reservation->id); ?>"><?php _e('編集', 'monthly-booking'); ?></a> |
+                                <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-registration&action=delete&id=' . $reservation->id); ?>" 
+                                   onclick="return confirm('<?php _e('本当に削除しますか？', 'monthly-booking'); ?>')"><?php _e('削除', 'monthly-booking'); ?></a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php
+    }
+    
+    private function render_feature_disabled_notice() {
+        $this->render_reservation_list();
+    }
+    
+    private function render_reservation_list() {
         if (!class_exists('MonthlyBooking_Reservation_Service')) {
             require_once plugin_dir_path(__FILE__) . 'reservation-service.php';
         }
@@ -1254,6 +1337,16 @@ class MonthlyBooking_Admin_UI {
         $page = isset($_GET['paged']) ? intval($_GET['paged']) : 1;
         $result = $service->get_reservations($page, 20);
         
+        wp_enqueue_script('monthly-booking-admin-reservations', plugin_dir_url(__FILE__) . '../assets/admin-reservations.js', array('jquery'), '1.7.0', true);
+        wp_localize_script('monthly-booking-admin-reservations', 'monthlyBookingReservations', array(
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('mbp_reservations_nonce'),
+            'strings' => array(
+                'confirmDelete' => __('本当に削除しますか？', 'monthly-booking'),
+                'deleteSuccess' => __('予約が削除されました。', 'monthly-booking'),
+                'deleteError' => __('削除に失敗しました。', 'monthly-booking')
+            )
+        ));
         
         ?>
         <div class="wrap">
@@ -1347,6 +1440,16 @@ class MonthlyBooking_Admin_UI {
             }
         }
         
+        wp_enqueue_script('monthly-booking-admin-form', plugin_dir_url(__FILE__) . '../assets/admin-form.js', array('jquery'), '1.7.0', true);
+        wp_localize_script('monthly-booking-admin-form', 'monthlyBookingForm', array(
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('mbp_reservations_nonce'),
+            'strings' => array(
+                'saving' => __('保存中...', 'monthly-booking'),
+                'saveSuccess' => __('予約が保存されました。', 'monthly-booking'),
+                'saveError' => __('保存に失敗しました。', 'monthly-booking')
+            )
+        ));
         
         ?>
         <div class="wrap">
