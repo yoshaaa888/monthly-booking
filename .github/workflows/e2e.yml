@@ -48,7 +48,18 @@ jobs:
       - name: Start WordPress env
         env:
           DOCKER_COMPOSE_CMD: "docker compose"
-        run: wp-env start
+        run: |
+          set -e
+          for i in 1 2; do
+            if wp-env start; then
+              exit 0
+            fi
+            echo "wp-env start failed (attempt $i). Destroying and retrying..."
+            wp-env destroy --force || true
+            sleep 5
+          done
+          echo "wp-env start failed after retries"
+          exit 1
 
       # 共有セットアップ
       - name: Make wp-setup executable
@@ -82,6 +93,7 @@ jobs:
             echo "Canonical page ID=${CANONICAL_ID}; publishing, fixing slug/content..."
             npx wp-env run cli -- bash -lc "WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post update ${CANONICAL_ID} --post_status=publish --post_name='monthly-calendar' --post_content='[monthly_booking_calendar]'"
             for ID in ${IDS}; do
+
               if [ "$ID" != "$CANONICAL_ID" ]; then
                 echo "Trashing duplicate page ID=${ID}"
                 npx wp-env run cli -- bash -lc "WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post delete ${ID} --force"
@@ -93,6 +105,13 @@ jobs:
       - name: Export PW_BASE_URL from WP
         run: echo "PW_BASE_URL=$(npx wp-env run cli -- wp option get home)" >> $GITHUB_ENV
 
+      - name: Debug permalinks and pages (pre-health-check)
+        if: always()
+        run: |
+          npx wp-env run cli -- wp option get home || true
+          npx wp-env run cli -- wp option get permalink_structure || true
+          npx wp-env run cli -- wp post list --post_type=page --fields=ID,post_title,post_name,post_status | sed -n '1,120p' || true
+
       - name: Health check monthly-calendar (pretty permalink or page_id fallback)
         run: |
           set -e
@@ -101,6 +120,7 @@ jobs:
           CANONICAL_ID=$(npx wp-env run cli -- bash -lc 'WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post list --post_type=page --name__like="monthly-calendar" --format=ids | tr " " "\n" | sort -n | head -n1 || true')
           ID_URL="${PW_BASE_URL%/}/?page_id=${CANONICAL_ID}"
           echo "Health checking (fallback): ${ID_URL}"
+
           curl -s -o /dev/null "$PW_BASE_URL" || true
           sleep 15
           for i in {1..60}; do
@@ -118,7 +138,10 @@ jobs:
             fi
             sleep 2
           done
-          echo "Monthly calendar did not become ready in time"; exit 1
+          echo "Monthly calendar did not become ready in time"
+          mkdir -p ci-debug || true
+          curl -sS "$PRETTY_URL" | head -n 400 > ci-debug/monthly-calendar.html || true
+          exit 1
 
       - name: Install Playwright chromium
         run: npx playwright install --with-deps chromium
