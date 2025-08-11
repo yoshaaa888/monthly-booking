@@ -117,6 +117,15 @@ class MonthlyBooking_Admin_UI {
             MONTHLY_BOOKING_VERSION,
             true
         );
+
+        wp_localize_script(
+            'monthly-booking-admin',
+            'monthlyBookingAdmin',
+            array(
+                'ajaxurl' => admin_url('admin-ajax.php'),
+                'nonce'   => wp_create_nonce('monthly_booking_admin')
+            )
+        );
     }
     
     
@@ -1749,6 +1758,53 @@ class MonthlyBooking_Admin_UI {
                         <li><?php _e('最大1つのキャンペーンのみ適用されます', 'monthly-booking'); ?></li>
                     </ul>
                 </div>
+
+                <?php
+                global $wpdb;
+                $table_campaigns = $wpdb->prefix . 'monthly_campaigns';
+                $campaigns = $wpdb->get_results("SELECT id, name, discount_type, discount_value, start_date, end_date, is_active FROM $table_campaigns ORDER BY created_at DESC");
+                ?>
+
+                <table class="monthly-booking-table">
+                    <thead>
+                        <tr>
+                            <th><?php _e('名称', 'monthly-booking'); ?></th>
+                            <th><?php _e('割引', 'monthly-booking'); ?></th>
+                            <th><?php _e('期間', 'monthly-booking'); ?></th>
+                            <th><?php _e('ステータス', 'monthly-booking'); ?></th>
+                            <th><?php _e('操作', 'monthly-booking'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (!empty($campaigns)): ?>
+                            <?php foreach ($campaigns as $c): ?>
+                                <tr>
+                                    <td><?php echo esc_html($c->name); ?></td>
+                                    <td>
+                                        <?php
+                                        if ($c->discount_type === 'percentage') {
+                                            echo esc_html(number_format((float)$c->discount_value, 0)) . '%';
+                                        } else {
+                                            echo '¥' . esc_html(number_format((float)$c->discount_value, 0));
+                                        }
+                                        ?>
+                                    </td>
+                                    <td><?php echo esc_html($c->start_date . ' — ' . $c->end_date); ?></td>
+                                    <td><?php echo $c->is_active ? __('有効', 'monthly-booking') : __('無効', 'monthly-booking'); ?></td>
+                                    <td>
+                                        <a href="#" class="button toggle-campaign-status"
+                                           data-campaign-id="<?php echo esc_attr($c->id); ?>"
+                                           data-is-active="<?php echo esc_attr($c->is_active); ?>">
+                                           <?php echo $c->is_active ? __('無効化', 'monthly-booking') : __('有効化', 'monthly-booking'); ?>
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr><td colspan="5"><?php _e('キャンペーンが見つかりません。', 'monthly-booking'); ?></td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
         

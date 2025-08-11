@@ -226,7 +226,14 @@ class MonthlyBooking_Calendar_Render {
                     <div class="form-row">
                         <label for="room_id"><?php _e('部屋選択', 'monthly-booking'); ?> <span class="required">*</span></label>
                         <select id="room_id" name="room_id" required>
-                            <option value="">部屋を読み込み中...</option>
+                            <option value=""><?php _e('部屋を選択してください...', 'monthly-booking'); ?></option>
+                            <?php
+                            global $wpdb;
+                            $rooms = $wpdb->get_results("SELECT room_id, display_name, room_name FROM {$wpdb->prefix}monthly_rooms WHERE is_active = 1 ORDER BY display_name");
+                            foreach ($rooms as $room) {
+                                echo '<option value="' . esc_attr($room->room_id) . '">' . esc_html($room->display_name . ' - ' . $room->room_name) . '</option>';
+                            }
+                            ?>
                         </select>
                     </div>
                 </div>

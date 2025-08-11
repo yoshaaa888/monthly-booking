@@ -136,7 +136,7 @@ class MonthlyBooking_Campaign_Manager {
     public function get_campaigns($active_only = false) {
         global $wpdb;
         
-        $table_name = $wpdb->prefix . 'monthly_booking_campaigns';
+        $table_name = $wpdb->prefix . 'monthly_campaigns';
         
         $where_clause = $active_only ? 'WHERE is_active = 1' : '';
         
@@ -149,7 +149,7 @@ class MonthlyBooking_Campaign_Manager {
     public function get_campaign($campaign_id) {
         global $wpdb;
         
-        $table_name = $wpdb->prefix . 'monthly_booking_campaigns';
+        $table_name = $wpdb->prefix . 'monthly_campaigns';
         
         return $wpdb->get_row($wpdb->prepare(
             "SELECT * FROM $table_name WHERE id = %d",
@@ -197,7 +197,7 @@ class MonthlyBooking_Campaign_Manager {
     private function create_campaign($data) {
         global $wpdb;
         
-        $table_name = $wpdb->prefix . 'monthly_booking_campaigns';
+        $table_name = $wpdb->prefix . 'monthly_campaigns';
         
         $result = $wpdb->insert(
             $table_name,
@@ -222,7 +222,7 @@ class MonthlyBooking_Campaign_Manager {
     private function update_campaign($campaign_id, $data) {
         global $wpdb;
         
-        $table_name = $wpdb->prefix . 'monthly_booking_campaigns';
+        $table_name = $wpdb->prefix . 'monthly_campaigns';
         
         return $wpdb->update(
             $table_name,
@@ -245,7 +245,7 @@ class MonthlyBooking_Campaign_Manager {
     private function delete_campaign($campaign_id) {
         global $wpdb;
         
-        $table_name = $wpdb->prefix . 'monthly_booking_campaigns';
+        $table_name = $wpdb->prefix . 'monthly_campaigns';
         
         return $wpdb->delete(
             $table_name,
@@ -260,7 +260,7 @@ class MonthlyBooking_Campaign_Manager {
     private function toggle_campaign_status($campaign_id, $is_active) {
         global $wpdb;
         
-        $table_name = $wpdb->prefix . 'monthly_booking_campaigns';
+        $table_name = $wpdb->prefix . 'monthly_campaigns';
         
         return $wpdb->update(
             $table_name,
