@@ -1,3 +1,4 @@
+// CI trigger: verify workflow stability
 jQuery(document).ready(function($) {
     'use strict';
     
