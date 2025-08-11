@@ -63,17 +63,28 @@ jobs:
           set -euo pipefail
           npx wp-env run cli -- wp rewrite structure '/%postname%/' --hard
           npx wp-env run cli -- wp rewrite flush --hard
-          PID=$(npx wp-env run cli -- bash -lc 'WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post list --post_type=page --pagename=monthly-calendar --format=ids || true')
-          if [ -z "${PID}" ]; then
+          IDS=$(npx wp-env run cli -- bash -lc 'WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post list --post_type=page --name__like="monthly-calendar" --format=ids || true')
+          CANONICAL_ID=""
+          if [ -z "${IDS}" ]; then
             echo "Creating monthly-calendar page..."
             npx wp-env run cli -- bash -lc 'WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post create \
               --post_type=page --post_status=publish \
               --post_title="Monthly Calendar" \
               --post_name="monthly-calendar" \
-              --post_content="[monthly_calendar]"'
+              --post_content="[monthly_booking_calendar]"'
           else
-            echo "monthly-calendar exists: ID=${PID}"
+            echo "Found pages matching monthly-calendar: ${IDS}"
+            CANONICAL_ID=$(echo "${IDS}" | tr ' ' '\n' | sort -n | head -n1)
+            echo "Canonical page ID=${CANONICAL_ID}; publishing, fixing slug/content..."
+            npx wp-env run cli -- bash -lc "WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post update ${CANONICAL_ID} --post_status=publish --post_name='monthly-calendar' --post_content='[monthly_booking_calendar]'"
+            for ID in ${IDS}; do
+              if [ "$ID" != "$CANONICAL_ID" ]; then
+                echo "Trashing duplicate page ID=${ID}"
+                npx wp-env run cli -- bash -lc "WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post delete ${ID} --force"
+              fi
+            done
           fi
+          npx wp-env run cli -- wp rewrite flush --hard
 
       - name: Export PW_BASE_URL from WP
         run: echo "PW_BASE_URL=$(npx wp-env run cli -- wp option get home)" >> $GITHUB_ENV
