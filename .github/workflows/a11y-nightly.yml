@@ -123,12 +123,12 @@ jobs:
         if: failure()
         run: |
           mkdir -p a11y-debug
-          npx wp-env run cli "wp option get siteurl" > a11y-debug/siteurl.txt || true
-          npx wp-env run cli "wp option get home" > a11y-debug/home.txt || true
-          npx wp-env run cli "wp option get permalink_structure" > a11y-debug/permalink.txt || true
-          npx wp-env run cli "wp post list --post_type=page --fields=ID,post_title,post_name,post_status" > a11y-debug/pages.txt || true
-          npx wp-env run cli "wp plugin list" > a11y-debug/plugins.txt || true
-          npx wp-env run cli "wp rewrite list" > a11y-debug/rewrite-rules.txt || true
+          npx wp-env run cli -- wp option get siteurl > a11y-debug/siteurl.txt || true
+          npx wp-env run cli -- wp option get home > a11y-debug/home.txt || true
+          npx wp-env run cli -- wp option get permalink_structure > a11y-debug/permalink.txt || true
+          npx wp-env run cli -- wp post list --post_type=page --fields=ID,post_title,post_name,post_status > a11y-debug/pages.txt || true
+          npx wp-env run cli -- wp plugin list > a11y-debug/plugins.txt || true
+          npx wp-env run cli -- wp rewrite list > a11y-debug/rewrite-rules.txt || true
           cp -f wp-content/debug.log a11y-debug/debug.log || true
 
       - name: Upload a11y debug artifacts
