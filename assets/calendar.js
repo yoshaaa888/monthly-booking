@@ -1,3 +1,4 @@
+// CI trigger: noop v8 to trigger pull_request synchronize again
 // CI trigger: noop v7 to trigger second pull_request synchronize
 // CI trigger: noop v6 to trigger pull_request synchronize
 // CI trigger: noop change to force PR synchronize event v5
