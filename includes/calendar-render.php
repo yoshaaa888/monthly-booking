@@ -282,7 +282,7 @@ class MonthlyBooking_Calendar_Render {
                             <option value=""><?php _e('部屋を選択してください...', 'monthly-booking'); ?></option>
                             <?php
                             global $wpdb;
-                            $rooms = $wpdb->get_results("SELECT room_id, display_name, room_name FROM {$wpdb->prefix}monthly_rooms WHERE status = 'active' ORDER BY display_name");
+                            $rooms = $wpdb->get_results("SELECT room_id, display_name, room_name FROM {$wpdb->prefix}monthly_rooms WHERE is_active = 1 ORDER BY display_name");
                             foreach ($rooms as $room) {
                                 echo '<option value="' . esc_attr($room->room_id) . '">' . esc_html($room->display_name . ' - ' . $room->room_name) . '</option>';
                             }

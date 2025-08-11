@@ -1048,7 +1048,7 @@ class MonthlyBooking_Booking_Logic {
         $rooms = $wpdb->get_results("
             SELECT room_id, display_name, daily_rent 
             FROM $rooms_table 
-            WHERE is_active = 1 AND status = 'active'
+            WHERE is_active = 1
             ORDER BY display_name
         ");
         
