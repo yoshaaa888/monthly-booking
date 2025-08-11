@@ -117,6 +117,15 @@ class MonthlyBooking_Admin_UI {
             MONTHLY_BOOKING_VERSION,
             true
         );
+
+        wp_localize_script(
+            'monthly-booking-admin',
+            'monthlyBookingAdmin',
+            array(
+                'ajaxurl' => admin_url('admin-ajax.php'),
+                'nonce'   => wp_create_nonce('monthly_booking_admin')
+            )
+        );
     }
     
     /**
