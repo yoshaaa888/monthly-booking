@@ -148,7 +148,7 @@ jQuery(document).ready(function($) {
         });
         
         const calendarGrid = document.querySelector('.calendar-grid');
-        console.log('Calendar grid found:', calendarGrid);
+        console.log('Calendar grid located:', calendarGrid);
         if (calendarGrid) {
             calendarGrid.addEventListener('keydown', function(e) {
                 const currentCell = e.target;
