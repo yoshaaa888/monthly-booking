@@ -152,7 +152,7 @@ class MonthlyBooking_Booking_Logic {
     private function calculate_campaign_discount($start_date, $end_date, $base_total) {
         global $wpdb;
         
-        $table_name = $wpdb->prefix . 'monthly_booking_campaigns';
+        $table_name = $wpdb->prefix . 'monthly_campaigns';
         
         $campaigns = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM $table_name 
