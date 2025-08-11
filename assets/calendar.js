@@ -1,3 +1,4 @@
+// CI trigger: noop v16 to trigger pull_request synchronize
 /* CI trigger: noop v15 to trigger pull_request synchronize (important-comment) */
 
 // CI trigger: noop v14 to trigger pull_request synchronize
