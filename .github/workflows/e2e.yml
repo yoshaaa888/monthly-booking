@@ -102,8 +102,8 @@ jobs:
           ID_URL="${PW_BASE_URL%/}/?page_id=${CANONICAL_ID}"
           echo "Health checking (fallback): ${ID_URL}"
           curl -s -o /dev/null "$PW_BASE_URL" || true
-          sleep 10
-          for i in {1..45}; do
+          sleep 15
+          for i in {1..60}; do
             CODE1=$(curl -s -o /dev/null -w "%{http_code}" "$PRETTY_URL" || true)
             echo "Attempt $i (pretty): HTTP $CODE1"
             if [ "$CODE1" = "200" ]; then
