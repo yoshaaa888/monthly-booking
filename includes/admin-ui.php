@@ -1133,8 +1133,6 @@ class MonthlyBooking_Admin_UI {
             wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }
         
-        define('MB_FEATURE_RESERVATIONS_MVP', true);
-        error_log('[mb-admin] MB_FEATURE_RESERVATIONS_MVP defined as: ' . (defined('MB_FEATURE_RESERVATIONS_MVP') ? 'true' : 'false'));
         
         global $wpdb;
         $table_name = $wpdb->prefix . 'monthly_reservations';
@@ -1161,7 +1159,7 @@ class MonthlyBooking_Admin_UI {
                 $this->handle_reservation_delete($reservation_id);
                 break;
             default:
-                $this->render_working_reservation_list();
+                $this->render_reservation_list();
                 break;
         }
     }
@@ -1283,16 +1281,6 @@ class MonthlyBooking_Admin_UI {
         $page = isset($_GET['paged']) ? intval($_GET['paged']) : 1;
         $result = $service->get_reservations($page, 20);
         
-        wp_enqueue_script('monthly-booking-admin-reservations', plugin_dir_url(__FILE__) . '../assets/admin-reservations.js', array('jquery'), '1.7.0', true);
-        wp_localize_script('monthly-booking-admin-reservations', 'monthlyBookingReservations', array(
-            'ajaxurl' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('mbp_reservations_nonce'),
-            'strings' => array(
-                'confirmDelete' => __('本当に削除しますか？', 'monthly-booking'),
-                'deleteSuccess' => __('予約が削除されました。', 'monthly-booking'),
-                'deleteError' => __('削除に失敗しました。', 'monthly-booking')
-            )
-        ));
         
         ?>
         <div class="wrap">
@@ -1323,7 +1311,7 @@ class MonthlyBooking_Admin_UI {
                                 <th scope="col"><?php _e('操作', 'monthly-booking'); ?></th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="mbp-reservations-body">
                             <?php foreach ($result['reservations'] as $reservation): ?>
                             <tr>
                                 <td><?php echo esc_html($reservation->id); ?></td>
@@ -1339,10 +1327,26 @@ class MonthlyBooking_Admin_UI {
                                     </span>
                                 </td>
                                 <td>
-                                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-registration&action=edit&id=' . $reservation->id); ?>" 
-                                       class="button button-small"><?php _e('編集', 'monthly-booking'); ?></a>
-                                    <button type="button" class="button button-small button-link-delete delete-reservation" 
-                                            data-id="<?php echo esc_attr($reservation->id); ?>"><?php _e('削除', 'monthly-booking'); ?></button>
+                                    <button type="button"
+                                            class="button button-small mbp-reservation-edit"
+                                            data-id="<?php echo esc_attr($reservation->id); ?>"
+                                            data-reservation-id="<?php echo esc_attr($reservation->id); ?>"
+                                            <?php if (isset($reservation->room_id)) : ?>data-room-id="<?php echo esc_attr($reservation->room_id); ?>"<?php endif; ?>
+                                            data-start="<?php echo esc_attr($reservation->checkin_date); ?>"
+                                            data-end="<?php echo esc_attr($reservation->checkout_date); ?>"
+                                            data-guest-name="<?php echo esc_attr($reservation->guest_name); ?>"
+                                            data-guest-email="<?php echo esc_attr($reservation->guest_email); ?>"
+                                            data-guest-phone="<?php echo isset($reservation->guest_phone) ? esc_attr($reservation->guest_phone) : ''; ?>"
+                                            data-status="<?php echo isset($reservation->status) ? esc_attr($reservation->status) : ''; ?>"
+                                            data-notes="<?php echo isset($reservation->notes) ? esc_attr($reservation->notes) : ''; ?>">
+                                        <?php _e('編集', 'monthly-booking'); ?>
+                                    </button>
+                                    <button type="button"
+                                            class="button button-small button-link-delete mbp-reservation-delete"
+                                            data-id="<?php echo esc_attr($reservation->id); ?>"
+                                            data-reservation-id="<?php echo esc_attr($reservation->id); ?>">
+                                        <?php _e('削除', 'monthly-booking'); ?>
+                                    </button>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
