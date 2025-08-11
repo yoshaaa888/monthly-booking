@@ -147,12 +147,10 @@ jQuery(document).ready(function($) {
             reservation_id: id || ''
         };
 
-        ['room_id','start_date','end_date','guest_name','guest_email','guest_phone','status','notes'].forEach(function(name){
+        ['room_id','checkin_date','checkout_date','guest_name','guest_email','guest_phone','status','notes'].forEach(function(name){
             const v = $form.find('[name="'+name+'"]').val();
             if (typeof v !== 'undefined') payload[name] = v;
         });
-        if (payload.start_date && !payload.checkin_date) payload.checkin_date = payload.start_date;
-        if (payload.end_date && !payload.checkout_date) payload.checkout_date = payload.end_date;
 
         $.ajax({
             url: ajaxurl,
