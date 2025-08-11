@@ -42,18 +42,18 @@ Priority 1 (High impact, low risk, unblock core UX)
   - Nonce verification using existing monthlyBookingAjax.nonce (or introduce a calendar-specific nonce).
   - Validate month, year, and optional room_id; return JSON with booking/campaign data.
 
-3) Campaign table naming inconsistency (monthly_campaigns vs monthly_booking_campaigns)
-- Symptom
-  - DB creation and sample insertion use monthly_campaigns. Business logic in some places references monthly_booking_campaigns (which does not exist).
+3) Campaign table naming inconsistency [Resolved]
+- Status
+  - Unified to monthly_campaigns across the codebase in PR #33.
+  - Files updated: includes/campaign-manager.php, includes/booking-logic.php, test-environment/plugin/includes/campaign-manager.php, test-environment/plugin/includes/booking-logic.php.
+  - No schema changes or data migration performed.
 - Evidence
   - monthly-booking.php creates and seeds monthly_campaigns.
-  - includes/campaign-manager.php contains reads/writes to monthly_booking_campaigns, but get_campaign_by_type and other reads point to monthly_campaigns.
+  - get_campaign_by_type() already referenced monthly_campaigns; other CRUD/discount locations now unified.
 - Impact
-  - Admin/read/write operations can silently fail; toggles or listings may show empty states despite data being present.
-- Suggestion (implementation later)
-  - Decide on canonical table name. Recommendation: unify on monthly_campaigns to match existing creation and seed paths.
-  - Refactor all references to the canonical name in campaign-manager.php, booking-logic.php, admin-ui.php.
-  - Consider migration adapter if any real data already exists in the non-canonical table in some environments.
+  - Resolved empty admin dropdowns or silent failures caused by referencing non-existent monthly_booking_campaigns.
+- Notes
+  - Repo-wide search confirms no remaining code references to monthly_booking_campaigns. Historical mentions may remain in prior docs/commit history.
 
 ---
 
@@ -102,9 +102,9 @@ Priority 3 (Design/consistency/UX)
 ---
 
 Risks and decision points
-- Campaign table unification
-  - Decision required: canonical name. Recommend monthly_campaigns to minimize migration work.
-  - If environments exist with monthly_booking_campaigns, a data migration script will be required (export/import or INSERT ... SELECT).
+- Campaign table unification [Resolved]
+  - Canonical name finalized: monthly_campaigns.
+  - If any environments contain monthly_booking_campaigns data, plan a safe one-time migration (export/import or INSERT ... SELECT) as a separate task.
 - Handler naming standard
   - Consider standardized action names prefixed with mbp_ (e.g., mbp_get_calendar_bookings) for future clarity.
 
@@ -135,8 +135,8 @@ References
 - Admin enqueue without localization: includes/admin-ui.php:101-120
 - Admin UI class/hooks: includes/admin-ui.php:12-18
 - calendar.js posts action=get_calendar_bookings: assets/calendar.js
-- No get_calendar_bookings PHP handlers present in repo
+- get_calendar_bookings PHP handlers implemented: includes/calendar-render.php
 - monthly_campaigns created/seeded: monthly-booking.php (insert_sample_campaigns and table creation)
-- campaign-manager references monthly_booking_campaigns and monthly_campaigns: includes/campaign-manager.php
+- campaign-manager now references monthly_campaigns (unified): includes/campaign-manager.php
 - rooms select should use is_active=1: includes/admin-ui.php (e.g., get rooms list), calendar-render.php
 - Shortcodes implemented: includes/calendar-render.php; Frontend estimate logic: assets/estimate.js (localized monthlyBookingAjax)
