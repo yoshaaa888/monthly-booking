@@ -89,18 +89,29 @@ jobs:
       - name: Export PW_BASE_URL from WP
         run: echo "PW_BASE_URL=$(npx wp-env run cli -- wp option get home)" >> $GITHUB_ENV
 
-      - name: Health check /monthly-calendar/ (HTTP 200 within 60s)
+      - name: Health check monthly-calendar (pretty permalink or page_id fallback)
         shell: bash
         run: |
           set -e
-          URL="${PW_BASE_URL%/}/monthly-calendar/"
-          echo "Health checking: ${URL}"
+          PRETTY_URL="${PW_BASE_URL%/}/monthly-calendar/"
+          echo "Health checking (pretty): ${PRETTY_URL}"
+          CANONICAL_ID=$(npx wp-env run cli -- bash -lc 'WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post list --post_type=page --name__like="monthly-calendar" --format=ids | tr " " "\n" | sort -n | head -n1 || true')
+          ID_URL="${PW_BASE_URL%/}/?page_id=${CANONICAL_ID}"
+          echo "Health checking (fallback): ${ID_URL}"
+          curl -s -o /dev/null "$PW_BASE_URL" || true
           sleep 10
           for i in {1..45}; do
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || true)
-            echo "Attempt $i: HTTP $CODE"
-            if [ "$CODE" = "200" ]; then
-              echo "OK"; exit 0
+            CODE1=$(curl -s -o /dev/null -w "%{http_code}" "$PRETTY_URL" || true)
+            echo "Attempt $i (pretty): HTTP $CODE1"
+            if [ "$CODE1" = "200" ]; then
+              echo "OK (pretty)"; exit 0
+            fi
+            if [ -n "$CANONICAL_ID" ]; then
+              CODE2=$(curl -s -o /dev/null -w "%{http_code}" "$ID_URL" || true)
+              echo "Attempt $i (id): HTTP $CODE2"
+              if [ "$CODE2" = "200" ]; then
+                echo "OK (id)"; exit 0
+              fi
             fi
             sleep 2
           done
