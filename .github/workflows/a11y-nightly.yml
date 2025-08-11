@@ -107,7 +107,7 @@ jobs:
               echo "OK (pretty)"; exit 0
             fi
             if [ -n "$CANONICAL_ID" ]; then
-              CODE2=$(curl -s -o /dev/null -w "%{http_code}" "$ID_URL" || true)
+              CODE2=$(curl -s -L -o /dev/null -w "%{http_code}" "$ID_URL" || true)
               echo "Attempt $i (id): HTTP $CODE2"
               if [ "$CODE2" = "200" ]; then
                 echo "OK (id)"; exit 0

@@ -1260,7 +1260,7 @@ class MonthlyBooking_Admin_UI {
         <?php
     }
     
-    private function render_reservation_list_legacy() {
+    private function render_reservation_list() {
         global $wpdb;
         
         $table_name = $wpdb->prefix . 'monthly_reservations';
