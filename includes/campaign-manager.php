@@ -22,7 +22,7 @@ class MonthlyBooking_Campaign_Manager {
      * Create new campaign via AJAX
      */
     public function ajax_create_campaign() {
-        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        check_ajax_referer('monthly_booking_admin', 'nonce');
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('Insufficient permissions.', 'monthly-booking'));
@@ -57,7 +57,7 @@ class MonthlyBooking_Campaign_Manager {
      * Update existing campaign via AJAX
      */
     public function ajax_update_campaign() {
-        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        check_ajax_referer('monthly_booking_admin', 'nonce');
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('Insufficient permissions.', 'monthly-booking'));
@@ -90,7 +90,7 @@ class MonthlyBooking_Campaign_Manager {
      * Delete campaign via AJAX
      */
     public function ajax_delete_campaign() {
-        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        check_ajax_referer('monthly_booking_admin', 'nonce');
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('Insufficient permissions.', 'monthly-booking'));
@@ -111,7 +111,7 @@ class MonthlyBooking_Campaign_Manager {
      * Toggle campaign active status via AJAX
      */
     public function ajax_toggle_campaign() {
-        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        check_ajax_referer('monthly_booking_admin', 'nonce');
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('Insufficient permissions.', 'monthly-booking'));
