@@ -39,7 +39,13 @@ class MonthlyBooking_Reservation_Service {
             array('%d', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%s')
         );
         
-        return $result ? $wpdb->insert_id : new WP_Error('db_error', __('データベースエラーが発生しました。', 'monthly-booking'));
+        if ($result) {
+            $insert_id = $wpdb->insert_id;
+            do_action('monthly_booking_reservation_saved', $insert_id, $data, $total_price);
+            return $insert_id;
+        }
+        
+        return new WP_Error('db_error', __('データベースエラーが発生しました。', 'monthly-booking'));
     }
     
     public function update_reservation($reservation_id, $data) {
@@ -77,7 +83,12 @@ class MonthlyBooking_Reservation_Service {
             array('%d')
         );
         
-        return $result !== false ? true : new WP_Error('db_error', __('データベースエラーが発生しました。', 'monthly-booking'));
+        if ($result !== false) {
+            do_action('monthly_booking_reservation_saved', $reservation_id, $data, $total_price);
+            return true;
+        }
+        
+        return new WP_Error('db_error', __('データベースエラーが発生しました。', 'monthly-booking'));
     }
     
     public function delete_reservation($reservation_id) {
