@@ -80,10 +80,10 @@ jobs:
       - name: Export CAL_URL from WP
         run: echo "CAL_URL=$(npx wp-env run cli -- wp option get home)" >> $GITHUB_ENV
 
-      - name: Install Playwright browsers
-        uses: microsoft/playwright-github-action@v1
-        with:
-          with-deps: true
+      - name: Install Playwright browsers (CLI)
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium firefox webkit
 
       - name: Run E2E
         run: npx playwright test --reporter=list,html --workers=2
