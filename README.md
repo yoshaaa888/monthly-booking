@@ -1,3 +1,48 @@
+# Monthly Booking - Ops Quickstart (Gitpod + CLI Utilities)
+
+Self-heal (Gitpod)
+- Kill and restart PHP server, expose port 8000, set HTTPS guard
+```
+lsof -ti :8000 | xargs -r kill -9
+php -S 0.0.0.0:8000 -t wordpress >/tmp/php8000.log 2>&1 &
+gp ports visibility 8000:public >/dev/null 2>&1 || true
+URL="$(gp url 8000)"
+grep -q "WP_HOME" wordpress/wp-config.php || \
+sed -i "/require_once ABSPATH .*wp-settings.php/i define('WP_HOME', '$URL');\ndefine('WP_SITEURL', '$URL');\ndefine('FORCE_SSL_ADMIN', true);\nif (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO']==='https') \$_SERVER['HTTPS']='on';" wordpress/wp-config.php
+```
+
+WP-CLI Utilities
+- Backfill room_id (idempotent; SQLite/MySQL)
+```
+npx wp-env run cli -- wp mb backfill-room-id
+npx wp-env run cli -- wp mb backfill-room-id --table=wp_monthly_rooms --dry-run
+```
+- Seed rooms/reservations (idempotent)
+```
+npx wp-env run cli -- wp mb seed --rooms=3 --reservations=6
+```
+- DB migration (indexes)
+```
+npx wp-env run cli -- wp mb migrate
+```
+
+Smoke Test (PHP only; no E2E)
+- Local
+```
+php tests/smoke/overlap.php
+```
+- CI: runs as part of Smoke workflow.
+
+Hook Example (optional)
+- Enable sample listener and save a reservation to emit one log line:
+```
+add_filter('mb_enable_price_example', '__return_true');
+# Then create/update a reservation; tail /tmp/php8000.log on Gitpod
+```
+
+E2E Policy
+- Full E2E is gated by label run-e2e on PRs. Default CI runs only Smoke.
+
 # Monthly Booking WordPress Plugin
 
 A comprehensive WordPress plugin for managing monthly property bookings with advanced campaign management, pricing calculations, and administrative interfaces.
