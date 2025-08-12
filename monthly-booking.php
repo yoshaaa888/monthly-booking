@@ -897,5 +897,8 @@ class MonthlyBooking {
         }
     }
 }
+if (defined('WP_CLI') && WP_CLI) {
+    require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/cli/class-mb-db-cli.php';
+}
 
 new MonthlyBooking();
