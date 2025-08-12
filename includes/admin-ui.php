@@ -1683,7 +1683,17 @@ class MonthlyBooking_Admin_UI {
                                 </span>
                             </td>
                             <td>
-                                <button type="button" class="button button-small" onclick="editCampaign(<?php echo esc_attr($campaign->id); ?>)"><?php _e('編集', 'monthly-booking'); ?></button>
+                                <button type="button"
+                                        class="button button-small campaign-edit"
+                                        onclick="editCampaign(<?php echo esc_attr($campaign->id); ?>)"
+                                        data-campaign-id="<?php echo esc_attr($campaign->id); ?>"
+                                        data-name="<?php echo esc_attr($campaign->campaign_name); ?>"
+                                        data-discount-type="<?php echo esc_attr($campaign->discount_type); ?>"
+                                        data-discount-value="<?php echo esc_attr($campaign->discount_value); ?>"
+                                        data-start-date="<?php echo esc_attr($campaign->start_date); ?>"
+                                        data-end-date="<?php echo esc_attr($campaign->end_date); ?>">
+                                    <?php _e('編集', 'monthly-booking'); ?>
+                                </button>
                             </td>
                         </tr>
                         <?php endforeach; ?>
