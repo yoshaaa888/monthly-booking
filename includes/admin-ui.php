@@ -123,8 +123,12 @@ class MonthlyBooking_Admin_UI {
             'monthlyBookingAdmin',
             array(
                 'ajaxurl' => admin_url('admin-ajax.php'),
-                'nonce'   => wp_create_nonce('monthly_booking_admin'),
-                'reservationsNonce' => wp_create_nonce('mbp_reservations_nonce')
+                'reservationsNonce' => wp_create_nonce('mbp_reservations_nonce'),
+                'strings' => array(
+                    'saving' => __('保存中...', 'monthly-booking'),
+                    'saveSuccess' => __('保存しました', 'monthly-booking'),
+                    'saveError' => __('保存に失敗しました', 'monthly-booking')
+                )
             )
         );
     }
