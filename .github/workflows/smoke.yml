@@ -1,0 +1,66 @@
+name: Smoke CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Smoke (PHP syntax + overlap)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: PHP syntax lint (exclude ./wordpress)
+        run: |
+          set -euo pipefail
+          mapfile -d '' files < <(find . -path './wordpress' -prune -o -name '*.php' -print0)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No PHP files found to lint."
+            exit 0
+          fi
+          fail=0
+          for f in "${files[@]}"; do
+            if ! php -l "$f"; then
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install wp-env
+        run: npm i -g @wordpress/env@latest
+
+      - name: Start wp-env
+        run: |
+          set -e
+          npx wp-env start
+          npx wp-env run cli -- wp core version
+          npx wp-env run cli -- wp plugin list
+
+      - name: Activate plugin
+        run: |
+          set -e
+          npx wp-env run cli -- wp plugin activate monthly-booking || true
+          npx wp-env run cli -- wp plugin list --status=active
+
+      - name: Run PHP smoke (overlap)
+        run: |
+          set -e
+          npx wp-env run cli -- php /var/www/html/wp-content/plugins/monthly-booking/tests/smoke/overlap.php
