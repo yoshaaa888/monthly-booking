@@ -30,6 +30,33 @@ if (!defined('MB_FEATURE_RESERVATIONS_MVP')) {
     define('MB_FEATURE_RESERVATIONS_MVP', true);
 }
 
+/* Ensure reservations table exists (same schema as admin-ui) */
+global $wpdb;
+$table_name = $wpdb->prefix . 'monthly_reservations';
+$exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table_name));
+if ($exists !== $table_name) {
+    $charset_collate = $wpdb->get_charset_collate();
+    $sql = "CREATE TABLE $table_name (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        room_id BIGINT UNSIGNED NOT NULL,
+        checkin_date DATE NOT NULL,
+        checkout_date DATE NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'confirmed',
+        guest_name VARCHAR(190) NOT NULL,
+        guest_email VARCHAR(190) NULL,
+        base_daily_rate INT NULL,
+        total_price INT NULL,
+        notes TEXT NULL,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL,
+        PRIMARY KEY (id),
+        KEY idx_room_period (room_id, checkin_date),
+        KEY idx_room_period2 (room_id, checkout_date)
+    ) $charset_collate;";
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta($sql);
+}
+
 if (!class_exists('MonthlyBooking_Reservation_Service')) {
     $service_path = WP_PLUGIN_DIR . '/monthly-booking/includes/reservation-service.php';
     if (file_exists($service_path)) {
@@ -54,7 +81,7 @@ if (!$room_id) {
     $wpdb->query($wpdb->prepare("UPDATE {$rooms_table} SET room_id = id WHERE id=%d", $room_id));
 }
 
-$wpdb->query($wpdb->prepare("DELETE FROM {$res_table} WHERE room_id=%d AND (customer_name LIKE %s OR notes='smoke')", $room_id, 'Smoke%'));
+$wpdb->query($wpdb->prepare("DELETE FROM {$res_table} WHERE room_id=%d AND (guest_name LIKE %s OR notes='smoke')", $room_id, 'Smoke%'));
 
 if (!class_exists('MonthlyBooking_Reservation_Service')) {
     fwrite(STDERR, "Reservation service not available.\n");
@@ -64,14 +91,12 @@ $svc = new MonthlyBooking_Reservation_Service();
 
 $base = array(
     'room_id' => $room_id,
-    'customer_name' => 'Smoke Alpha',
-    'customer_email' => 'alpha@example.com',
+    'guest_name' => 'Smoke Alpha',
+    'guest_email' => 'alpha@example.com',
     'checkin_date' => '2025-09-01',
     'checkout_date' => '2025-09-15',
     'status' => 'confirmed',
     'notes' => 'smoke',
-    'adults' => 1,
-    'children' => 0,
 );
 $res1 = $svc->create_reservation($base);
 if (is_wp_error($res1)) {
@@ -84,8 +109,8 @@ if (!is_int($res1) || $res1 <= 0) {
 }
 
 $overlap = $base;
-$overlap['customer_name'] = 'Smoke Conflict';
-$overlap['customer_email'] = 'conflict@example.com';
+$overlap['guest_name'] = 'Smoke Conflict';
+$overlap['guest_email'] = 'conflict@example.com';
 $overlap['checkin_date'] = '2025-09-10';
 $overlap['checkout_date'] = '2025-09-20';
 $res2 = $svc->create_reservation($overlap);
@@ -95,8 +120,8 @@ if (!is_wp_error($res2)) {
 }
 
 $edge = $base;
-$edge['customer_name'] = 'Smoke Edge';
-$edge['customer_email'] = 'edge@example.com';
+$edge['guest_name'] = 'Smoke Edge';
+$edge['guest_email'] = 'edge@example.com';
 $edge['checkin_date'] = '2025-09-15';
 $edge['checkout_date'] = '2025-09-20';
 $res3 = $svc->create_reservation($edge);
