@@ -1,0 +1,49 @@
+name: Smoke CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Smoke (PHP syntax + optional Node lint)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: PHP syntax lint (exclude ./wordpress)
+        run: |
+          set -euo pipefail
+          mapfile -d '' files < <(find . -path './wordpress' -prune -o -name '*.php' -print0)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No PHP files found to lint."
+            exit 0
+          fi
+          fail=0
+          for f in "${files[@]}"; do
+            if ! php -l "$f"; then
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Node lint (optional; non-blocking)
+        if: hashFiles('package.json') != ''
+        continue-on-error: true
+        run: |
+          set -e
+          if [ -f package.json ]; then
+            npm ci
+            npm run lint --if-present
+          fi

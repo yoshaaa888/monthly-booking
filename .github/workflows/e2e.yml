@@ -5,6 +5,7 @@ on:
     branches: [ devin/1754064671-monthly-booking-plugin ]
   pull_request:
     branches: ["*"]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     paths-ignore:
       - "docs/**"
       - "**/*.md"
@@ -15,6 +16,8 @@ concurrency:
 
 jobs:
   e2e:
+    if: github.event_name != 'pull_request' || contains(join(fromJson(toJson(github.event.pull_request.labels)).*.name, ','), 'run-e2e')
+
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
