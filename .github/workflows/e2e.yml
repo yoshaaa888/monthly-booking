@@ -80,8 +80,10 @@ jobs:
       - name: Export CAL_URL from WP
         run: echo "CAL_URL=$(npx wp-env run cli -- wp option get home)" >> $GITHUB_ENV
 
-      - name: Install Playwright chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        uses: microsoft/playwright-github-action@v1
+        with:
+          with-deps: true
 
       - name: Run E2E
         run: npx playwright test --reporter=list,html --workers=2
@@ -95,6 +97,15 @@ jobs:
         with:
           name: playwright-report
           path: playwright-report
+          if-no-files-found: ignore
+
+      - name: Upload raw test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/**
+          if-no-files-found: ignore
 
       - name: Collect debug artifacts (if fail)
         if: failure()
