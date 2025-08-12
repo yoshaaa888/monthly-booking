@@ -77,8 +77,8 @@ jobs:
             echo "monthly-calendar exists: ID=${PID}"
           fi
 
-      - name: Export PW_BASE_URL from WP
-        run: echo "PW_BASE_URL=$(npx wp-env run cli -- wp option get home)" >> $GITHUB_ENV
+      - name: Export CAL_URL from WP
+        run: echo "CAL_URL=$(npx wp-env run cli -- wp option get home)" >> $GITHUB_ENV
 
       - name: Install Playwright chromium
         run: npx playwright install --with-deps chromium
@@ -87,6 +87,7 @@ jobs:
         run: npx playwright test --reporter=list,html --workers=2
         env:
           CI: true
+          CAL_URL: ${{ env.CAL_URL }}
 
       - name: Upload Playwright HTML report
         if: always()
