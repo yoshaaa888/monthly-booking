@@ -99,7 +99,7 @@ class MonthlyBooking_Admin_UI {
      * Enqueue admin scripts and styles
      */
     public function enqueue_admin_scripts($hook) {
-        if (strpos($hook, 'monthly-booking') === false) {
+        if (strpos($hook, 'monthly-room-booking') === false) {
             return;
         }
         
