@@ -38,7 +38,7 @@ jobs:
           chmod +x scripts/wp-setup.sh
         shell: bash
 
-      - name: Preflight: verify secrets and BASE_URL reachability
+      - name: "Preflight: verify secrets and BASE_URL reachability"
         env:
           BASE_URL: ${{ secrets.BASE_URL }}
           WP_ADMIN_USER: ${{ secrets.WP_ADMIN_USER }}
