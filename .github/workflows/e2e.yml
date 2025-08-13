@@ -1,112 +1,46 @@
-name: E2E Tests (WordPress + Monthly Booking)
-
+name: E2E Tests (wp-env)
 on:
-  push:
-    branches: [ devin/1754064671-monthly-booking-plugin ]
   pull_request:
-    branches: ["*"]
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-
+  workflow_dispatch:
 concurrency:
-  group: ${{ github.ref }}
-  cancel-in-progress: ${{ github.ref_name != 'main' }}
-
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - name: "Checkout"
+        uses: actions/checkout@v4
+      - name: "Setup Node"
+        uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
+          node-version: 20
+      - name: "Install deps"
         run: npm ci
-
-      # docker-compose ENOENT対策（公式リリースからDL）
-      - name: Install docker-compose (shim for wp-env)
-        run: |
-          sudo curl -L "https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-          /usr/local/bin/docker-compose version
-
-      - name: Docker sanity
-        run: |
-          docker --version
-          docker compose version || true
-
-      - name: Install @wordpress/env globally
-        run: npm i -g @wordpress/env
-
-      - name: Start WordPress env
-        env:
-          DOCKER_COMPOSE_CMD: "docker compose"
-        run: wp-env start
-
-      # 共有セットアップ
-      - name: Make wp-setup executable
-        run: chmod +x .github/scripts/wp-setup.sh
-
-      - name: WordPress bootstrap (shared script)
-        env:
-          DB_WAIT_MAX: "60"
-          DB_WAIT_INTERVAL: "2"
+      - name: "Install wp-env"
+        run: npm i -g @wordpress/env @wordpress/scripts
+      - name: "Start wp-env & seed"
         run: .github/scripts/wp-setup.sh
-
-      # Pagerによるexit 127対策＋ページ作成（必要時）
-      - name: Finalize permalinks & calendar page (no pager, inside container)
-        shell: bash
-        run: |
-          set -euo pipefail
-          npx wp-env run cli -- wp rewrite structure '/%postname%/' --hard
-          npx wp-env run cli -- wp rewrite flush --hard
-          PID=$(npx wp-env run cli -- bash -lc 'WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post list --post_type=page --pagename=monthly-calendar --format=ids || true')
-          if [ -z "${PID}" ]; then
-            echo "Creating monthly-calendar page..."
-            npx wp-env run cli -- bash -lc 'WP_CLI_DISABLE_AUTO_PAGER=1 PAGER=cat LESS=-R wp post create \
-              --post_type=page --post_status=publish \
-              --post_title="Monthly Calendar" \
-              --post_name="monthly-calendar" \
-              --post_content="[monthly_calendar]"'
-          else
-            echo "monthly-calendar exists: ID=${PID}"
-          fi
-
-      - name: Export PW_BASE_URL from WP
-        run: echo "PW_BASE_URL=$(npx wp-env run cli -- wp option get home)" >> $GITHUB_ENV
-
-      - name: Install Playwright chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Run E2E
-        run: npx playwright test --reporter=list,html --workers=2
+      - name: "Export BASE_URL"
+        id: base
+        run: echo "BASE_URL=$(wp option get siteurl)" >> $GITHUB_ENV
+      - name: "Run Playwright tests"
+        run: npx playwright install --with-deps && npx playwright test
         env:
-          CI: true
-
-      - name: Upload Playwright HTML report
+          BASE_URL: ${{ env.BASE_URL }}
+      - name: "Upload Playwright report"
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report
-
-      - name: Collect debug artifacts (if fail)
-        if: failure()
-        run: |
-          mkdir -p ci-debug
-          npx wp-env run cli "wp core is-installed" > ci-debug/core-installed.txt || true
-          npx wp-env run cli "wp option get home"   > ci-debug/home.txt || true
-          npx wp-env run cli "wp rewrite list"      > ci-debug/rewrite.txt || true
-          npx wp-env run cli "wp post list --post_type=page --fields=ID,post_title,post_name,post_status" > ci-debug/pages.txt || true
-          cp -f wp-content/debug.log ci-debug/debug.log || true
-      - uses: actions/upload-artifact@v4
-        if: failure()
+          if-no-files-found: warn
+          retention-days: 7
+      - name: "Upload test-results (traces/videos)"
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: ci-debug
-          path: ci-debug/**
+          name: test-results
+          path: test-results
+          if-no-files-found: warn
           retention-days: 7
