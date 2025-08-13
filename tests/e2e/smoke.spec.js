@@ -1,3 +1,4 @@
+/* ci-trigger: noop at 2025-08-13T12:36Z to retrigger E2E */
 const { test, expect } = require('@playwright/test');
 
 test.describe('Calendar Smoke Test @smoke', () => {
