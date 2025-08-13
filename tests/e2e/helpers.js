@@ -1,3 +1,4 @@
+/* trigger CI: noop comment */
 const { expect } = require('@playwright/test');
 
 async function waitAjax(page, action, timeout = 15000) {
