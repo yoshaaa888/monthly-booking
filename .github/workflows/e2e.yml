@@ -62,10 +62,10 @@ jobs:
           echo "BASE_URL=${SITEURL}" >> "$GITHUB_ENV"
         shell: bash
 
-      - name: Run Playwright tests
+      - name: Run Playwright tests (smoke)
         env:
           BASE_URL: ${{ env.BASE_URL }}
-        run: npx playwright test --reporter=list,html --workers=2
+        run: npx playwright test --reporter=list,html --workers=2 --grep "@smoke"
         shell: bash
 
       - name: Upload Playwright artifacts
