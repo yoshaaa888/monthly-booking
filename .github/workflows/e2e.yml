@@ -21,13 +21,12 @@ jobs:
         run: npm i -g @wordpress/env @wordpress/scripts
       - name: "Start wp-env & seed"
         run: .github/scripts/wp-setup.sh
-      - name: "Export BASE_URL"
-        id: base
-        run: echo "BASE_URL=$(wp option get siteurl)" >> $GITHUB_ENV
+      - name: "Check RES_COUNT"
+        run: |
+          echo "Looking for RES_COUNT..."
+          grep -n "RES_COUNT=" -n seed.log || (echo "RES_COUNT not found" && exit 1)
       - name: "Run Playwright tests"
         run: npx playwright install --with-deps && npx playwright test
-        env:
-          BASE_URL: ${{ env.BASE_URL }}
       - name: "Upload Playwright report"
         if: always()
         uses: actions/upload-artifact@v4
@@ -42,5 +41,13 @@ jobs:
         with:
           name: test-results
           path: test-results
+          if-no-files-found: warn
+          retention-days: 7
+      - name: "Upload seed.log (proof)"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seed-log
+          path: seed.log
           if-no-files-found: warn
           retention-days: 7
