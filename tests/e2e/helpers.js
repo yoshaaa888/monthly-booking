@@ -1,3 +1,5 @@
+/* ci-trigger: noop at ${Date.now?.() || 'ts'} */
+
 /* ci-trigger: noop */
 /* trigger CI: noop comment */
 const { expect } = require('@playwright/test');
