@@ -99,17 +99,34 @@ class MonthlyBooking_Admin_UI {
      * Enqueue admin scripts and styles
      */
     public function enqueue_admin_scripts($hook) {
-        if (strpos($hook, 'monthly-booking') === false) {
+        $should_enqueue = false;
+
+        if (strpos($hook, 'monthly-booking') !== false) {
+            $should_enqueue = true;
+        }
+
+        if (isset($_GET['page'])) {
+            $page = sanitize_text_field($_GET['page']);
+            $targets = array(
+                'monthly-room-booking-campaigns',
+                'monthly-room-booking-registration',
+            );
+            if (in_array($page, $targets, true)) {
+                $should_enqueue = true;
+            }
+        }
+
+        if (!$should_enqueue) {
             return;
         }
-        
+
         wp_enqueue_style(
             'monthly-booking-admin',
             MONTHLY_BOOKING_PLUGIN_URL . 'assets/admin.css',
             array(),
             MONTHLY_BOOKING_VERSION
         );
-        
+
         wp_enqueue_script(
             'monthly-booking-admin',
             MONTHLY_BOOKING_PLUGIN_URL . 'assets/admin.js',
