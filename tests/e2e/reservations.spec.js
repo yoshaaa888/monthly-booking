@@ -1,3 +1,4 @@
+/* placeholder to trigger CI; e2e tests live alongside this file. */
 import { test, expect } from '@playwright/test';
 
 test.describe('Reservation Management MVP', () => {
