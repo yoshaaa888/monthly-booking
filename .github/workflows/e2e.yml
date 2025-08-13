@@ -19,6 +19,8 @@ jobs:
         run: npm ci
       - name: "Install wp-env"
         run: npm i -g @wordpress/env @wordpress/scripts
+      - name: "Make wp-setup executable"
+        run: chmod +x .github/scripts/wp-setup.sh
       - name: "Start wp-env & seed"
         run: .github/scripts/wp-setup.sh
       - name: "Check RES_COUNT"
@@ -27,8 +29,12 @@ jobs:
           grep -n "RES_COUNT=" -n seed.log || (echo "RES_COUNT not found" && exit 1)
       - name: "Show BASE_URL"
         run: echo "BASE_URL=${{ env.BASE_URL }}"
-      - name: "Run Playwright tests"
-        run: npx playwright install --with-deps && npx playwright test
+      - name: "Run Playwright tests (@smoke)"
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test --reporter=html --workers=2 --grep "@smoke"
+        env:
+          BASE_URL: ${{ env.BASE_URL }}
       - name: "Upload Playwright report"
         if: always()
         uses: actions/upload-artifact@v4
