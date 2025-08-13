@@ -10,3 +10,4 @@ if (function_exists('monthly_booking_count_reservations')) {
 } else {
   echo "RES_COUNT=6\n";
 }
+// ci: retrigger e2e run
