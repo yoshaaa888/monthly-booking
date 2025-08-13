@@ -24,6 +24,7 @@ fi
 
 echo "::notice::Seeding test data (idempotent)"
 wp eval 'function_exists("monthly_booking_backfill_room_id") && monthly_booking_backfill_room_id();' || true
-wp eval 'function_exists("monthly_booking_seed") && monthly_booking_seed(["reservations"=>6]);' || true
+RES_COUNT=$(wp eval 'echo function_exists("monthly_booking_seed") ? (string)monthly_booking_seed(["reservations"=>6]) : "N/A";' || echo "N/A")
+echo "RES_COUNT=${RES_COUNT}"
 
 echo "wp-setup done"
