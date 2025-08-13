@@ -37,6 +37,26 @@ jobs:
           chmod +x scripts/wp-setup.sh
         shell: bash
 
+      - name: Preflight: verify secrets and BASE_URL reachability
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          WP_ADMIN_USER: ${{ secrets.WP_ADMIN_USER }}
+          WP_ADMIN_PASS: ${{ secrets.WP_ADMIN_PASS }}
+        run: |
+          set -euo pipefail
+          [[ -n "${BASE_URL:-}" ]] || { echo "::error::Missing secret: BASE_URL"; exit 1; }
+          [[ -n "${WP_ADMIN_USER:-}" ]] || { echo "::error::Missing secret: WP_ADMIN_USER"; exit 1; }
+          [[ -n "${WP_ADMIN_PASS:-}" ]] || { echo "::error::Missing secret: WP_ADMIN_PASS"; exit 1; }
+          echo "::notice::BASE_URL host: $(echo "${BASE_URL}" | sed -E 's#https?://([^/]+)/?.*#\1#')"
+          for i in {1..12}; do
+            if curl -fsSL -o /dev/null "${BASE_URL}/wp-admin/"; then
+              echo "BASE_URL reachable"; break
+            fi
+            echo "Waiting for BASE_URL to be reachable... ($i/12)"; sleep 5
+          done
+          curl -fsS -o /dev/null "${BASE_URL}/wp-admin/" || { echo "::error::BASE_URL not reachable from runner"; exit 1; }
+        shell: bash
+
       - name: WordPress setup
         env:
           BASE_URL: ${{ secrets.BASE_URL }}
