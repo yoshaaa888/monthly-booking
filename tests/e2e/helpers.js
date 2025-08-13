@@ -1,3 +1,5 @@
+/* ci-trigger: noop to retrigger E2E at 2025-08-13T11:48Z */
+
 /* ci-trigger: noop commit to trigger workflow */
 /* ci-trigger: noop at ${Date.now?.() || 'ts'} */
 
