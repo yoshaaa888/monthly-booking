@@ -1748,12 +1748,11 @@ class MonthlyBooking_Admin_UI {
                                            data-campaign-id="<?php echo esc_attr($c->id); ?>"
                                            data-is-active="<?php echo esc_attr($c->is_active); ?>">
                                            <?php echo $c->is_active ? __('無効化', 'monthly-booking') : __('有効化', 'monthly-booking'); ?>
+                                        </a>
                                         <button type="button" class="button button-small button-link-delete campaign-delete"
                                             data-campaign-id="<?php echo esc_attr($c->id); ?>">
                                             <?php _e('削除', 'monthly-booking'); ?>
                                         </button>
-
-                                        </a>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
