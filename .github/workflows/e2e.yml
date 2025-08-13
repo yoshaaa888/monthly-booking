@@ -25,6 +25,8 @@ jobs:
         run: |
           echo "Looking for RES_COUNT..."
           grep -n "RES_COUNT=" -n seed.log || (echo "RES_COUNT not found" && exit 1)
+      - name: "Show BASE_URL"
+        run: echo "BASE_URL=${{ env.BASE_URL }}"
       - name: "Run Playwright tests"
         run: npx playwright install --with-deps && npx playwright test
       - name: "Upload Playwright report"
@@ -51,3 +53,6 @@ jobs:
           path: seed.log
           if-no-files-found: warn
           retention-days: 7
+      - name: "Cleanup wp-env"
+        if: always()
+        run: npx wp-env stop || true
