@@ -21,3 +21,4 @@ async function waitAjax(page, action, timeout = 15000) {
 }
 
 module.exports = { waitAjax };
+exports.waitAjax = waitAjax;
