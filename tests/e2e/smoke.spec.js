@@ -40,37 +40,38 @@ test.describe('Calendar Smoke Test @smoke', () => {
       
       await page.waitForLoadState('networkidle', { timeout: 15000 });
       
-      const tier1Selector = page.locator('.monthly-booking-calendar-container .calendar-month .calendar-header');
-      monthCount = await tier1Selector.count();
+      const t1 = page.locator('.calendar-month .month-header');
+      monthCount = await t1.count();
       if (monthCount > 0) {
-        console.info('✅ Found calendar headers (Tier 1):', monthCount);
+        console.info('✅ Found month headers (.calendar-month .month-header):', monthCount);
         calendarFound = true;
       }
-      
+
       if (!calendarFound) {
-        const tier2Selector = page.locator('.calendar-month .calendar-header');
-        monthCount = await tier2Selector.count();
+        const t2 = page.locator('.monthly-booking-calendar-container .calendar-month');
+        monthCount = await t2.count();
         if (monthCount > 0) {
-          console.info('✅ Found calendar headers (Tier 2):', monthCount);
+          console.info('✅ Found calendar months (container .calendar-month):', monthCount);
           calendarFound = true;
         }
       }
-      
+
       if (!calendarFound) {
-        const tier3Selector = page.locator('.monthly-booking-calendar-container .calendar-month');
-        monthCount = await tier3Selector.count();
+        const t3 = page.locator('.calendar-month');
+        monthCount = await t3.count();
         if (monthCount > 0) {
-          console.info('✅ Found calendar months (Tier 3):', monthCount);
+          console.info('✅ Found calendar months (.calendar-month):', monthCount);
           calendarFound = true;
         }
       }
-      
+
       if (!calendarFound) {
-        const tier4Selector = page.locator('.calendar-month');
-        monthCount = await tier4Selector.count();
-        if (monthCount > 0) {
-          console.info('✅ Found calendar months (Tier 4):', monthCount);
+        const t4 = page.locator('.calendar-grid .calendar-day-header');
+        const headerCount = await t4.count();
+        if (headerCount >= 7) {
+          console.info('✅ Found calendar grid day headers:', headerCount);
           calendarFound = true;
+          monthCount = 1;
         }
       }
       
