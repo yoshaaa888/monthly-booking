@@ -56,6 +56,15 @@ jobs:
             npx wp-env run cli wp user create admin admin@example.com --role=administrator --user_pass="password"
           fi
           npx wp-env run cli wp plugin activate monthly-booking || true
+          # Ensure calendar page exists at /monthly-calendar/ with correct shortcode
+          PAGE_ID=$(npx wp-env run cli wp post list --post_type=page --pagename=monthly-calendar --format=ids | tail -n1 || true)
+          if [ -z "$PAGE_ID" ]; then
+            echo "Creating monthly-calendar page with [monthly_booking_calendar] shortcode"
+            npx wp-env run cli wp post create --post_type=page --post_status=publish --post_title="Monthly Calendar" --post_name="monthly-calendar" --post_content='[monthly_booking_calendar]'
+          else
+            echo "monthly-calendar page exists: ID=$PAGE_ID"
+          fi
+          npx wp-env run cli wp rewrite flush --hard
           RES_LINE=$(npx wp-env run cli wp eval-file tests/fixtures/seed.php | tail -n1 || true)
           echo "$RES_LINE"
           SITEURL=$(npx wp-env run cli wp option get siteurl)
