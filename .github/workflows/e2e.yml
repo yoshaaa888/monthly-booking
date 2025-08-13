@@ -20,6 +20,10 @@ jobs:
           node-version: 20
           cache: 'npm'
 
+      - name: Install dependencies
+        run: npm ci
+        shell: bash
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
         shell: bash
@@ -28,49 +32,39 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y dos2unix
         shell: bash
 
-      - name: Install dependencies
-        run: npm ci
-        shell: bash
-
-      - name: Normalize and make wp-setup executable
-        run: |
-          dos2unix scripts/wp-setup.sh
-          chmod +x scripts/wp-setup.sh
-        shell: bash
-
-      - name: "Preflight: verify secrets and BASE_URL reachability"
-        env:
-          BASE_URL: ${{ secrets.BASE_URL }}
-          WP_ADMIN_USER: ${{ secrets.WP_ADMIN_USER }}
-          WP_ADMIN_PASS: ${{ secrets.WP_ADMIN_PASS }}
+      - name: "Preflight: verify runner and docker availability"
         run: |
           set -euo pipefail
-          [[ -n "${BASE_URL:-}" ]] || { echo "::error::Missing secret: BASE_URL"; exit 1; }
-          [[ -n "${WP_ADMIN_USER:-}" ]] || { echo "::error::Missing secret: WP_ADMIN_USER"; exit 1; }
-          [[ -n "${WP_ADMIN_PASS:-}" ]] || { echo "::error::Missing secret: WP_ADMIN_PASS"; exit 1; }
-          echo "::notice::BASE_URL host: $(echo "${BASE_URL}" | sed -E 's#https?://([^/]+)/?.*#\1#')"
-          for i in {1..12}; do
-            if curl -fsSL -o /dev/null "${BASE_URL}/wp-admin/"; then
-              echo "BASE_URL reachable"; break
-            fi
-            echo "Waiting for BASE_URL to be reachable... ($i/12)"; sleep 5
-          done
-          curl -fsS -o /dev/null "${BASE_URL}/wp-admin/" || { echo "::error::BASE_URL not reachable from runner"; exit 1; }
+          docker --version
+          echo "node=$(node -v) npm=$(npm -v)"
         shell: bash
 
-      - name: WordPress setup
-        env:
-          BASE_URL: ${{ secrets.BASE_URL }}
-          WP_ADMIN_USER: ${{ secrets.WP_ADMIN_USER }}
-          WP_ADMIN_PASS: ${{ secrets.WP_ADMIN_PASS }}
-        run: scripts/wp-setup.sh
+      - name: Install @wordpress/env
+        run: npm i -g @wordpress/env
+        shell: bash
+
+      - name: Start WordPress env
+        run: npx wp-env start
+        shell: bash
+
+      - name: "Setup WordPress in wp-env and seed (RES_COUNT=6)"
+        run: |
+          set -euo pipefail
+          npx wp-env run cli wp rewrite structure '/%postname%/' --hard
+          npx wp-env run cli wp rewrite flush --hard
+          if ! npx wp-env run cli wp user get admin >/dev/null 2>&1; then
+            npx wp-env run cli wp user create admin admin@example.com --role=administrator --user_pass="password"
+          fi
+          npx wp-env run cli wp plugin activate monthly-booking || true
+          RES_LINE=$(npx wp-env run cli wp eval-file tests/fixtures/seed.php | tail -n1 || true)
+          echo "$RES_LINE"
+          SITEURL=$(npx wp-env run cli wp option get siteurl)
+          echo "BASE_URL=${SITEURL}" >> "$GITHUB_ENV"
         shell: bash
 
       - name: Run Playwright tests
         env:
-          BASE_URL: ${{ secrets.BASE_URL }}
-          WP_ADMIN_USER: ${{ secrets.WP_ADMIN_USER }}
-          WP_ADMIN_PASS: ${{ secrets.WP_ADMIN_PASS }}
+          BASE_URL: ${{ env.BASE_URL }}
         run: npx playwright test --reporter=list,html --workers=2
         shell: bash
 
@@ -82,3 +76,4 @@ jobs:
           path: |
             playwright-report/
             test-results/
+          retention-days: 7
