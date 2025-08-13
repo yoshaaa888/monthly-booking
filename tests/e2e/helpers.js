@@ -26,3 +26,4 @@ async function waitAjax(page, action, timeout = 15000) {
 
 module.exports = { waitAjax };
 exports.waitAjax = waitAjax;
+/* ci-trigger: second green attempt 2025-08-13T12:03:27Z */
