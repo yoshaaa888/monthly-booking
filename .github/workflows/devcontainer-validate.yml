@@ -1,0 +1,100 @@
+name: Devcontainer Validate
+
+on:
+  push:
+    branches: [ main, fix/**, docs/** ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node (for CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Dev Container CLI (@latest)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          npm -v
+          npm install -g @devcontainers/cli@latest || true
+          if command -v devcontainer >/dev/null 2>&1; then
+            devcontainer --version
+          else
+            npx -y @devcontainers/cli@latest --version
+          fi
+      - name: Lint devcontainer (read-configuration)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if command -v devcontainer >/dev/null 2>&1; then
+            devcontainer read-configuration \
+              --workspace-folder . \
+              --config .devcontainer/devcontainer.json \
+              --log-level info
+          else
+            npx -y @devcontainers/cli@latest read-configuration \
+              --workspace-folder . \
+              --config .devcontainer/devcontainer.json \
+              --log-level info
+          fi
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node 20 (for CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Dev Container CLI (@latest) with npx fallback
+        shell: bash
+        run: |
+          set -euxo pipefail
+          npm -v
+          npm install -g @devcontainers/cli@latest || true
+          if command -v devcontainer >/dev/null 2>&1; then
+            devcontainer --version
+          else
+            npx -y @devcontainers/cli@latest --version
+          fi
+          docker --version
+      - name: Build devcontainer image (no postCreate)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if command -v devcontainer >/dev/null 2>&1; then
+            devcontainer build \
+              --workspace-folder . \
+              --config .devcontainer/devcontainer.json \
+              --log-level info
+          else
+            npx -y @devcontainers/cli@latest build \
+              --workspace-folder . \
+              --config .devcontainer/devcontainer.json \
+              --log-level info
+          fi
+      - name: Smoke 'up' (skip postCreate in CI)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if command -v devcontainer >/dev/null 2>&1; then
+            devcontainer up \
+              --workspace-folder . \
+              --config .devcontainer/devcontainer.json \
+              --skip-post-create \
+              --id-label CI=true \
+              --log-level info
+          else
+            npx -y @devcontainers/cli@latest up \
+              --workspace-folder . \
+              --config .devcontainer/devcontainer.json \
+              --skip-post-create \
+              --id-label CI=true \
+              --log-level info
+          fi
