@@ -1,0 +1,34 @@
+name: Devcontainer Validate
+on:
+  pull_request:
+  push:
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate devcontainer layout
+        run: |
+          set -euxo pipefail
+          test -f .devcontainer/devcontainer.json
+          test -f .devcontainer/Dockerfile
+          # dockerFile must be "Dockerfile" relative to .devcontainer/
+          jq -er '.build.dockerfile // .dockerFile' .devcontainer/devcontainer.json | grep -qx 'Dockerfile'
+          # Node feature 18 must be present
+          jq -er '.features["ghcr.io/devcontainers/features/node:1"].version' .devcontainer/devcontainer.json | grep -qx '18'
+          # No nvm commands in Dockerfile
+          ! grep -qi 'nvm' .devcontainer/Dockerfile
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Dev Container CLI
+        run: |
+          set -euxo pipefail
+          npm -g i @devcontainers/cli@0
+      - name: Devcontainer build (skip postCreate)
+        run: |
+          set -euxo pipefail
+          devcontainer build --workspace-folder .
+          devcontainer up --workspace-folder . --skip-post-create
+          echo "Devcontainer build-only OK"
