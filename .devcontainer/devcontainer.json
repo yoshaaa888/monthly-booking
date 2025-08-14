@@ -1,21 +1,26 @@
 {
-  "name": "Monthly Booking Dev",
-  "dockerFile": "Dockerfile",
+  "name": "monthly-booking",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       "version": "18"
     }
   },
-  "postCreateCommand": "set -eux; npm -g install @wordpress/env playwright; npx playwright install --with-deps; wp-env start",
+  "postCreateCommand": "set -eux; npm i -g @wordpress/env playwright; npx playwright install --with-deps; wp-env start",
   "forwardPorts": [8888],
   "customizations": {
     "vscode": {
       "extensions": [
         "ms-azuretools.vscode-docker",
+        "esbenp.prettier-vscode",
         "dbaeumer.vscode-eslint",
-        "bmewburn.vscode-intelephense-client",
-        "esbenp.prettier-vscode"
+        "bmewburn.vscode-intelephense-client"
       ]
     }
-  }
+  },
+  "remoteUser": "vscode",
+  "workspaceFolder": "/workspaces/monthly-booking"
 }
