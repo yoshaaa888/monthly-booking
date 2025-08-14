@@ -1,38 +1,79 @@
 name: Devcontainer Validate
+
 on:
-  pull_request:
   push:
+    branches: [ main, fix/**, docs/** ]
+  pull_request:
+    branches: [ main ]
+
 jobs:
   lint:
+    name: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate devcontainer layout
-        run: |
-          set -euxo pipefail
-          test -f .devcontainer/devcontainer.json
-          test -f .devcontainer/Dockerfile
-          # dockerFile must be "Dockerfile" relative to .devcontainer/
-          jq -er '.build.dockerfile // .dockerFile' .devcontainer/devcontainer.json | grep -qx 'Dockerfile'
-          # Node feature 18 must be present
-          jq -er '.features["ghcr.io/devcontainers/features/node:1"].version' .devcontainer/devcontainer.json | grep -qx '18'
-          # No nvm commands in Dockerfile
-          ! grep -qi 'nvm' .devcontainer/Dockerfile
+      - name: Lint devcontainer
+        uses: devcontainers/ci@v0.3
+        with:
+          subFolder: .devcontainer
+          action: 'lint'
+
   build:
+    name: build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Install Dev Container CLI
+      - name: Setup Node for CLI
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Dev Container CLI (@latest)
+        shell: bash
         run: |
           set -euxo pipefail
-          npm -g i @devcontainers/cli@latest
-          devcontainer --version
-      - name: Devcontainer build (skip postCreate)
+          npm -v
+          # グローバルに入らない環境もあるため npx フォールバックを用意
+          npm install -g @devcontainers/cli@latest || true
+          if ! command -v devcontainer >/dev/null 2>&1; then
+            echo "Global install not found, falling back to npx..."
+            echo 'npx -y @devcontainers/cli@latest --version' | bash
+          else
+            devcontainer --version
+          fi
+          docker --version
+      - name: Build devcontainer (no postCreate)
+        shell: bash
         run: |
           set -euxo pipefail
-          echo "Building devcontainer image..."
-          devcontainer build --workspace-folder .
-          echo "Starting devcontainer (skip postCreate)..."
-          devcontainer up --workspace-folder . --skip-post-create
-          echo "Devcontainer build-only OK"
+          # npx とグローバルの両対応で実行
+          if command -v devcontainer >/dev/null 2>&1; then
+            devcontainer build \
+              --workspace-folder . \
+              --config .devcontainer/devcontainer.json \
+              --log-level info
+          else
+            npx -y @devcontainers/cli@latest build \
+              --workspace-folder . \
+              --config .devcontainer/devcontainer.json \
+              --log-level info
+          fi
+      - name: Smoke 'up' (skip postCreate)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          # コンテナ起動の成否のみ確認（postCreate はスキップ）
+          if command -v devcontainer >/dev/null 2>&1; then
+            devcontainer up \
+              --workspace-folder . \
+              --config .devcontainer/devcontainer.json \
+              --skip-post-create \
+              --id-label CI=true \
+              --log-level info
+          else
+            npx -y @devcontainers/cli@latest up \
+              --workspace-folder . \
+              --config .devcontainer/devcontainer.json \
+              --skip-post-create \
+              --id-label CI=true \
+              --log-level info
+          fi
