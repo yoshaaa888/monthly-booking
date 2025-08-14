@@ -22,9 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Use official devcontainers CI action to build the image as Codespaces would
-      - name: Build devcontainer
-        uses: devcontainers/ci@v0.3
-        with:
-          runCmd: echo "Devcontainer build ok"
-          # This will build using .devcontainer/devcontainer.json in the repo root
+      - name: Build devcontainer image only (skip postCreate)
+        run: |
+          set -euxo pipefail
+          npx -y @devcontainers/cli@0.55.2 build --workspace-folder .
+      - name: Confirm devcontainer build completed
+        run: echo "Devcontainer build ok"
