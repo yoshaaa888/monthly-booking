@@ -51,6 +51,8 @@ class MonthlyBooking {
         if ($this->is_feature_enabled('reservations_mvp')) {
             require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/reservation-service.php';
         }
+        require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/price-example.php';
+
     }
     
     private function init_admin() {
@@ -898,7 +900,30 @@ class MonthlyBooking {
     }
 }
 if (defined('WP_CLI') && WP_CLI) {
+
+    $mb_db_cli = MONTHLY_BOOKING_PLUGIN_DIR . 'includes/cli/class-mb-db-cli.php';
+    if (file_exists($mb_db_cli)) {
+        require_once $mb_db_cli;
+    }
+    $mb_cli = MONTHLY_BOOKING_PLUGIN_DIR . 'includes/cli/class-mb-cli.php';
+    if (file_exists($mb_cli)) {
+        require_once $mb_cli;
+    }
+}
+
+if (defined('WP_CLI') && WP_CLI) {
+
     require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/cli/class-mb-db-cli.php';
 }
 
 new MonthlyBooking();
+add_action('monthly_booking_reservation_saved', function($reservation_id, $data, $total_price) {
+    if (function_exists('error_log')) {
+        error_log('[MBP] reservation_saved id=' . intval($reservation_id) . ' total=' . intval($total_price));
+    }
+    if (is_admin()) {
+        add_action('admin_notices', function() use ($reservation_id, $total_price) {
+            echo '&lt;div class="notice notice-info is-dismissible"&gt;&lt;p&gt;' . esc_html__('価格再計算フックが実行されました: ', 'monthly-booking') . 'ID=' . intval($reservation_id) . ' ' . esc_html__('合計=', 'monthly-booking') . esc_html($total_price) . '&lt;/p&gt;&lt;/div&gt;';
+        });
+    }
+}, 10, 3);

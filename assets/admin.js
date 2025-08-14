@@ -16,7 +16,7 @@ jQuery(document).ready(function($) {
                 action: 'toggle_campaign',
                 campaign_id: campaignId,
                 is_active: isActive ? 0 : 1,
-                nonce: monthlyBookingAdmin.reservationsNonce
+                nonce: monthlyBookingAdmin.nonce
             },
             success: function(response) {
                 if (response.success) {
@@ -809,6 +809,78 @@ jQuery(document).ready(function($) {
         $('#validation-errors').hide();
     }
     
+    $(document).on('click', '.campaign-edit', function(e) {
+        e.preventDefault();
+        var $btn = $(this);
+        var id = $btn.data('campaign-id');
+        if (!id) return;
+
+        var currentName = $btn.data('name') || $btn.data('campaign-name') || '';
+        var currentDiscountType = $btn.data('discount-type') || 'percentage';
+        var currentDiscountValue = $btn.data('discount-value') || '';
+        var currentStart = $btn.data('start-date') || '';
+        var currentEnd = $btn.data('end-date') || '';
+
+        var name = window.prompt('キャンペーン名を入力', currentName);
+        if (name === null) return;
+        var discountValueStr = window.prompt('割引値を入力', String(currentDiscountValue));
+        if (discountValueStr === null) return;
+        var discountValue = parseFloat(discountValueStr);
+        if (isNaN(discountValue)) discountValue = 0;
+        var startDate = window.prompt('開始日 YYYY-MM-DD', currentStart);
+        if (startDate === null) return;
+        var endDate = window.prompt('終了日 YYYY-MM-DD', currentEnd);
+        if (endDate === null) return;
+
+        $.ajax({
+            url: monthlyBookingAdmin.ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'update_campaign',
+                nonce: monthlyBookingAdmin.nonce,
+                campaign_id: id,
+                name: name,
+                discount_type: currentDiscountType,
+                discount_value: discountValue,
+                start_date: startDate,
+                end_date: endDate
+            }
+        }).done(function(resp){
+            if (resp && resp.success) {
+                location.reload();
+            } else {
+                alert('更新に失敗: ' + (resp && resp.data ? resp.data : ''));
+            }
+        }).fail(function(){
+            alert('ネットワークエラー');
+        });
+    });
+
+    $(document).on('click', '.campaign-delete', function(e) {
+        e.preventDefault();
+        var id = $(this).data('campaign-id');
+        if (!id) return;
+        if (!window.confirm('このキャンペーンを削除しますか？')) return;
+
+        $.ajax({
+            url: monthlyBookingAdmin.ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'delete_campaign',
+                nonce: monthlyBookingAdmin.nonce,
+                campaign_id: id
+            }
+        }).done(function(resp){
+            if (resp && resp.success) {
+                location.reload();
+            } else {
+                alert('削除に失敗: ' + (resp && resp.data ? resp.data : ''));
+            }
+        }).fail(function(){
+            alert('ネットワークエラー');
+        });
+    });
+
 });
 
 $(document).ready(function() {

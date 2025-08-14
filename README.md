@@ -1,3 +1,19 @@
+# Monthly Booking
+
+## Data integrity and seeding (WP-CLI)
+Use these commands with wp-env to backfill room_id and seed minimal data.
+
+```
+npx wp-env start
+npx wp-env run cli -- wp plugin activate monthly-booking || true
+npx wp-env run cli -- wp mb backfill_room_id
+npx wp-env run cli -- wp mb seed
+npx wp-env run cli -- wp mb migrate
+```
+
+Re-running seed should result in inserted=0 and skipped increasing.
+
+
 # Monthly Booking WordPress Plugin
 
 A comprehensive WordPress plugin for managing monthly property bookings with advanced campaign management, pricing calculations, and administrative interfaces.
