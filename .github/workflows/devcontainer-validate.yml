@@ -20,15 +20,19 @@ jobs:
           ! grep -qi 'nvm' .devcontainer/Dockerfile
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Install Dev Container CLI
         run: |
           set -euxo pipefail
-          npm -g i @devcontainers/cli@0
+          npm -g i @devcontainers/cli@latest
+          devcontainer --version
       - name: Devcontainer build (skip postCreate)
         run: |
           set -euxo pipefail
+          echo "Building devcontainer image..."
           devcontainer build --workspace-folder .
+          echo "Starting devcontainer (skip postCreate)..."
           devcontainer up --workspace-folder . --skip-post-create
           echo "Devcontainer build-only OK"
