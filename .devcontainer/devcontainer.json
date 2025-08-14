@@ -1,0 +1,16 @@
+{
+  "name": "Monthly Booking Dev",
+  "dockerFile": "Dockerfile",
+  "postCreateCommand": "npm install -g @wordpress/env && wp-env start",
+  "forwardPorts": [8888],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "dbaeumer.vscode-eslint",
+        "bmewburn.vscode-intelephense-client",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  }
+}
