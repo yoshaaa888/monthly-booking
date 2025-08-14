@@ -99,17 +99,34 @@ class MonthlyBooking_Admin_UI {
      * Enqueue admin scripts and styles
      */
     public function enqueue_admin_scripts($hook) {
-        if (strpos($hook, 'monthly-booking') === false) {
+        $should_enqueue = false;
+
+        if (strpos($hook, 'monthly-booking') !== false) {
+            $should_enqueue = true;
+        }
+
+        if (isset($_GET['page'])) {
+            $page = sanitize_text_field($_GET['page']);
+            $targets = array(
+                'monthly-room-booking-campaigns',
+                'monthly-room-booking-registration',
+            );
+            if (in_array($page, $targets, true)) {
+                $should_enqueue = true;
+            }
+        }
+
+        if (!$should_enqueue) {
             return;
         }
-        
+
         wp_enqueue_style(
             'monthly-booking-admin',
             MONTHLY_BOOKING_PLUGIN_URL . 'assets/admin.css',
             array(),
             MONTHLY_BOOKING_VERSION
         );
-        
+
         wp_enqueue_script(
             'monthly-booking-admin',
             MONTHLY_BOOKING_PLUGIN_URL . 'assets/admin.js',
@@ -1683,7 +1700,17 @@ class MonthlyBooking_Admin_UI {
                                 </span>
                             </td>
                             <td>
-                                <button type="button" class="button button-small" onclick="editCampaign(<?php echo esc_attr($campaign->id); ?>)"><?php _e('編集', 'monthly-booking'); ?></button>
+                                <button type="button"
+                                        class="button button-small campaign-edit"
+                                        onclick="editCampaign(<?php echo esc_attr($campaign->id); ?>)"
+                                        data-campaign-id="<?php echo esc_attr($campaign->id); ?>"
+                                        data-name="<?php echo esc_attr($campaign->campaign_name); ?>"
+                                        data-discount-type="<?php echo esc_attr($campaign->discount_type); ?>"
+                                        data-discount-value="<?php echo esc_attr($campaign->discount_value); ?>"
+                                        data-start-date="<?php echo esc_attr($campaign->start_date); ?>"
+                                        data-end-date="<?php echo esc_attr($campaign->end_date); ?>">
+                                    <?php _e('編集', 'monthly-booking'); ?>
+                                </button>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -1739,6 +1766,10 @@ class MonthlyBooking_Admin_UI {
                                            data-is-active="<?php echo esc_attr($c->is_active); ?>">
                                            <?php echo $c->is_active ? __('無効化', 'monthly-booking') : __('有効化', 'monthly-booking'); ?>
                                         </a>
+                                        <button type="button" class="button button-small button-link-delete campaign-delete"
+                                            data-campaign-id="<?php echo esc_attr($c->id); ?>">
+                                            <?php _e('削除', 'monthly-booking'); ?>
+                                        </button>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
