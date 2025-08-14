@@ -1,7 +1,14 @@
 {
   "name": "Monthly Booking Dev",
-  "dockerFile": "Dockerfile",
-  "postCreateCommand": "npm install -g @wordpress/env && wp-env start",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "18"
+    }
+  },
+  "postCreateCommand": "npm i -g @wordpress/env playwright && npx playwright install --with-deps && wp-env start",
   "forwardPorts": [8888],
   "customizations": {
     "vscode": {

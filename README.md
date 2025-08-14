@@ -164,3 +164,12 @@ Current hardcoded pricing values that should be made configurable:
 **PHP Compatibility**: 7.4+  
 **Testing**: Comprehensive PHPUnit suite included
 
+## Quick Start (GitHub Codespaces)
+1. Open this repo on GitHub → Code → Codespaces → Create codespace on main.
+2. 起動完了後、自動で `wp-env start` が走ります。右下通知の Port 8888 → Open in Browser で WordPress を表示。
+3. ブラウザで確認できたら、テスト実行:
+   ```bash
+   cd test-environment/playwright
+   npx playwright test --reporter=list
+   ```
+
