@@ -1,0 +1,47 @@
+name: Devcontainer Validate
+
+on:
+  pull_request:
+    paths:
+      - ".devcontainer/**"
+      - ".github/workflows/devcontainer-validate.yml"
+      - "README.md"
+  push:
+    branches: [ fix/devcontainer-build-ci ]
+    paths:
+      - ".devcontainer/**"
+      - ".github/workflows/devcontainer-validate.yml"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm i -g @devcontainers/cli@latest
+      - run: devcontainer read-configuration --workspace-folder . --config .devcontainer/devcontainer.json --log-level info
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm i -g @devcontainers/cli@latest
+      - name: Build & Up (skip postCreate)
+        run: |
+          set -eux
+          export DOCKER_BUILDKIT=1
+          devcontainer build \
+            --workspace-folder . \
+            --config .devcontainer/devcontainer.json \
+            --log-level info
+          devcontainer up \
+            --workspace-folder . \
+            --config .devcontainer/devcontainer.json \
+            --skip-post-create \
+            --id-label CI=true \
+            --log-level info
