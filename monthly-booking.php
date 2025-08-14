@@ -51,6 +51,8 @@ class MonthlyBooking {
         if ($this->is_feature_enabled('reservations_mvp')) {
             require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/reservation-service.php';
         }
+        require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/price-example.php';
+
     }
     
     private function init_admin() {
@@ -906,6 +908,10 @@ if (defined('WP_CLI') && WP_CLI) {
     if (file_exists($mb_cli)) {
         require_once $mb_cli;
     }
+}
+
+if (defined('WP_CLI') && WP_CLI) {
+    require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/cli/class-mb-db-cli.php';
 }
 
 new MonthlyBooking();
