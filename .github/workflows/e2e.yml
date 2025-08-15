@@ -25,35 +25,41 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          BASE_URL="${BASE_URL:-http://127.0.0.1:8888}"
 
-          # Start
           pkill -f '@wp-now/wp-now' 2>/dev/null || true
           setsid npx -y @wp-now/wp-now start --port 8888 >/tmp/wp-now.log 2>&1 &
 
-          # Wait: home
+          ok_home=0
           for i in {1..90}; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8888/ || echo 000)
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/" || echo 000)
             echo "health=$code"
-            if [ "$code" = "200" ] || [ "$code" = "301" ]; then break; fi
+            if [ "$code" = "200" ] || [ "$code" = "301" ]; then ok_home=1; break; fi
             sleep 1
           done
+          if [ "$ok_home" -ne 1 ]; then
+            echo "Home did not become healthy (200/301) within timeout"
+            exit 1
+          fi
 
-          # Wait: REST ping
+          ok_ping=0
           for i in {1..90}; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8888/wp-json/mb-qa/v1/ping || echo 000)
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/wp-json/mb-qa/v1/ping" || echo 000)
             echo "ping=$code"
-            [ "$code" = "200" ] && break || true
+            if [ "$code" = "200" ]; then ok_ping=1; break; fi
             sleep 1
           done
+          if [ "$ok_ping" -ne 1 ]; then
+            echo "REST ping did not return 200 within timeout"
+            exit 1
+          fi
 
-          # Sanity logs (useful in PR)
-          curl -sI http://127.0.0.1:8888/ | tr -d '\r' | grep -i 'x-mb-ok' || true
-          curl -sS http://127.0.0.1:8888/wp-json/mb-qa/v1/ping || true
-          curl -sS http://127.0.0.1:8888/monthly-estimate/ | grep -n 'id="room_id"' || true
-          curl -sS -X POST -d 'action=mb_qa_echo' http://127.0.0.1:8888/wp-admin/admin-ajax.php -D - | tr -d '\r' | sed -n '1,20p' || true
+          curl -sI "$BASE_URL/" | tr -d '\r' | grep -i 'x-mb-ok' || true
+          curl -sS "$BASE_URL/wp-json/mb-qa/v1/ping" || true
+          curl -sS "$BASE_URL/monthly-estimate/" | grep -n 'id="room_id"' || true
+          curl -sS -X POST -d 'action=mb_qa_echo' "$BASE_URL/wp-admin/admin-ajax.php" -D - | tr -d '\r' | sed -n '1,20p' || true
 
-          # Run tests with root Playwright
-          BASE_URL=http://127.0.0.1:8888 \
+          BASE_URL="$BASE_URL" \
             npx playwright test \
               -c test-environment/playwright/playwright.config.js \
               test-environment/playwright/tests/mu_smoke.spec.js \
