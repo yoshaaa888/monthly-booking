@@ -10,13 +10,14 @@
     "test:cleanup": "node test-environment/cleanup-test-data.js",
     "mu:sync": "bash scripts/mu-sync.sh",
     "wp:start": "pkill -f \"@wp-now/wp-now\" 2>/dev/null || true && nohup npx -y @wp-now/wp-now start --port 8888 >/tmp/wp-now.log 2>&1 & sleep 5",
-    "test:smoke": "BASE_URL=http://127.0.0.1:8888 npx playwright test tests/mu_smoke.spec.js tests/smoke_min.spec.js --project=chromium --reporter=list --trace=on",
+    "test:smoke": "BASE_URL=http://127.0.0.1:8888 npx playwright test -c test-environment/playwright/playwright.config.js test-environment/playwright/tests/mu_smoke.spec.js test-environment/playwright/tests/smoke_min.spec.js --project=chromium --reporter=list --trace=on",
     "start": "npm run wp:start"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
-    "@playwright/test": "^1.40.0",
-    "mysql2": "^3.6.0"
+    "@playwright/test": "^1.46.0",
+    "mysql2": "^3.6.0",
+    "playwright": "^1.46.0"
   },
   "keywords": [
     "wordpress",
