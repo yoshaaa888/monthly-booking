@@ -37,8 +37,8 @@ add_action('wp_footer', function () { echo "\n<!-- MB_FIXER_ACTIVE -->\n"; }, 99
 add_shortcode('mb_monthly_estimate', function () {
   ob_start(); ?>
   <div id="mb-monthly-estimate">
-    <label for="mb_room_id">Room</label>
-    <select id="mb_room_id" name="mb_room">
+    <label for="room_id">Room</label>
+    <select id="room_id" name="room">
       <option value="101">Room 101</option>
       <option value="102">Room 102</option>
     </select>
