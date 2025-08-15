@@ -22,7 +22,7 @@
   "author": "Monthly Booking Team",
   "license": "GPL-2.0",
   "devDependencies": {
-    "@playwright/test": "^1.40.0"
+    "@playwright/test": "^1.54.2"
   },
   "dependencies": {
     "mysql2": "^3.6.0"

@@ -7,7 +7,11 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "test:setup": "node test-environment/setup-test-data.js",
-    "test:cleanup": "node test-environment/cleanup-test-data.js"
+    "test:cleanup": "node test-environment/cleanup-test-data.js",
+    "mu:sync": "bash scripts/mu-sync.sh",
+    "wp:start": "pkill -f \"@wp-now/wp-now\" 2>/dev/null || true && nohup npx -y @wp-now/wp-now start --port 8888 >/tmp/wp-now.log 2>&1 & sleep 5",
+    "test:smoke": "BASE_URL=http://127.0.0.1:8888 npx playwright test tests/mu_smoke.spec.js tests/smoke_min.spec.js --project=chromium --reporter=list --trace=on",
+    "start": "npm run wp:start"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
