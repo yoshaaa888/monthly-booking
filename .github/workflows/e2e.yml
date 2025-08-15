@@ -64,7 +64,7 @@ jobs:
               -c test-environment/playwright/playwright.config.js \
               test-environment/playwright/tests/mu_smoke.spec.js \
               test-environment/playwright/tests/smoke_min.spec.js \
-              --project=chromium --reporter=list --trace=on
+              --project=chromium --workers=1 --reporter=list --trace=on
 
       - name: Tail wp-now log (always)
         if: always()
