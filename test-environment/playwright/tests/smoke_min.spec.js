@@ -10,10 +10,12 @@ test('Smoke: estimate page opens and room select visible', async ({ page }) => {
   for (const url of candidates) {
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     const room = page.locator('#room_id');
-    if (await room.count()) {
+    try {
+      await page.waitForSelector('#room_id', { timeout: 20000 });
       await expect(room).toBeVisible({ timeout: 20000 });
       ok = true;
       break;
+    } catch (e) {
     }
   }
   expect(ok).toBeTruthy();
