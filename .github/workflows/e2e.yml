@@ -15,28 +15,52 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      - name: Install Playwright test runner
-        run: npm i -D @playwright/test@^1.46.0
-
-      - name: Install browsers
+      - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
       - name: MU sync
         run: npm run mu:sync
 
-      - name: Start wp-now
-        run: npm run start
-
-      - name: Wait for wp-now to be ready
+      - name: Start wp-now, wait, run tests (single step)
+        shell: bash
         run: |
-          for i in {1..40}; do
+          set -euo pipefail
+
+          # Start
+          pkill -f '@wp-now/wp-now' 2>/dev/null || true
+          setsid npx -y @wp-now/wp-now start --port 8888 >/tmp/wp-now.log 2>&1 &
+
+          # Wait: home
+          for i in {1..90}; do
             code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8888/ || echo 000)
             echo "health=$code"
-            if [ "$code" = "200" ] || [ "$code" = "301" ]; then exit 0; fi
+            if [ "$code" = "200" ] || [ "$code" = "301" ]; then break; fi
             sleep 1
           done
-          echo "Server did not become healthy" >&2
-          exit 1
 
-      - name: Run tests
-        run: npm run test:smoke
+          # Wait: REST ping
+          for i in {1..90}; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8888/wp-json/mb-qa/v1/ping || echo 000)
+            echo "ping=$code"
+            [ "$code" = "200" ] && break || true
+            sleep 1
+          done
+
+          # Sanity logs (useful in PR)
+          curl -sI http://127.0.0.1:8888/ | tr -d '\r' | grep -i 'x-mb-ok' || true
+          curl -sS http://127.0.0.1:8888/wp-json/mb-qa/v1/ping || true
+          curl -sS http://127.0.0.1:8888/monthly-estimate/ | grep -n 'id="room_id"' || true
+
+          # Run tests with root Playwright
+          BASE_URL=http://127.0.0.1:8888 \
+            npx playwright test \
+              -c test-environment/playwright/playwright.config.js \
+              test-environment/playwright/tests/mu_smoke.spec.js \
+              test-environment/playwright/tests/smoke_min.spec.js \
+              --project=chromium --reporter=list --trace=on
+
+      - name: Tail wp-now log (always)
+        if: always()
+        run: |
+          echo '---- /tmp/wp-now.log (last 200 lines) ----'
+          tail -n 200 /tmp/wp-now.log || true
