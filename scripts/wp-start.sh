@@ -10,3 +10,20 @@ for i in $(seq 1 40); do
   sleep 1
 done
 echo "Server did not become healthy in time"; exit 1
+
+# --- auto-install test MU plugins (stable) ---
+if [ -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" ]; then
+  mkdir -p ~/.wp-now/mu-plugins ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins
+  cp -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" ~/.wp-now/mu-plugins/mb-test-rest.php
+  cp -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins/mb-test-rest.php
+fi
+
+## install mb-test-rest
+if [ -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" ]; then
+  mkdir -p ~/.wp-now/mu-plugins \
+          ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins
+  cp -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" \
+        ~/.wp-now/mu-plugins/mb-test-rest.php
+  cp -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" \
+        ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins/mb-test-rest.php
+fi
