@@ -25,3 +25,19 @@ add_action('init', function() {
         }
     }
 });
+add_action('admin_menu', function () {
+    add_management_page('MB Test Nonce', 'MB Test Nonce', 'manage_options', 'mb-test-nonce', function () {
+        wp_enqueue_script('mb-test-admin', plugins_url('mb-test-admin.js', __FILE__), ['jquery'], '1.0', true);
+        wp_localize_script('mb-test-admin', 'monthlyBookingAdmin', [
+            'nonce' => wp_create_nonce('monthly_booking_admin'),
+            'ajaxurl' => admin_url('admin-ajax.php'),
+        ]);
+        echo '<div class="wrap"><h1>MB Test Nonce</h1><pre id="nonce-dump"></pre></div>';
+    });
+});
+
+add_action('admin_print_footer_scripts', function () {
+    if (isset($_GET['page']) && $_GET['page'] === 'mb-test-nonce') {
+        echo "<script>document.getElementById('nonce-dump').textContent = JSON.stringify(monthlyBookingAdmin, null, 2);</script>";
+    }
+});

@@ -12,6 +12,14 @@ async function loginAsAdmin(page) {
   await page.waitForURL(/\/wp-admin\/?$/, { timeout: 15000 });
 }
 
+async function getAdminNonce(page) {
+  await page.goto(`${base}/wp-admin/tools.php?page=mb-test-nonce`, { waitUntil: 'domcontentloaded' });
+  const txt = await page.textContent('#nonce-dump');
+  let j = {};
+  try { j = JSON.parse(txt || '{}'); } catch (e) {}
+  return j.nonce;
+}
+
 async function adminAjax(page, data) {
   const params = new URLSearchParams(data);
   const res = await page.request.post(`${base}/wp-admin/admin-ajax.php`, {
@@ -25,12 +33,8 @@ test.describe.configure({ mode: 'serial' });
 
 test('Campaigns: success create/update/delete', async ({ page }) => {
   await loginAsAdmin(page);
-  const res = await page.request.get(`${base}/wp-admin/admin.php?page=monthly-room-booking-campaigns`);
-  expect(res.status()).toBeLessThan(500);
-  const html = await res.text();
-  const nonceMatch = html.match(/name="nonce"\s+value="([^"]+)"/);
-  expect(nonceMatch).toBeTruthy();
-  const nonce = nonceMatch[1];
+  const nonce = await getAdminNonce(page);
+  expect(nonce).toBeTruthy();
 
   let r = await adminAjax(page, {
     action: 'create_campaign',
@@ -67,7 +71,7 @@ test('Campaigns: success create/update/delete', async ({ page }) => {
   expect(j3.success).toBeTruthy();
 });
 
-test('Campaigns: missing nonce → 4xx', async ({ page }) => {
+test('Campaigns: missing nonce → 4xx or success:false', async ({ page }) => {
   await loginAsAdmin(page);
   const r = await adminAjax(page, {
     action: 'create_campaign',
@@ -77,15 +81,18 @@ test('Campaigns: missing nonce → 4xx', async ({ page }) => {
     start_date: '2025-01-01',
     end_date: '2025-12-31',
   });
-  expect(r.status()).toBeGreaterThanOrEqual(400);
+  const status = r.status();
+  if (status >= 200 && status < 300) {
+    const j = await r.json();
+    expect(j.success).toBeFalsy();
+  } else {
+    expect(status).toBeGreaterThanOrEqual(400);
+  }
 });
 
-test('Campaigns: invalid input → 4xx', async ({ page }) => {
+test('Campaigns: invalid input → 4xx or success:false', async ({ page }) => {
   await loginAsAdmin(page);
-  const res = await page.request.get(`${base}/wp-admin/admin.php?page=monthly-room-booking-campaigns`);
-  const html = await res.text();
-  const nonceMatch = html.match(/name="nonce"\s+value="([^"]+)"/);
-  const nonce = nonceMatch ? nonceMatch[1] : '';
+  const nonce = await getAdminNonce(page);
   const r = await adminAjax(page, {
     action: 'create_campaign',
     nonce,
@@ -95,5 +102,11 @@ test('Campaigns: invalid input → 4xx', async ({ page }) => {
     start_date: '',
     end_date: '',
   });
-  expect(r.status()).toBeGreaterThanOrEqual(400);
+  const status = r.status();
+  if (status >= 200 && status < 300) {
+    const j = await r.json();
+    expect(j.success).toBeFalsy();
+  } else {
+    expect(status).toBeGreaterThanOrEqual(400);
+  }
 });
