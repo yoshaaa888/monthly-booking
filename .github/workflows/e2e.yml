@@ -32,18 +32,13 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      # Playwright browsers cache
+      # Caches (任意だが速くなる)
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
 
-      # ✅ Always ensure the right Chromium is present (cache-aware & idempotent)
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
-      # wp-now WordPress versions cache
       - name: Cache wp-now WordPress versions
         uses: actions/cache@v4
         with:
@@ -52,8 +47,13 @@ jobs:
           restore-keys: |
             wpnow-${{ runner.os }}-
 
+      # ✅ 先に依存を入れる（ここ重要）
       - name: Install deps
         run: npm ci
+
+      # ✅ 依存が入った後で Playwright ブラウザを入れる（バージョン整合）
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
 
       - name: MU sync
         run: npm run mu:sync
@@ -85,10 +85,6 @@ jobs:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
 
-      # ✅ Always install (fast if cached)
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
       - name: Cache wp-now WordPress versions
         uses: actions/cache@v4
         with:
@@ -97,8 +93,12 @@ jobs:
           restore-keys: |
             wpnow-${{ runner.os }}-
 
+      # ✅ 依存 → ブラウザの順
       - name: Install deps
         run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
 
       - name: MU sync
         run: npm run mu:sync
@@ -106,7 +106,7 @@ jobs:
       - name: Start wp-now + health wait
         run: bash scripts/wp-start.sh
 
-      # Run CRUD tests if script exists; otherwise skip gracefully
+      # test:crud が無い場合はスキップ（落とさない）
       - name: CRUD tests
         run: |
           if npm run | grep -q "test:crud"; then
@@ -135,10 +135,6 @@ jobs:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
 
-      # ✅ Always install (fast if cached)
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
       - name: Cache wp-now WordPress versions
         uses: actions/cache@v4
         with:
@@ -147,8 +143,12 @@ jobs:
           restore-keys: |
             wpnow-${{ runner.os }}-
 
+      # ✅ 依存 → ブラウザの順
       - name: Install deps
         run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
 
       - name: MU sync
         run: npm run mu:sync
