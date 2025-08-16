@@ -1,73 +1,165 @@
 name: e2e
+
 on:
   pull_request:
     branches: [ main ]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  workflow_dispatch:
+    inputs:
+      runCrud:
+        description: 'Run CRUD job'
+        required: false
+        default: 'false'
+      runNightly:
+        description: 'Run nightly-full'
+        required: false
+        default: 'false'
+  schedule:
+    - cron: "22 18 * * *" # JST03:22頃にnightly-full
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
+      # Caches (任意だが速くなる)
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
+
+      - name: Cache wp-now WordPress versions
+        uses: actions/cache@v4
+        with:
+          path: ~/.wp-now/wordpress-versions
+          key: wpnow-${{ runner.os }}-wp682
+          restore-keys: |
+            wpnow-${{ runner.os }}-
+
+      # ✅ 先に依存を入れる（ここ重要）
       - name: Install deps
         run: npm ci
 
+      # ✅ 依存が入った後で Playwright ブラウザを入れる（バージョン整合）
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        run: npx playwright install --with-deps chromium
 
       - name: MU sync
         run: npm run mu:sync
 
-      - name: Start wp-now, wait, run tests (single step)
-        shell: bash
+      - name: Start wp-now + health wait
+        run: bash scripts/wp-start.sh
+
+      - name: Smoke tests
+        run: npm run test:smoke
+
+  crud:
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.runCrud == 'true') ||
+      (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ','), 'run-crud'))
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
+
+      - name: Cache wp-now WordPress versions
+        uses: actions/cache@v4
+        with:
+          path: ~/.wp-now/wordpress-versions
+          key: wpnow-${{ runner.os }}-wp682
+          restore-keys: |
+            wpnow-${{ runner.os }}-
+
+      # ✅ 依存 → ブラウザの順
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: MU sync
+        run: npm run mu:sync
+
+      - name: Start wp-now + health wait
+        run: bash scripts/wp-start.sh
+
+      # test:crud が無い場合はスキップ（落とさない）
+      - name: CRUD tests
         run: |
-          set -euo pipefail
-          BASE_URL="${BASE_URL:-http://127.0.0.1:8888}"
-
-          pkill -f '@wp-now/wp-now' 2>/dev/null || true
-          setsid npx -y @wp-now/wp-now start --port 8888 >/tmp/wp-now.log 2>&1 &
-
-          ok_home=0
-          for i in {1..90}; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/" || echo 000)
-            echo "health=$code"
-            if [ "$code" = "200" ] || [ "$code" = "301" ]; then ok_home=1; break; fi
-            sleep 1
-          done
-          if [ "$ok_home" -ne 1 ]; then
-            echo "Home did not become healthy (200/301) within timeout"
-            exit 1
+          if npm run | grep -q "test:crud"; then
+            npm run test:crud
+          else
+            echo "No test:crud script found; skipping CRUD suite on this PR."
           fi
 
-          ok_ping=0
-          for i in {1..90}; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/wp-json/mb-qa/v1/ping" || echo 000)
-            echo "ping=$code"
-            if [ "$code" = "200" ]; then ok_ping=1; break; fi
-            sleep 1
-          done
-          if [ "$ok_ping" -ne 1 ]; then
-            echo "REST ping did not return 200 within timeout"
-            exit 1
-          fi
+  nightly-full:
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.runNightly == 'true')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
 
-          curl -sI "$BASE_URL/" | tr -d '\r' | grep -i 'x-mb-ok' || true
-          curl -sS "$BASE_URL/wp-json/mb-qa/v1/ping" || true
-          curl -sS "$BASE_URL/monthly-estimate/" | grep -n 'id="room_id"' || true
-          curl -sS -X POST -d 'action=mb_qa_echo' "$BASE_URL/wp-admin/admin-ajax.php" -D - | tr -d '\r' | sed -n '1,20p' || true
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
 
-          BASE_URL="$BASE_URL" \
-            npx playwright test \
-              -c test-environment/playwright/playwright.config.js \
-              test-environment/playwright/tests/mu_smoke.spec.js \
-              test-environment/playwright/tests/smoke_min.spec.js \
-              --project=chromium --workers=1 --reporter=list --trace=on
+      - name: Cache wp-now WordPress versions
+        uses: actions/cache@v4
+        with:
+          path: ~/.wp-now/wordpress-versions
+          key: wpnow-${{ runner.os }}-wp682
+          restore-keys: |
+            wpnow-${{ runner.os }}-
 
-      - name: Tail wp-now log (always)
-        if: always()
+      # ✅ 依存 → ブラウザの順
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: MU sync
+        run: npm run mu:sync
+
+      - name: Start wp-now + health wait
+        run: bash scripts/wp-start.sh
+
+      - name: Full CRUD suite (skip gracefully if missing)
         run: |
-          echo '---- /tmp/wp-now.log (last 200 lines) ----'
-          tail -n 200 /tmp/wp-now.log || true
+          if npm run | grep -q "test:crud"; then
+            npm run test:crud
+          else
+            echo "No test:crud script found; skipping nightly CRUD suite."
+          fi
