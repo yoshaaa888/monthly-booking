@@ -3,6 +3,17 @@ name: e2e
 on:
   pull_request:
     branches: [ main ]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  workflow_dispatch:
+    inputs:
+      runCrud:
+        description: 'Run CRUD job'
+        required: false
+        default: 'false'
+      runNightly:
+        description: 'Run nightly-full'
+        required: false
+        default: 'false'
   schedule:
     - cron: "22 18 * * *" # JST03:22頃にnightly-full
 
@@ -20,13 +31,11 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
-
       - name: Cache wp-now WordPress versions
         uses: actions/cache@v4
         with:
@@ -34,16 +43,12 @@ jobs:
           key: wpnow-${{ runner.os }}-wp682
           restore-keys: |
             wpnow-${{ runner.os }}-
-
       - name: Install deps
         run: npm ci
-
       - name: MU sync
         run: npm run mu:sync
-
       - name: Start wp-now + health wait
         run: bash scripts/wp-start.sh
-
       - name: Smoke tests
         run: npm run test:smoke
 
@@ -51,9 +56,10 @@ jobs:
     needs: smoke
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    if: >-
+    if: |
       github.event_name == 'schedule' ||
-      contains(join(github.event.pull_request.labels.*.name, ','), 'run-crud')
+      (github.event_name == 'workflow_dispatch' && inputs.runCrud == 'true') ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-crud'))
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -82,10 +88,12 @@ jobs:
         run: npm run test:crud
 
   nightly-full:
-    if: github.event_name == 'schedule'
     needs: smoke
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.runNightly == 'true')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
