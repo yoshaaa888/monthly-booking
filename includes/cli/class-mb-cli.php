@@ -7,7 +7,8 @@ if (defined('WP_CLI') && WP_CLI) {
         public function backfill_room_id($args, $assoc_args) {
             global $wpdb;
             $rooms = $wpdb->prefix . 'monthly_rooms';
-            $affected = $wpdb->query("UPDATE {$rooms} SET room_id = id WHERE room_id IS NULL OR room_id = 0");
+            $sql = "UPDATE {$rooms} SET room_id = id WHERE room_id IS NULL OR room_id = %d";
+            $affected = $wpdb->query($wpdb->prepare($sql, 0));
             if ($affected === false) {
                 \WP_CLI::error('backfill_room_id failed');
             }
