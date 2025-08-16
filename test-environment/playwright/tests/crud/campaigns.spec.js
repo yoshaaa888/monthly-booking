@@ -23,11 +23,18 @@ async function loginAsAdmin(page) {
 
 async function getAdminNonce(page) {
   await page.goto(`${base}/wp-admin/tools.php?page=mb-test-nonce`, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('#nonce-dump', { timeout: 10000 });
-  const txt = await page.textContent('#nonce-dump');
-  let j = {};
-  try { j = JSON.parse(txt || '{}'); } catch (e) {}
-  return j.nonce;
+  try {
+    await page.waitForSelector('#nonce-dump', { timeout: 15000 });
+    const txt = await page.textContent('#nonce-dump');
+    const j = JSON.parse(txt || '{}');
+    if (j && j.nonce) return j.nonce;
+  } catch (_) {}
+  for (let i = 0; i < 10; i++) {
+    const n = await page.evaluate(() => (globalThis.monthlyBookingAdmin && monthlyBookingAdmin.nonce) || null);
+    if (n) return n;
+    await page.waitForTimeout(500);
+  }
+  throw new Error('Admin nonce not found on Tools page');
 }
 
 async function adminAjax(page, data) {
