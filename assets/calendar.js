@@ -80,14 +80,18 @@ jQuery(document).ready(function($) {
             url: monthlyBookingAjax.ajaxurl,
             type: 'POST',
             data: {
-                action: 'mbp_load_calendar',
+                action: 'mbp_get_calendar_bookings',
                 month: month + 1,
                 year: year,
                 nonce: monthlyBookingAjax.nonce
             },
             success: function(response) {
-                if (response.success) {
-                    updateCalendarWithBookings(response.data);
+                if (response && response.success) {
+                    if (response.data && Array.isArray(response.data)) {
+                        updateCalendarWithBookings(response.data);
+                    } else if (response.data && Array.isArray(response.data.bookings)) {
+                        updateCalendarWithBookings(response.data.bookings);
+                    }
                 }
             },
             error: function() {

@@ -143,7 +143,7 @@ class MonthlyBookingCalendarTests {
         
         try {
             $_POST['room_id'] = '633';
-            $_POST['nonce'] = wp_create_nonce('mbp_calendar_nonce');
+            $_POST['nonce'] = wp_create_nonce('monthly-booking');
             
             ob_start();
             $plugin = new MonthlyBooking();
