@@ -47,7 +47,7 @@ class MonthlyBooking_Calendar_Render {
         
         wp_localize_script('monthly-booking-estimate', 'monthlyBookingAjax', array(
             'ajaxurl' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('monthly-booking'),
+            'nonce' => wp_create_nonce('monthly_booking_nonce'),
             'calculating' => __('Calculating...', 'monthly-booking'),
             'error' => __('An error occurred. Please try again.', 'monthly-booking'),
             'selectStation' => __('Select Station...', 'monthly-booking'),
@@ -65,7 +65,7 @@ class MonthlyBooking_Calendar_Render {
         
         wp_localize_script('monthly-booking-calendar', 'monthlyBookingAjax', array(
             'ajaxurl' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('monthly-booking'),
+            'nonce' => wp_create_nonce('monthly_booking_nonce'),
             'loading' => __('読み込み中...', 'monthly-booking'),
             'error' => __('エラーが発生しました。ページを再読み込みしてください。', 'monthly-booking'),
             'noData' => __('データが見つかりません。', 'monthly-booking')
@@ -161,7 +161,7 @@ class MonthlyBooking_Calendar_Render {
                     data: {
                         action: 'mbp_load_calendar',
                         room_id: roomId,
-                        nonce: '<?php echo wp_create_nonce('monthly-booking'); ?>'
+                        nonce: '<?php echo wp_create_nonce('monthly_booking_nonce'); ?>'
                     },
                     success: function(response) {
                         if (response.success) {
