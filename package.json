@@ -11,7 +11,8 @@
     "mu:sync": "bash scripts/mu-sync.sh",
     "wp:start": "bash scripts/wp-start.sh",
     "start": "npm run wp:start",
-    "test:smoke": "BASE_URL=${BASE_URL:-http://127.0.0.1:8888} npx playwright test -c test-environment/playwright/playwright.config.js test-environment/playwright/tests/mu_smoke.spec.js test-environment/playwright/tests/smoke_min.spec.js --project=chromium --reporter=list --trace=on"
+    "test:smoke": "BASE_URL=${BASE_URL:-http://127.0.0.1:8888} npx playwright test -c test-environment/playwright/playwright.config.js test-environment/playwright/tests/mu_smoke.spec.js test-environment/playwright/tests/smoke_min.spec.js --project=chromium --reporter=list --trace=on",
+    "test:crud": "BASE_URL=${BASE_URL:-http://127.0.0.1:8888} npx playwright test -c test-environment/playwright/playwright.config.js test-environment/playwright/tests/crud --project=chromium --reporter=list --trace=on --workers=1"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
