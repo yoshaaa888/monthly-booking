@@ -28,7 +28,7 @@ test.describe('Calendar AJAX get_calendar_bookings', () => {
     const req = await request.newContext();
     const resp = await req.post(BASE + '/wp-admin/admin-ajax.php', {
       form: {
-        action: 'get_calendar_bookings',
+        action: 'mbp_get_calendar_bookings',
         month: '1',
         year: '2025',
         nonce,
@@ -47,7 +47,7 @@ test.describe('Calendar AJAX get_calendar_bookings', () => {
     const req = await request.newContext();
     const resp = await req.post(BASE + '/wp-admin/admin-ajax.php', {
       form: {
-        action: 'get_calendar_bookings',
+        action: 'mbp_get_calendar_bookings',
         month: '1',
         year: '2025',
       },
@@ -69,7 +69,7 @@ test.describe('Calendar AJAX get_calendar_bookings', () => {
     const req = await request.newContext();
     const resp = await req.post(BASE + '/wp-admin/admin-ajax.php', {
       form: {
-        action: 'get_calendar_bookings',
+        action: 'mbp_get_calendar_bookings',
         month: '13',
         year: '1900',
         nonce,
