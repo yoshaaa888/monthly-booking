@@ -11,7 +11,7 @@ test.describe('Monthly Booking - Campaign Journey Test', () => {
 
     console.log('Testing last-minute booking with immediate move-in campaign...');
     
-    await page.selectOption('#room_id', '2'); // 新宿レジデンス205号室
+    await page.selectOption('#room_id', { index: 1 }); // 新宿レジデンス205号室
     
     const today = new Date();
     const checkinDate = new Date(today);
@@ -74,7 +74,7 @@ test.describe('Monthly Booking - Campaign Journey Test', () => {
   test('Early booking with advance reservation campaign', async ({ page }) => {
     console.log('Testing early booking with advance reservation campaign...');
     
-    await page.selectOption('#room_id', '3'); // 渋谷アパートメント302号室
+    await page.selectOption('#room_id', { index: 2 }); // 渋谷アパートメント302号室
     
     const today = new Date();
     const checkinDate = new Date(today);
@@ -139,7 +139,7 @@ test.describe('Monthly Booking - Campaign Journey Test', () => {
   test('No campaign scenario (normal pricing)', async ({ page }) => {
     console.log('Testing booking without campaign eligibility...');
     
-    await page.selectOption('#room_id', '4'); // 池袋ハイツ403号室
+    await page.selectOption('#room_id', { index: 3 }); // 池袋ハイツ403号室
     
     const today = new Date();
     const checkinDate = new Date(today);

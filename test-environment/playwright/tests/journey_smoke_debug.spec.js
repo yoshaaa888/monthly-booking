@@ -6,8 +6,8 @@ test.describe('Monthly Booking - Smoke Debug', () => {
 
     console.log('>> open');
     await page.goto('http://127.0.0.1:8888/monthly-estimate/', { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector("#calculate-estimate-btn", { timeout: 20000, state: "attached" });
-    await page.locator("#calculate-estimate-btn").first().waitFor({ state: "visible", timeout: 5000 }).catch(()=>{});
+    await page.waitForSelector("#calculate-estimate-btn, button:has-text("見積"), button:has-text("Calculate")", { timeout: 20000, state: "attached" });
+    await page.locator("#calculate-estimate-btn, button:has-text("見積"), button:has-text("Calculate")").first().waitFor({ state: "visible", timeout: 5000 }).catch(()=>{});
     await page.waitForLoadState('networkidle');
 
     // 部屋：index=1 を選択（0はプレースホルダ）
@@ -42,7 +42,7 @@ test.describe('Monthly Booking - Smoke Debug', () => {
     }
 
     // --- ここ重要：submitではなく「計算ボタン」を押す ---
-    const calcBtn = page.locator('#calculate-estimate-btn');
+    const calcBtn = page.locator('#calculate-estimate-btn, button:has-text("見積"), button:has-text("Calculate")');
     await expect(calcBtn).toBeVisible({ timeout: 10000 });
     const ajaxWait = page.waitForResponse(resp =>
       resp.url().includes('/wp-admin/admin-ajax.php') &&

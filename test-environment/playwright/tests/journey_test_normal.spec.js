@@ -47,8 +47,8 @@ test.describe('Monthly Booking - Normal Journey Test', () => {
     await fillIf('#company_name', 'テスト株式会社');
 
     // ---- 見積もり実行（ボタンIDかラベルで探す）----
-    if (await page.locator('#calculate-estimate-btn').count()) {
-      await page.locator('#calculate-estimate-btn').click();
+    if (await page.locator('#calculate-estimate-btn, button:has-text("見積"), button:has-text("Calculate")').count()) {
+      await page.locator('#calculate-estimate-btn, button:has-text("見積"), button:has-text("Calculate")').click();
     } else {
       const btn = page.getByRole('button', { name: /見積|estimate|計算/i });
       if (await btn.count()) await btn.first().click();
@@ -60,7 +60,7 @@ test.describe('Monthly Booking - Normal Journey Test', () => {
   const form = page.locator('#monthly-estimate-form, form').first();
 
   // ボタンがあればクリック、なくても requestSubmit で送信を試みる
-  const calcBtn = page.locator('#calculate-estimate-btn, button[type="submit"], input[type="submit"]');
+  const calcBtn = page.locator('#calculate-estimate-btn, button:has-text("見積"), button:has-text("Calculate"), button[type="submit"], input[type="submit"]');
   if (await calcBtn.count()) {
     try { await calcBtn.first().click({ force: true, trial: false }); } catch {}
   }

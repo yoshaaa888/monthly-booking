@@ -27,3 +27,13 @@ if [ -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" ]; then
   cp -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" \
         ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins/mb-test-rest.php
 fi
+
+## install mb-qa
+if [ -f "$PWD/test-environment/mu-plugins/mb-qa.php" ]; then
+  mkdir -p ~/.wp-now/mu-plugins \
+          ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins
+  cp -f "$PWD/test-environment/mu-plugins/mb-qa.php" \
+        ~/.wp-now/mu-plugins/mb-qa.php
+  cp -f "$PWD/test-environment/mu-plugins/mb-qa.php" \
+        ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins/mb-qa.php
+fi
