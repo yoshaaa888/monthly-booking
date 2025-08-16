@@ -5,15 +5,20 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:8888';
 async function loginAsAdmin(page) {
   const user = 'mb_admin';
   const pass = 'mbpass';
-  await page.goto(`${base}/wp-login.php?redirect_to=${encodeURIComponent(base + '/wp-admin/')}`, { waitUntil: 'domcontentloaded' });
-  await page.fill('#user_login', user);
-  await page.fill('#user_pass', pass);
-  await page.click('#wp-submit');
-  await page.waitForURL(/\/wp-admin\/?$/, { timeout: 15000 });
+  const adminUrl = `${base}/wp-admin/`;
+  await page.goto(adminUrl, { waitUntil: 'domcontentloaded' });
+  const onLogin = await page.$('#user_login');
+  if (onLogin) {
+    await page.fill('#user_login', user);
+    await page.fill('#user_pass', pass);
+    await page.click('#wp-submit');
+  }
+  await page.waitForURL(/\/wp-admin\/?$/, { timeout: 20000 });
 }
 
 async function getAdminNonce(page) {
   await page.goto(`${base}/wp-admin/tools.php?page=mb-test-nonce`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#nonce-dump', { timeout: 10000 });
   const txt = await page.textContent('#nonce-dump');
   let j = {};
   try { j = JSON.parse(txt || '{}'); } catch (e) {}
@@ -96,7 +101,7 @@ test('Campaigns: invalid input → 4xx or success:false', async ({ page }) => {
   const r = await adminAjax(page, {
     action: 'create_campaign',
     nonce,
-    name: '', // invalid
+    name: '',
     discount_type: 'percentage',
     discount_value: '-5',
     start_date: '',
