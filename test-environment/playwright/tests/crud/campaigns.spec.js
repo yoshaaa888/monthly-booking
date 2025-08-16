@@ -7,13 +7,18 @@ async function loginAsAdmin(page) {
   const pass = 'mbpass';
   const adminUrl = `${base}/wp-admin/`;
   await page.goto(adminUrl, { waitUntil: 'domcontentloaded' });
-  const onLogin = await page.$('#user_login');
-  if (onLogin) {
+  try { console.log('[login] currentURL(before):', page.url()); } catch {}
+  const loginField = page.locator('#user_login');
+  if (await loginField.count()) {
     await page.fill('#user_login', user);
     await page.fill('#user_pass', pass);
     await page.click('#wp-submit');
   }
-  await page.waitForURL(/\/wp-admin\/?$/, { timeout: 20000 });
+  await Promise.race([
+    page.waitForURL(/\/wp-admin\/?$/, { timeout: 30000 }),
+    page.locator('#wpadminbar').waitFor({ timeout: 30000 })
+  ]);
+  try { console.log('[login] currentURL(after):', page.url()); } catch {}
 }
 
 async function getAdminNonce(page) {
