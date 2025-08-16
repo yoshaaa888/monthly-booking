@@ -7,12 +7,17 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "test:setup": "node test-environment/setup-test-data.js",
-    "test:cleanup": "node test-environment/cleanup-test-data.js"
+    "test:cleanup": "node test-environment/cleanup-test-data.js",
+    "mu:sync": "bash scripts/mu-sync.sh",
+    "wp:start": "bash scripts/wp-start.sh",
+    "start": "npm run wp:start",
+    "test:smoke": "BASE_URL=${BASE_URL:-http://127.0.0.1:8888} npx playwright test -c test-environment/playwright/playwright.config.js test-environment/playwright/tests/mu_smoke.spec.js test-environment/playwright/tests/smoke_min.spec.js --project=chromium --reporter=list --trace=on"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
-    "@playwright/test": "^1.40.0",
-    "mysql2": "^3.6.0"
+    "@playwright/test": "^1.46.0",
+    "mysql2": "^3.6.0",
+    "playwright": "^1.46.0"
   },
   "keywords": [
     "wordpress",

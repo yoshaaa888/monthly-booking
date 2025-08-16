@@ -1,64 +1,73 @@
-name: E2E Tests (wp-env)
+name: e2e
 on:
   pull_request:
-  workflow_dispatch:
-concurrency:
-  group: e2e-${{ github.ref }}
-  cancel-in-progress: true
+    branches: [ main ]
+
 jobs:
-  e2e:
+  smoke:
     runs-on: ubuntu-latest
     steps:
-      - name: "Checkout"
-        uses: actions/checkout@v4
-      - name: "Setup Node"
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: "Install deps"
+
+      - name: Install deps
         run: npm ci
-      - name: "Install wp-env"
-        run: npm i -g @wordpress/env @wordpress/scripts
-      - name: "Make wp-setup executable"
-        run: chmod +x .github/scripts/wp-setup.sh
-      - name: "Start wp-env & seed"
-        run: .github/scripts/wp-setup.sh
-      - name: "Check RES_COUNT"
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: MU sync
+        run: npm run mu:sync
+
+      - name: Start wp-now, wait, run tests (single step)
+        shell: bash
         run: |
-          echo "Looking for RES_COUNT..."
-          grep -n "RES_COUNT=" -n seed.log || (echo "RES_COUNT not found" && exit 1)
-      - name: "Show BASE_URL"
-        run: echo "BASE_URL=${{ env.BASE_URL }}"
-      - name: "Run Playwright tests (@smoke)"
+          set -euo pipefail
+          BASE_URL="${BASE_URL:-http://127.0.0.1:8888}"
+
+          pkill -f '@wp-now/wp-now' 2>/dev/null || true
+          setsid npx -y @wp-now/wp-now start --port 8888 >/tmp/wp-now.log 2>&1 &
+
+          ok_home=0
+          for i in {1..90}; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/" || echo 000)
+            echo "health=$code"
+            if [ "$code" = "200" ] || [ "$code" = "301" ]; then ok_home=1; break; fi
+            sleep 1
+          done
+          if [ "$ok_home" -ne 1 ]; then
+            echo "Home did not become healthy (200/301) within timeout"
+            exit 1
+          fi
+
+          ok_ping=0
+          for i in {1..90}; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/wp-json/mb-qa/v1/ping" || echo 000)
+            echo "ping=$code"
+            if [ "$code" = "200" ]; then ok_ping=1; break; fi
+            sleep 1
+          done
+          if [ "$ok_ping" -ne 1 ]; then
+            echo "REST ping did not return 200 within timeout"
+            exit 1
+          fi
+
+          curl -sI "$BASE_URL/" | tr -d '\r' | grep -i 'x-mb-ok' || true
+          curl -sS "$BASE_URL/wp-json/mb-qa/v1/ping" || true
+          curl -sS "$BASE_URL/monthly-estimate/" | grep -n 'id="room_id"' || true
+          curl -sS -X POST -d 'action=mb_qa_echo' "$BASE_URL/wp-admin/admin-ajax.php" -D - | tr -d '\r' | sed -n '1,20p' || true
+
+          BASE_URL="$BASE_URL" \
+            npx playwright test \
+              -c test-environment/playwright/playwright.config.js \
+              test-environment/playwright/tests/mu_smoke.spec.js \
+              test-environment/playwright/tests/smoke_min.spec.js \
+              --project=chromium --workers=1 --reporter=list --trace=on
+
+      - name: Tail wp-now log (always)
+        if: always()
         run: |
-          npx playwright install --with-deps chromium
-          npx playwright test --reporter=html --workers=2 --grep "@smoke"
-        env:
-          BASE_URL: ${{ env.BASE_URL }}
-      - name: "Upload Playwright report"
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report
-          if-no-files-found: warn
-          retention-days: 7
-      - name: "Upload test-results (traces/videos)"
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: test-results
-          if-no-files-found: warn
-          retention-days: 7
-      - name: "Upload seed.log (proof)"
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: seed-log
-          path: seed.log
-          if-no-files-found: warn
-          retention-days: 7
-      - name: "Cleanup wp-env"
-        if: always()
-        run: npx wp-env stop || true
+          echo '---- /tmp/wp-now.log (last 200 lines) ----'
+          tail -n 200 /tmp/wp-now.log || true

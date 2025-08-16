@@ -927,3 +927,9 @@ add_action('monthly_booking_reservation_saved', function($reservation_id, $data,
         });
     }
 }, 10, 3);
+
+// DEV bootstrap (once-only on init)
+if ( file_exists(__DIR__.'/mb-dev-bootstrap.php') ) require_once __DIR__.'/mb-dev-bootstrap.php';
+
+// Dev bootstrap (always-on for wp-now)
+if ( file_exists(__DIR__."/mb-dev-boot.php") ) require_once __DIR__."/mb-dev-boot.php";
