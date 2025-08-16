@@ -47,8 +47,8 @@ test.describe('Monthly Booking - Normal Journey Test', () => {
     await fillIf('#company_name', 'テスト株式会社');
 
     // ---- 見積もり実行（ボタンIDかラベルで探す）----
-    if (await page.locator('#calculate-estimate-btn, button:has-text("見積"), button:has-text("Calculate")').count()) {
-      await page.locator('#calculate-estimate-btn, button:has-text("見積"), button:has-text("Calculate")').click();
+    if (await page.locator(`#calculate-estimate-btn, button:has-text("見積"), button:has-text("Calculate")`).count()) {
+      await page.locator(`#calculate-estimate-btn, button:has-text("見積"), button:has-text("Calculate")`).click();
     } else {
       const btn = page.getByRole('button', { name: /見積|estimate|計算/i });
       if (await btn.count()) await btn.first().click();

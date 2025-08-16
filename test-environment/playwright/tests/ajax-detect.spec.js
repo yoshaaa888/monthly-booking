@@ -4,6 +4,12 @@ const { test, expect } = require('@playwright/test');
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:8888';
 
 test('AJAX request to admin-ajax fires and returns 2xx/3xx', async ({ page }) => {
+  // MB_FIX_AJAX_INJECT
+  await page.goto(BASE + "/monthly-estimate/", { waitUntil: "domcontentloaded" });
+  const _mbCalcBtn = page.locator(`#calculate-estimate-btn, button:has-text("見積"), button:has-text("Calculate")`).first();
+  await _mbCalcBtn.waitFor({ state: "visible", timeout: 10000 }).catch(()=>{});
+  await _mbCalcBtn.click().catch(()=>{});
+  await page.waitForLoadState("networkidle").catch(()=>{});
   // MB_FIX: fire an AJAX by visiting estimate and clicking the button
   await page.goto(BASE + "/monthly-estimate/", { waitUntil: "domcontentloaded" });
   const calcBtn = page.locator(`#calculate-estimate-btn, button:has-text("見積"), button:has-text("Calculate")`).first();
