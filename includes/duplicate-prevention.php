@@ -202,6 +202,7 @@ class MonthlyOptionsDuplicatePrevention {
         
         $existing_constraints = array_column($constraints, 'CONSTRAINT_NAME');
         
+
         $results = array();
         
         if (!in_array('uk_monthly_options_name', $existing_constraints)) {
@@ -230,6 +231,7 @@ class MonthlyOptionsDuplicatePrevention {
         global $wpdb;
         
         $table_name = $wpdb->prefix . 'monthly_options';
+
         
         $results = array();
         
