@@ -34,15 +34,13 @@ jobs:
 
       # Playwright browsers cache
       - name: Cache Playwright browsers
-        id: pwcache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
 
-      # If cache miss, install Chromium only (fast)
-      - name: Install Playwright browsers (if cache miss)
-        if: steps.pwcache.outputs.cache-hit != 'true'
+      # ✅ Always ensure the right Chromium is present (cache-aware & idempotent)
+      - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
       # wp-now WordPress versions cache
@@ -82,14 +80,13 @@ jobs:
           cache: 'npm'
 
       - name: Cache Playwright browsers
-        id: pwcache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
 
-      - name: Install Playwright browsers (if cache miss)
-        if: steps.pwcache.outputs.cache-hit != 'true'
+      # ✅ Always install (fast if cached)
+      - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
       - name: Cache wp-now WordPress versions
@@ -133,14 +130,13 @@ jobs:
           cache: 'npm'
 
       - name: Cache Playwright browsers
-        id: pwcache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
 
-      - name: Install Playwright browsers (if cache miss)
-        if: steps.pwcache.outputs.cache-hit != 'true'
+      # ✅ Always install (fast if cached)
+      - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
       - name: Cache wp-now WordPress versions
