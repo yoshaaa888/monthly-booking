@@ -1,4 +1,65 @@
 jQuery(document).ready(function($) {
+    function showCampaignMessage(type, text) {
+        var $m = jQuery('#campaign-form-message');
+        if (!$m.length) return;
+        $m.removeClass('error success').addClass(type === 'error' ? 'error' : 'success').text(text || '').show();
+    }
+    jQuery(document).on('submit', '#campaign-form', function(e){
+        e.preventDefault();
+        var $form = jQuery(this);
+        var action = jQuery('#form-action').val() || 'create_campaign';
+        var nonce = $form.find('input[name="nonce"]').val() || (window.monthlyBookingAdmin ? monthlyBookingAdmin.nonce : '');
+        var payload = {
+            action: action,
+            nonce: nonce,
+            name: $form.find('[name="name"]').val() || '',
+            discount_type: $form.find('[name="discount_type"]').val() || '',
+            discount_value: $form.find('[name="discount_value"]').val() || '',
+            start_date: $form.find('[name="start_date"]').val() || '',
+            end_date: $form.find('[name="end_date"]').val() || ''
+        };
+        var cid = $form.find('[name="campaign_id"]').val();
+        if (cid) payload.campaign_id = cid;
+        jQuery.ajax({
+            url: (window.monthlyBookingAdmin ? monthlyBookingAdmin.ajaxurl : ajaxurl),
+            type: 'POST',
+            data: payload
+        }).done(function(resp){
+            if (resp && resp.success) {
+                var msg = (resp.data && resp.data.message) ? resp.data.message : 'OK';
+                showCampaignMessage('success', msg);
+                setTimeout(function(){ window.location.reload(); }, 800);
+            } else {
+                var msg = (resp && (resp.data || resp.message)) ? (resp.data || resp.message) : 'エラーが発生しました。';
+                showCampaignMessage('error', msg);
+            }
+        }).fail(function(xhr){
+            var msg = 'ネットワークエラーが発生しました。';
+            try {
+                var j = xhr.responseJSON;
+                if (j && (j.data || j.message)) msg = j.data || j.message;
+            } catch(e){}
+            showCampaignMessage('error', msg);
+        });
+    });
+    jQuery(document).on('click', '.campaign-delete', function(e){
+        e.preventDefault();
+        var id = jQuery(this).data('campaign-id');
+        if (!id) return;
+        if (!window.confirm('このキャンペーンを削除しますか？')) return;
+        jQuery.ajax({
+            url: (window.monthlyBookingAdmin ? monthlyBookingAdmin.ajaxurl : ajaxurl),
+            type: 'POST',
+            data: { action: 'delete_campaign', nonce: (window.monthlyBookingAdmin ? monthlyBookingAdmin.nonce : ''), campaign_id: id }
+        }).done(function(resp){
+            if (resp && resp.success) {
+                window.location.reload();
+            } else {
+                var msg = (resp && (resp.data || resp.message)) ? (resp.data || resp.message) : '削除に失敗しました。';
+                showCampaignMessage('error', msg);
+            }
+        }).fail(function(){ showCampaignMessage('error', 'ネットワークエラーが発生しました。'); });
+    });
     'use strict';
     
     

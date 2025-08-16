@@ -1789,14 +1789,16 @@ class MonthlyBooking_Admin_UI {
                 <form method="post" id="campaign-form">
                     <input type="hidden" name="action" value="create_campaign" id="form-action">
                     <input type="hidden" name="campaign_id" value="" id="campaign-id">
+                    <input type="hidden" name="nonce" value="<?php echo esc_attr( wp_create_nonce('monthly_booking_admin') ); ?>">
+                    <div id="campaign-form-message" class="notice" style="display:none"></div>
                     
                     <!-- 基本情報セクション -->
                     <div class="campaign-section">
                         <h4 class="section-title"><?php _e('基本情報', 'monthly-booking'); ?></h4>
                         <table class="form-table">
                             <tr>
-                                <th><label for="campaign_name"><?php _e('キャンペーン名', 'monthly-booking'); ?></label></th>
-                                <td><input type="text" name="campaign_name" id="campaign_name" class="regular-text" required placeholder="<?php _e('例：新春特別キャンペーン', 'monthly-booking'); ?>"></td>
+                                <th><label for="name"><?php _e('キャンペーン名', 'monthly-booking'); ?></label></th>
+                                <td><input type="text" name="name" id="name" class="regular-text" required placeholder="<?php _e('例：新春特別キャンペーン', 'monthly-booking'); ?>"></td>
                             </tr>
                             <tr>
                                 <th><label for="campaign_type"><?php _e('キャンペーンタイプ', 'monthly-booking'); ?></label></th>
@@ -1844,14 +1846,14 @@ class MonthlyBooking_Admin_UI {
                             <tr>
                                 <th><label for="start_date"><?php _e('開始日', 'monthly-booking'); ?></label></th>
                                 <td>
-                                    <input type="date" name="checkin_date" id="start_date" class="regular-text" required min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
+                                    <input type="date" name="start_date" id="start_date" class="regular-text" required min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
                                     <p class="description"><?php _e('本日から180日後まで設定可能です', 'monthly-booking'); ?></p>
                                 </td>
                             </tr>
                             <tr>
                                 <th><label for="end_date"><?php _e('終了日', 'monthly-booking'); ?></label></th>
                                 <td>
-                                    <input type="date" name="checkout_date" id="checkout_date" class="regular-text" required max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
+                                    <input type="date" name="end_date" id="end_date" class="regular-text" required max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
                                     <p class="description"><?php _e('最大180日後まで設定可能です', 'monthly-booking'); ?></p>
                                 </td>
                             </tr>
@@ -1962,10 +1964,10 @@ class MonthlyBooking_Admin_UI {
         
         function editCampaign(campaignId) {
             document.getElementById('modal-title').textContent = '<?php _e('キャンペーン編集', 'monthly-booking'); ?>';
-            document.getElementById('form-action').value = 'edit_campaign';
+            document.getElementById('form-action').value = 'update_campaign';
             document.getElementById('campaign-id').value = campaignId;
             
-            document.getElementById('campaign_name').value = 'サンプルキャンペーン';
+            document.getElementById('name').value = 'サンプルキャンペーン';
             document.getElementById('campaign_type').value = 'immediate';
             document.getElementById('discount_type').value = 'percentage';
             document.getElementById('discount_value').value = '20';

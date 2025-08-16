@@ -62,8 +62,8 @@ jQuery(document).ready(function($) {
             } else if (message.includes('メールアドレス')) {
                 showFieldError('guest_email', message);
             } else if (message.includes('チェックイン') || message.includes('チェックアウト')) {
-                showFieldError('checkin_date', message);
-                showFieldError('checkout_date', message);
+                showFieldError('start_date', message);
+                showFieldError('end_date', message);
             }
         }
     }
@@ -85,12 +85,12 @@ jQuery(document).ready(function($) {
         }, 5000);
     }
     
-    $('#checkin_date, #checkout_date').on('change', function() {
-        const checkinDate = new Date($('#checkin_date').val());
-        const checkoutDate = new Date($('#checkout_date').val());
+    $('#start_date, #end_date').on('change', function() {
+        const checkinDate = new Date($('#start_date').val());
+        const checkoutDate = new Date($('#end_date').val());
         
         if (checkinDate && checkoutDate && checkinDate >= checkoutDate) {
-            showFieldError('checkout_date', 'チェックアウト日はチェックイン日より後の日付を選択してください。');
+            showFieldError('end_date', 'チェックアウト日はチェックイン日より後の日付を選択してください。');
         }
     });
 });
