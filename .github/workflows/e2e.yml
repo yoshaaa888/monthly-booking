@@ -1,73 +1,114 @@
 name: e2e
+
 on:
   pull_request:
     branches: [ main ]
+  schedule:
+    - cron: "22 18 * * *" # JST03:22頃にnightly-full
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
+
+      - name: Cache wp-now WordPress versions
+        uses: actions/cache@v4
+        with:
+          path: ~/.wp-now/wordpress-versions
+          key: wpnow-${{ runner.os }}-wp682
+          restore-keys: |
+            wpnow-${{ runner.os }}-
 
       - name: Install deps
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
-
       - name: MU sync
         run: npm run mu:sync
 
-      - name: Start wp-now, wait, run tests (single step)
-        shell: bash
-        run: |
-          set -euo pipefail
-          BASE_URL="${BASE_URL:-http://127.0.0.1:8888}"
+      - name: Start wp-now + health wait
+        run: bash scripts/wp-start.sh
 
-          pkill -f '@wp-now/wp-now' 2>/dev/null || true
-          setsid npx -y @wp-now/wp-now start --port 8888 >/tmp/wp-now.log 2>&1 &
+      - name: Smoke tests
+        run: npm run test:smoke
 
-          ok_home=0
-          for i in {1..90}; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/" || echo 000)
-            echo "health=$code"
-            if [ "$code" = "200" ] || [ "$code" = "301" ]; then ok_home=1; break; fi
-            sleep 1
-          done
-          if [ "$ok_home" -ne 1 ]; then
-            echo "Home did not become healthy (200/301) within timeout"
-            exit 1
-          fi
+  crud:
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: >-
+      github.event_name == 'schedule' ||
+      contains(join(github.event.pull_request.labels.*.name, ','), 'run-crud')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
+      - name: Cache wp-now WordPress versions
+        uses: actions/cache@v4
+        with:
+          path: ~/.wp-now/wordpress-versions
+          key: wpnow-${{ runner.os }}-wp682
+          restore-keys: |
+            wpnow-${{ runner.os }}-
+      - name: Install deps
+        run: npm ci
+      - name: MU sync
+        run: npm run mu:sync
+      - name: Start wp-now + health wait
+        run: bash scripts/wp-start.sh
+      - name: CRUD tests
+        run: npm run test:crud
 
-          ok_ping=0
-          for i in {1..90}; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/wp-json/mb-qa/v1/ping" || echo 000)
-            echo "ping=$code"
-            if [ "$code" = "200" ]; then ok_ping=1; break; fi
-            sleep 1
-          done
-          if [ "$ok_ping" -ne 1 ]; then
-            echo "REST ping did not return 200 within timeout"
-            exit 1
-          fi
-
-          curl -sI "$BASE_URL/" | tr -d '\r' | grep -i 'x-mb-ok' || true
-          curl -sS "$BASE_URL/wp-json/mb-qa/v1/ping" || true
-          curl -sS "$BASE_URL/monthly-estimate/" | grep -n 'id="room_id"' || true
-          curl -sS -X POST -d 'action=mb_qa_echo' "$BASE_URL/wp-admin/admin-ajax.php" -D - | tr -d '\r' | sed -n '1,20p' || true
-
-          BASE_URL="$BASE_URL" \
-            npx playwright test \
-              -c test-environment/playwright/playwright.config.js \
-              test-environment/playwright/tests/mu_smoke.spec.js \
-              test-environment/playwright/tests/smoke_min.spec.js \
-              --project=chromium --workers=1 --reporter=list --trace=on
-
-      - name: Tail wp-now log (always)
-        if: always()
-        run: |
-          echo '---- /tmp/wp-now.log (last 200 lines) ----'
-          tail -n 200 /tmp/wp-now.log || true
+  nightly-full:
+    if: github.event_name == 'schedule'
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
+      - name: Cache wp-now WordPress versions
+        uses: actions/cache@v4
+        with:
+          path: ~/.wp-now/wordpress-versions
+          key: wpnow-${{ runner.os }}-wp682
+          restore-keys: |
+            wpnow-${{ runner.os }}-
+      - name: Install deps
+        run: npm ci
+      - name: MU sync
+        run: npm run mu:sync
+      - name: Start wp-now + health wait
+        run: bash scripts/wp-start.sh
+      - name: Full CRUD suite
+        run: npm run test:crud
