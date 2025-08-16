@@ -25,8 +25,8 @@ const inject = `
   // change/input を明示的に発火（jQuery系トリガ対策）
   try {
     const r = document.querySelector('#room_id'); if (r) r.dispatchEvent(new Event('change',{bubbles:true}));
-    const ci = document.querySelector('#checkin_date,#check_in_date,#start_date'); if (ci) ci.dispatchEvent(new Event('change',{bubbles:true}));
-    const co = document.querySelector('#checkout_date,#check_out_date,#end_date'); if (co) co.dispatchEvent(new Event('change',{bubbles:true}));
+    const ci = document.querySelector('#start_date,#check_in_date'); if (ci) ci.dispatchEvent(new Event('change',{bubbles:true}));
+    const co = document.querySelector('#end_date,#check_out_date'); if (co) co.dispatchEvent(new Event('change',{bubbles:true}));
   } catch {}
 
   // フォームの妥当性をチェックし、不備項目をログする
