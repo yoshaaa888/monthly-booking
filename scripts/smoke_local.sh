@@ -103,16 +103,27 @@ code=$(curl --connect-timeout 2 --max-time 10 -s -o ajax.json -w '%{http_code}\n
 echo "ajax_status_initial=$code"
 head -c 300 ajax.json || true; echo
 if [ "$code" != "200" ] || ! grep -Eq '("success"[[:space:]]*:[[:space:]]*true|"ok"[[:space:]]*:[[:space:]]*true)' ajax.json; then
-  echo "Inject MU in runtime and retry"
+  echo "Inject MU in runtime and retry (no wp-load; write to multiple candidate dirs)"
   npx wp-now php -r '
-    chdir("/var/www/html");
-    require "wp-load.php";
-    $dir = defined("WPMU_PLUGIN_DIR") ? WPMU_PLUGIN_DIR : (ABSPATH . "wp-content/mu-plugins");
-    @mkdir($dir, 0777, true);
     $php = stream_get_contents(STDIN);
-    file_put_contents($dir . "/zzz-mb-qa-temp.php", $php);
-    echo "mu_dir=" . $dir . PHP_EOL;
-    echo (file_exists($dir . "/zzz-mb-qa-temp.php") ? "mu=exists\n" : "mu=missing\n");
+    $dirs = [
+      "/var/www/html/wp-content/mu-plugins",
+      "/wordpress/wp-content/mu-plugins",
+    ];
+    foreach ($dirs as $d) {
+      @mkdir($d, 0777, true);
+      @file_put_contents($d . "/zzz-mb-qa-temp.php", $php);
+      if (file_exists($d . "/zzz-mb-qa-temp.php")) {
+        echo "mu_dir_ok=$d\n";
+      } else {
+        echo "mu_dir_try=$d\n";
+      }
+    }
+    $exists = 0;
+    foreach ($dirs as $d) {
+      if (file_exists($d . "/zzz-mb-qa-temp.php")) { $exists = 1; }
+    }
+    echo $exists ? "mu=exists\n" : "mu=missing\n";
   ' <<'MU'
 <?php
 add_action("rest_api_init", function () {
@@ -152,7 +163,7 @@ if ! grep -Eq '("success"[[:space:]]*:[[:space:]]*true|"ok"[[:space:]]*:[[:space
   echo "Rescue failed"
   echo "::group::wp-now.log (head 80)"; head -n 80 wp-now.log || true; echo "::endgroup::"
   echo "::group::wp-now.log (tail 200)"; tail -n 200 wp-now.log || true; echo "::endgroup::"
-  npx wp-now php -r 'chdir("/var/www/html"); require "wp-load.php"; echo (file_exists(WPMU_PLUGIN_DIR."/zzz-mb-qa-temp.php")?"mu=exists\n":"mu=missing\n");' || true
+  npx wp-now php -r 'foreach(["/var/www/html/wp-content/mu-plugins","/wordpress/wp-content/mu-plugins"] as $d){echo (file_exists($d."/zzz-mb-qa-temp.php")?"mu=exists ":"mu=missing ").$d."\n";}' || true
   exit 1
 fi
 
