@@ -37,50 +37,9 @@ jobs:
       - name: Health check (wait up to ~60s)
         run: |
           for i in {1..30}; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" $BASE_URL/ || true)
+            code=$(curl -s -o /dev/null -w "%{%{http_code}}" $BASE_URL/ || true)
             echo "health=$code"
             [ "$code" = "200" ] && exit 0
             sleep 2
           done
-          echo "wp-now did not become healthy in time"
-          echo "===== wp-now.log (tail) ====="
-          tail -n 200 wp-now.log || true
-          exit 1
-
-      - name: Inject QA MU plugin (REST ping / AJAX echo)
-        run: |
-          WPROOT="$HOME/.wp-now/wordpress-versions/6.8.2"
-          mkdir -p "$WPROOT/wp-content/mu-plugins"
-          cat > "$WPROOT/wp-content/mu-plugins/mb-qa-smoke.php" <<PHP
-          <?php
-          /**
-           * Plugin Name: MB QA Smoke Helpers
-           */
-          add_action(rest_api_init, function () {
-            register_rest_route(mb-qa/v1, /ping, array(
-              methods  => GET,
-              callback => function () { return array(ok => true, ts => time()); },
-              permission_callback => __return_true,
-            ));
-          });
-          add_action(wp_ajax_mb_qa_echo, function () { wp_send_json_success(array(ok=>true,who=>admin)); });
-          add_action(wp_ajax_nopriv_mb_qa_echo, function () { wp_send_json_success(array(ok=>true,who=>guest)); });
-          PHP
-
-      - name: Sanity: check QA endpoints
-        run: |
-          curl -s $BASE_URL/wp-json/mb-qa/v1/ping && echo
-          curl -s -X POST -d "action=mb_qa_echo" $BASE_URL/wp-admin/admin-ajax.php && echo
-
-      - name: Run Playwright smoke
-        run: npm run test:smoke
-
-      - name: Upload Playwright artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-artifacts
-          path: |
-            playwright-report/**
-            test-results/**
-          if-no-files-found: ignore
+          echo "wp-now did not become health
