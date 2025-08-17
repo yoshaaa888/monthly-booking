@@ -7,7 +7,7 @@ BASE_URL="http://127.0.0.1:${PORT}"
 echo "== kill any previous wp-now on :${PORT}/:8888/:8890 =="
 pkill -f "wp-now start" 2>/dev/null || true
 for P in 8888 8890 "$PORT"; do
-  PID=$(ss -lntp | awk -v p=":${P} " '$0 ~ p {match($0,/pid=([0-9]+)/,m); if(m[1]) print m[1]}' | head -n1)
+  PID=$(ss -lntp | grep -F ":${P} " | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | head -n1)
   [ -n "${PID:-}" ] && kill -9 "$PID" || true
 done
 
