@@ -31,7 +31,7 @@ detect_public_url() {
 
 try_head() {
   local u="$1"
-  ( set -o pipefail; curl -sS -I "$u" | head -n1 )
+  ( set -o pipefail; curl --connect-timeout 2 --max-time 10 -sS -I "$u" | head -n1 )
 }
 
 nodejs_ver()  { node -v 2>/dev/null || true; }
@@ -160,7 +160,7 @@ section "Summary / Hints"
 if [ "${SUSPICIOUS:-0}" -gt 0 ]; then
   log "HINT: Detected $SUSPICIOUS suspicious spec(s). Restore safe copies if tests fail."
 fi
-if ! curl -sS -I "$BASE_LOCAL" >/dev/null 2>&1; then
+if ! curl --connect-timeout 2 --max-time 10 -sS -I "$BASE_LOCAL" >/dev/null 2>&1; then
   log "HINT: 8888 not responding. Run: bash scripts/wp-start.sh"
 fi
 if [ -n "${BASE_PUBLIC:-}" ]; then

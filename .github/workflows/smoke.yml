@@ -21,7 +21,7 @@ jobs:
           npm ci || npm i
           npx playwright install --with-deps chromium
       - name: Run CI smoke script
-        run: PORT=8888 WP_VER=6.8.2 bash scripts/smoke_local.sh
+        run: MB_FIXER_ACTIVE=1 PORT=8888 WP_VER=6.8.2 bash scripts/smoke_local.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: wp-now.log, path: wp-now.log, if-no-files-found: ignore }
