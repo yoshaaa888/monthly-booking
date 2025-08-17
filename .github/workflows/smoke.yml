@@ -33,6 +33,22 @@ jobs:
           echo "wp-now started"; sleep 1
 
       - name: Debug pre-check (ps/ss and wp-now.log head)
+      - name: Derive BASE_URL from wp-now.log (optional)
+        shell: bash
+        run: |
+          url=$(grep -Eo "https?://[^ ]+" -m1 wp-now.log || true)
+          if [ -n "$url" ]; then
+            echo "Found url=$url"
+            # Prefer http on :8888 for our tests unless only https is provided
+            case "$url" in
+              https://*app.github.dev*) new=http://localhost:8888 ;;
+              http://*|https://*) new=http://localhost:8888 ;;
+              *) new=http://localhost:8888 ;;
+            esac
+          else
+            new=http://localhost:8888
+          fi
+          echo "BASE_URL=$new" >> $GITHUB_ENV
         shell: bash
         run: |
           echo "== ps -ef | grep -E \"wp-now|php\" =="
