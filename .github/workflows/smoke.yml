@@ -1,4 +1,4 @@
-name: e2e / smoke
+name: E2E Smoke
 
 on:
   push:
@@ -13,21 +13,20 @@ jobs:
       BASE_URL: http://127.0.0.1:8888
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: npm
 
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+        run: |
+          npm ci || npm i
+          npx playwright install --with-deps chromium
 
-      - name: Install Playwright (browsers + deps)
-        run: npx playwright install --with-deps chromium
-
-      # ルートに QA 用の一時プラグインを書き出す（--path . で確実に読み込まれる）
-      - name: Create temp plugin (REST ping & AJAX echo)
+      - name: Create temp root plugin (QA endpoints)
         run: |
           cat > wp-now-plugin.php <<'PHP'
           <?php
@@ -35,56 +34,70 @@ jobs:
            * Plugin Name: MB QA Temp Plugin
            */
           add_action('rest_api_init', function () {
-            register_rest_route('mb-qa/v1','/ping', array(
+            register_rest_route('mb-qa/v1', '/ping', [
               'methods'  => 'GET',
-              'callback' => function(){ return array('ok'=>true,'ts'=>time()); },
               'permission_callback' => '__return_true',
-            ));
+              'callback' => function () {
+                return ['ok' => true, 'ts' => time()];
+              }
+            ]);
           });
-          add_action('wp_ajax_mb_qa_echo', function(){ wp_send_json_success(array('ok'=>true,'who'=>'admin')); });
-          add_action('wp_ajax_nopriv_mb_qa_echo', function(){ wp_send_json_success(array('ok'=>true,'who'=>'guest')); });
+          function _mb_qa_echo() { wp_send_json(['ok'=>true,'action'=>'mb_qa_echo','ts'=>time()]); }
+          add_action('wp_ajax_mb_qa_echo', '_mb_qa_echo');
+          add_action('wp_ajax_nopriv_mb_qa_echo', '_mb_qa_echo');
           PHP
 
-      - name: Start WordPress (wp-now) in background
+      - name: Start wp-now (plugin mode) on :8888
         run: |
-          npx wp-now start --wp 6.8.2 --port 8888 --path . > wp-now.log 2>&1 &
-          sleep 2
+          nohup npx wp-now start --wp 6.8.2 --port 8888 --path . > wp-now.log 2>&1 &
+          echo $! > wp-now.pid
 
-      - name: Health check (wait up to 180s)
+      - name: Health check (up to 240s)
+        shell: bash
         run: |
-          for i in {1..90}; do
-            code1=$(curl -s -o /dev/null -w '%{http_code}' "$BASE_URL/" || true)
-            code2=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8888/" || true)
-            echo "health(localhost)=$code1 health(127.0.0.1)=$code2"
-            if [ "$code1" = "200" ] || [ "$code2" = "200" ]; then exit 0; fi
+          for i in $(seq 1 120); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE_URL/")
+            echo "health=$code"
+            [ "$code" = "200" ] && break
             sleep 2
           done
-          echo "wp-now did not become healthy in time"
-          tail -n 200 wp-now.log || true
-          exit 1
+          curl -sS "$BASE_URL/" | head -c 200 || true
 
-      - name: Run Playwright smoke
-      - name: Sanity: POST admin-ajax (mb_qa_echo)
+      - name: Sanity POST admin-ajax (mb_qa_echo)
+        shell: bash
         run: |
-          echo "== POST $BASE_URL/wp-admin/admin-ajax.php action=mb_qa_echo =="
-          code=$(curl -s -o resp.json -w %{http_code} -X POST -d "action=mb_qa_echo" "$BASE_URL/wp-admin/admin-ajax.php" || true)
+          code=$(curl -s -o resp.json -w '%{http_code}' -X POST -d "action=mb_qa_echo" "$BASE_URL/wp-admin/admin-ajax.php" || true)
           echo "status=$code"
           head -c 300 resp.json || true; echo
           if [ "$code" != "200" ]; then
-            echo "admin-ajax did not return 200"
-            echo "===== wp-now.log (tail) ====="
-            tail -n 200 wp-now.log || true
+            echo "===== wp-now.log (tail) =====" || true
+            [ -f wp-now.log ] && tail -n 200 wp-now.log || true
             exit 1
           fi
-        run: npm run test:smoke
 
-      - name: Upload artifacts (reports + wp-now.log)
+      - name: Run smoke tests
+        run: BASE_URL=$BASE_URL npm run test:smoke
+
+      - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-artifacts
-          path: |
-            wp-now.log
-            playwright-report/**
-            test-results/**
+          name: playwright-report
+          path: playwright-report
+          if-no-files-found: ignore
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results
+          if-no-files-found: ignore
+
+      - name: Upload wp-now log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wp-now.log
+          path: wp-now.log
           if-no-files-found: ignore
