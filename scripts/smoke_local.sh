@@ -51,7 +51,7 @@ function _mb_qa_echo(){ wp_send_json_success(["ok"=>true,"ts"=>time(),"src"=>"mu
 add_action("wp_ajax_mb_qa_echo","_mb_qa_echo");
 add_action("wp_ajax_nopriv_mb_qa_echo","_mb_qa_echo");'
 
-MU_HOST="$HOME/.wp-now/wordpress-versions/${WP_VER}/wp-content/mu-plugins"
+MU_HOST="$HOME/.wp-now/mu-plugins"
 mkdir -p "$MU_HOST"
 printf "%s" "$MU_PHP" > "$MU_HOST/zzz-mb-qa-temp.php"
 php -l "$MU_HOST/zzz-mb-qa-temp.php" || exit 1
