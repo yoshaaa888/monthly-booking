@@ -32,6 +32,15 @@ jobs:
           nohup npx wp-now start --wp 6.8.2 --port 8888 --path . > wp-now.log 2>&1 &
           echo "wp-now started"; sleep 1
 
+      - name: Debug pre-check (ps/ss and wp-now.log head)
+        shell: bash
+        run: |
+          echo "== ps -ef | grep -E \"wp-now|php\" =="
+          ps -ef | grep -E "wp-now|php" || true
+          echo "== ss -ltnp | grep 8888 =="
+          ss -ltnp | grep 8888 || true
+          echo "== wp-now.log (head 60) =="
+          head -n 60 wp-now.log || true
       - name: Health check (wait up to ~60s)
         shell: bash
         run: |
