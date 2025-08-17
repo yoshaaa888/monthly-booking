@@ -30,7 +30,7 @@ jobs:
           pkill -f "wp-now start" || true
           ss -lntp || true
 
-      # 起動前に必ず QA エンドポイントを mu-plugins に配置（admin-ajax 400 を防止）
+      # Always load QA endpoints to avoid admin-ajax 400
       - name: Write QA endpoints into mu-plugins (always-on)
         shell: bash
         run: |
@@ -39,7 +39,6 @@ jobs:
           mkdir -p "$MU"
           cat > "$MU/zzz-mb-qa-temp.php" <<'PHP'
           <?php
-          // Always-loaded QA endpoints for CI
           add_action('rest_api_init', function () {
             register_rest_route('mb-qa/v1', '/ping', [
               'methods'  => 'GET',
@@ -90,7 +89,7 @@ jobs:
           echo "REST_READY=$ok" >> $GITHUB_ENV
           [ "$ok" = 1 ] && head -c 300 rest.json || true
 
-      # 予備（通常は走らないが残してOK）
+      # Fallback (rare): if REST still not ready, reinject and retry
       - name: Fallback inject QA into mu-plugins (only if REST not ready)
         if: env.REST_READY != '1'
         shell: bash
@@ -130,7 +129,6 @@ jobs:
           echo "ajax_status=$code"
           head -c 300 resp.json || true; echo
           if [ "$code" != "200" ]; then tail -n 200 wp-now.log || true; exit 1; fi
-          # WordPress の成功ラッパー/生JSON 両対応: "ok": true を検出
           grep -E -q '"ok"[[:space:]]*:[[:space:]]*true' resp.json || { echo "response missing ok=true"; exit 1; }
 
       - name: Run smoke tests
