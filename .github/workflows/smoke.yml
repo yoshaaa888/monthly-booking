@@ -30,7 +30,6 @@ jobs:
           pkill -f "wp-now start" || true
           ss -lntp || true
 
-      # 破損キャッシュでの起動失敗を防ぐ
       - name: Reset wp-now cache for WP_VER
         run: |
           rm -rf "$HOME/.wp-now/wordpress-versions/$WP_VER" || true
@@ -87,7 +86,7 @@ jobs:
           curl -s -o rest.json -w 'rest_status=%{http_code}\n' "$BASE_URL/wp-json/mb-qa/v1/ping" || true
           head -c 300 rest.json || true; echo
 
-      - name: Sanity POST admin-ajax (mb_qa_echo) with auto-rescue
+      - name: Sanity POST admin-ajax (mb_qa_echo) with MU auto-rescue (no heredoc)
         shell: bash
         run: |
           set +e; set +o pipefail
@@ -95,32 +94,29 @@ jobs:
           code=$(curl -s -o resp.json -w '%{http_code}\n' -X POST -d "action=mb_qa_echo" "$BASE_URL/wp-admin/admin-ajax.php" || true)
           echo "ajax_status_initial=$code"
           head -c 300 resp.json || true; echo
-          need_rescue=0
-          if [ "$code" != "200" ] || ! grep -E -q '"ok"[[:space:]]*:[[:space:]]*true' resp.json ; then
-            need_rescue=1
-          fi
 
-          if [ "$need_rescue" = 1 ]; then
-            echo "::warning::Inject MU plugin rescue and retry"
+          if [ "$code" != "200" ] || ! grep -E -q '"ok"[[:space:]]*:[[:space:]]*true' resp.json ; then
+            echo "::warning::Inject MU rescue and retry"
             WPROOT="$HOME/.wp-now/wordpress-versions/$WP_VER"
             MU="$WPROOT/wp-content/mu-plugins"
             mkdir -p "$MU"
-            cat > "$MU/zzz-mb-qa-temp.php" <<'PHP'
-            <?php
-            add_action('rest_api_init', function () {
-              register_rest_route('mb-qa/v1', '/ping', [
-                'methods'  => 'GET',
-                'permission_callback' => '__return_true',
-                'callback' => function () { return ['ok'=>true,'ts'=>time(),'src'=>'mu']; }
-              ]);
-            });
-            function _mb_qa_echo() { wp_send_json(['ok'=>true,'ts'=>time(),'src'=>'mu']); }
-            add_action('wp_ajax_mb_qa_echo', '_mb_qa_echo');
-            add_action('wp_ajax_nopriv_mb_qa_echo', '_mb_qa_echo');
-            PHP
+
+            {
+              echo '<?php'
+              echo "add_action('rest_api_init', function () {"
+              echo "  register_rest_route('mb-qa/v1', '/ping', ["
+              echo "    'methods'  => 'GET',"
+              echo "    'permission_callback' => '__return_true',"
+              echo "    'callback' => function () { return ['ok'=>true,'ts'=>time(),'src'=>'mu']; }"
+              echo "  ]);"
+              echo "});"
+              echo "function _mb_qa_echo() { wp_send_json(['ok'=>true,'ts'=>time(),'src'=>'mu']); }"
+              echo "add_action('wp_ajax_mb_qa_echo', '_mb_qa_echo');"
+              echo "add_action('wp_ajax_nopriv_mb_qa_echo', '_mb_qa_echo');"
+            } > "$MU/zzz-mb-qa-temp.php"
+
             php -l "$MU/zzz-mb-qa-temp.php" || true
 
-            # retry up to 30s
             ok=0
             for i in $(seq 1 30); do
               curl -s -o rest.json -w 'rest_status_after_mu=%{http_code}\n' "$BASE_URL/wp-json/mb-qa/v1/ping" || true
