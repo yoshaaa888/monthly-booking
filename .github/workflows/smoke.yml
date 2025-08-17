@@ -30,29 +30,36 @@ jobs:
           pkill -f "wp-now start" || true
           ss -lntp || true
 
-      # Always load QA endpoints to avoid admin-ajax 400
-      - name: Write QA endpoints into mu-plugins (always-on)
+      # ★ 壊れた/中途半端なキャッシュを毎回クリアしてクリーンに起動
+      - name: Reset wp-now cache for WP_VER
+        run: |
+          rm -rf "$HOME/.wp-now/wordpress-versions/$WP_VER" || true
+          mkdir -p "$HOME/.wp-now/wordpress-versions" || true
+          ls -la "$HOME/.wp-now/wordpress-versions" || true
+
+      # ルートにテンププラグイン（QAエンドポイント）を生成
+      - name: Create temp root plugin (QA endpoints)
         shell: bash
         run: |
-          set -e
-          MU="$HOME/.wp-now/wordpress-versions/$WP_VER/wp-content/mu-plugins"
-          mkdir -p "$MU"
-          cat > "$MU/zzz-mb-qa-temp.php" <<'PHP'
+          cat > wp-now-plugin.php <<'PHP'
           <?php
+          /**
+           * Plugin Name: MB QA Temp Plugin
+           */
           add_action('rest_api_init', function () {
             register_rest_route('mb-qa/v1', '/ping', [
               'methods'  => 'GET',
               'permission_callback' => '__return_true',
-              'callback' => function () { return ['ok'=>true,'ts'=>time(),'src'=>'mu']; }
+              'callback' => function () { return ['ok'=>true,'ts'=>time(),'src'=>'root']; }
             ]);
           });
-          function _mb_qa_echo() { wp_send_json(['ok'=>true,'ts'=>time(),'src'=>'mu']); }
+          function _mb_qa_echo() { wp_send_json(['ok'=>true,'ts'=>time(),'src'=>'root']); }
           add_action('wp_ajax_mb_qa_echo', '_mb_qa_echo');
           add_action('wp_ajax_nopriv_mb_qa_echo', '_mb_qa_echo');
           PHP
-          php -l "$MU/zzz-mb-qa-temp.php" || true
+          php -l wp-now-plugin.php || true
 
-      - name: Start wp-now (:8888)
+      - name: Start wp-now (:8888, plugin mode)
         run: |
           nohup npx wp-now start --wp "$WP_VER" --port 8888 --path . > wp-now.log 2>&1 &
           echo $! > wp-now.pid
@@ -75,50 +82,9 @@ jobs:
             exit 1
           fi
 
-      - name: Probe REST ping (<=60s)
-        shell: bash
+      - name: Sanity REST ping
         run: |
-          set +e; set +o pipefail
-          ok=0
-          for i in $(seq 1 30); do
-            code=$(curl -s -o rest.json -w '%{http_code}' "$BASE_URL/wp-json/mb-qa/v1/ping" || echo 000)
-            echo "rest_status[$i]=$code"
-            if [ "$code" = 200 ]; then ok=1; break; fi
-            sleep 2
-          done
-          echo "REST_READY=$ok" >> $GITHUB_ENV
-          [ "$ok" = 1 ] && head -c 300 rest.json || true
-
-      # Fallback (rare): if REST still not ready, reinject and retry
-      - name: Fallback inject QA into mu-plugins (only if REST not ready)
-        if: env.REST_READY != '1'
-        shell: bash
-        run: |
-          set -e
-          WPROOT="$HOME/.wp-now/wordpress-versions/$WP_VER"
-          MU="$WPROOT/wp-content/mu-plugins"
-          mkdir -p "$MU"
-          cat > "$MU/zzz-mb-qa-temp.php" <<'PHP'
-          <?php
-          add_action('rest_api_init', function () {
-            register_rest_route('mb-qa/v1', '/ping', [
-              'methods'  => 'GET',
-              'permission_callback' => '__return_true',
-              'callback' => function () { return ['ok'=>true,'ts'=>time(),'src'=>'mu']; }
-            ]);
-          });
-          function _mb_qa_echo() { wp_send_json(['ok'=>true,'ts'=>time(),'src'=>'mu']); }
-          add_action('wp_ajax_mb_qa_echo', '_mb_qa_echo');
-          add_action('wp_ajax_nopriv_mb_qa_echo', '_mb_qa_echo');
-          PHP
-          php -l "$MU/zzz-mb-qa-temp.php" || true
-          set +e; set +o pipefail
-          for i in $(seq 1 30); do
-            code=$(curl -s -o rest.json -w '%{http_code}' "$BASE_URL/wp-json/mb-qa/v1/ping" || echo 000)
-            echo "rest_status_after_inject[$i]=$code"
-            [ "$code" = 200 ] && break
-            sleep 2
-          done
+          curl -s -o rest.json -w 'rest_status=%{http_code}\n' "$BASE_URL/wp-json/mb-qa/v1/ping" || true
           head -c 300 rest.json || true; echo
 
       - name: Sanity POST admin-ajax (mb_qa_echo)
@@ -137,20 +103,18 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report
-          path: playwright-report
+          name: wp-now.log
+          path: wp-now.log
           if-no-files-found: ignore
-
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
           path: test-results
           if-no-files-found: ignore
-
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: wp-now.log
-          path: wp-now.log
+          name: playwright-report
+          path: playwright-report
           if-no-files-found: ignore
