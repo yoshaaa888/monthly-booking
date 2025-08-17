@@ -127,3 +127,12 @@ test('Campaigns: invalid input → 4xx or success:false', async ({ page }) => {
     expect(status).toBeGreaterThanOrEqual(400);
   }
 });
+
+getAdminNonce = async function(page) {
+  const res = await page.request.get(`${base}/wp-json/mb-test/v1/nonces`);
+  if (!res.ok()) throw new Error('nonce endpoint failed: ' + res.status());
+  const j = await res.json();
+  const n = j.monthly_booking_admin || j.monthly_booking_nonce;
+  if (!n) throw new Error('nonce missing in REST payload');
+  return n;
+};

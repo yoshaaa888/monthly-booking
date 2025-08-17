@@ -22,3 +22,16 @@ Thumbs.db
 # Logs
 *.log/test-environment/playwright/test-results/
 /test-environment/playwright/test-results/
+
+# WordPress wp-now
+.wp-now/
+wp.pid
+wp-start.log
+
+# Playwright outputs
+test-environment/playwright/playwright-report/
+test-environment/playwright/test-results/
+test-results/
+
+# Local diagnostics
+diagnostics/

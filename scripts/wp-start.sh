@@ -46,3 +46,10 @@ if [ -f "$PWD/test-environment/mu-plugins/mb-qa.php" ]; then
   install -m 0644 "$PWD/test-environment/mu-plugins/mb-qa.php" \
     ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins/mb-qa.php
 fi
+
+## install mb-qa (stable) v2
+if [ -f "$PWD/test-environment/mu-plugins/mb-qa.php" ]; then
+  mkdir -p ~/.wp-now/mu-plugins ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins
+  install -m 0644 "$PWD/test-environment/mu-plugins/mb-qa.php" ~/.wp-now/mu-plugins/mb-qa.php
+  install -m 0644 "$PWD/test-environment/mu-plugins/mb-qa.php" ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins/mb-qa.php
+fi
