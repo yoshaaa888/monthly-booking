@@ -33,11 +33,15 @@ jobs:
           echo "wp-now started"; sleep 1
 
       - name: Health check (wait up to ~60s)
+        shell: bash
         run: |
-          for i in {1..30}; do
-            code=$(curl -s -o /dev/null -w "%{%{http_code}}" $BASE_URL/ || true)
+          for i in {1..45}; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE_URL/" || true)
             echo "health=$code"
             [ "$code" = "200" ] && exit 0
             sleep 2
           done
-          echo "wp-now did not become health
+          echo "::error::wp-now did not become healthy in time"
+          echo "===== wp-now.log (tail) ====="
+          tail -n 200 wp-now.log || true
+          exit 1
