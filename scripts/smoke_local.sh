@@ -71,8 +71,20 @@ echo "ajax_status_initial=$code"
 head -c 300 ajax.json || true; echo
 if [ "$code" != "200" ] || ! grep -Eq '"ok"[[:space:]]*:[[:space:]]*true' ajax.json; then
   echo "Inject MU in runtime and retry"
-  php_code='mkdir("/var/www/html/wp-content/mu-plugins",0777,true);file_put_contents("/var/www/html/wp-content/mu-plugins/zzz-mb-qa-temp.php","<?php add_action(\'rest_api_init\',function(){register_rest_route(\'mb-qa/v1\',\'/ping\',[\'methods\'=>\'GET\',\'permission_callback\'=>\'__return_true\',\'callback\'=>function(){return [\'ok\'=>true,\'ts\'=>time(),\'src\'=>\'mu\'];}]);}); function _mb_qa_echo(){wp_send_json([\'ok\'=>true,\'ts\'=>time(),\'src\'=>\'mu\']);} add_action(\'wp_ajax_mb_qa_echo\',\'_mb_qa_echo\'); add_action(\'wp_ajax_nopriv_mb_qa_echo\',\'_mb_qa_echo\');");echo "injected\n";'
-  npx wp-now php -r "$php_code" || true
+  cat > mb-qa-mu-temp.php <<'PHP'
+<?php
+add_action('rest_api_init', function () {
+  register_rest_route('mb-qa/v1', '/ping', [
+    'methods' => 'GET',
+    'permission_callback' => '__return_true',
+    'callback' => function () { return ['ok' => true, 'ts' => time(), 'src' => 'mu']; },
+  ]);
+});
+function _mb_qa_echo_mu() { wp_send_json(['ok' => true, 'ts' => time(), 'src' => 'mu']); }
+add_action('wp_ajax_mb_qa_echo', '_mb_qa_echo_mu');
+add_action('wp_ajax_nopriv_mb_qa_echo', '_mb_qa_echo_mu');
+PHP
+  npx wp-now php -r 'mkdir("/var/www/html/wp-content/mu-plugins",0777,true); copy("/workspace/mb-qa-mu-temp.php","/var/www/html/wp-content/mu-plugins/zzz-mb-qa-temp.php"); echo "injected\n";' || true
 
   for i in $(seq 1 30); do
     code=$(curl -s -o ajax.json -w '%{http_code}\n' -X POST -d "action=mb_qa_echo" "$BASE_URL/wp-admin/admin-ajax.php" || true)
