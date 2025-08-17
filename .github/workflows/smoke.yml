@@ -5,13 +5,16 @@ on:
     branches: [ chore/stabilize-campaign-crud-tests ]
   pull_request:
     branches: [ chore/stabilize-campaign-crud-tests ]
+  workflow_dispatch: {}
 
 jobs:
   smoke:
     runs-on: ubuntu-latest
     concurrency:
-      group: e2e-smoke
+      group: e2e-smoke-${{ github.ref }}
       cancel-in-progress: true
+    env:
+      MB_FIXER_ACTIVE: 1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,7 +24,7 @@ jobs:
           npm ci || npm i
           npx playwright install --with-deps chromium
       - name: Run CI smoke script
-        run: MB_FIXER_ACTIVE=1 PORT=8888 WP_VER=6.8.2 bash scripts/smoke_local.sh
+        run: PORT=8888 WP_VER=6.8.2 bash scripts/smoke_local.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: wp-now.log, path: wp-now.log, if-no-files-found: ignore }
