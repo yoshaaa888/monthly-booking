@@ -10,7 +10,7 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     env:
-      BASE_URL: http://localhost:8888
+      BASE_URL: http://127.0.0.1:8888
 
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +64,18 @@ jobs:
           exit 1
 
       - name: Run Playwright smoke
+      - name: Sanity: POST admin-ajax (mb_qa_echo)
+        run: |
+          echo "== POST $BASE_URL/wp-admin/admin-ajax.php action=mb_qa_echo =="
+          code=$(curl -s -o resp.json -w %{http_code} -X POST -d "action=mb_qa_echo" "$BASE_URL/wp-admin/admin-ajax.php" || true)
+          echo "status=$code"
+          head -c 300 resp.json || true; echo
+          if [ "$code" != "200" ]; then
+            echo "admin-ajax did not return 200"
+            echo "===== wp-now.log (tail) ====="
+            tail -n 200 wp-now.log || true
+            exit 1
+          fi
         run: npm run test:smoke
 
       - name: Upload artifacts (reports + wp-now.log)
