@@ -24,6 +24,27 @@ jobs:
         run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 
       - name: Install Playwright (browsers + deps)
+
+      - name: Create temp plugin (REST ping & AJAX echo)
+        shell: bash
+        run: |
+          cat > wp-now-plugin.php <<PHP
+          <?php
+          /**
+           * Plugin Name: MB QA Temp Plugin
+           */
+          add_action(rest_api_init, function () {
+            register_rest_route(mb-qa/v1,/ping, array(
+              methods  => GET,
+              callback => function(){ return array(ok=>true,ts=>time()); },
+              permission_callback => __return_true,
+            ));
+          });
+          add_action(wp_ajax_mb_qa_echo, function(){ wp_send_json_success(array(ok=>true,who=>admin)); });
+          add_action(wp_ajax_nopriv_mb_qa_echo, function(){ wp_send_json_success(array(ok=>true,who=>guest)); });
+          PHP
+          # 念のため一覧も出す（デバッグに便利、失敗しても無害）
+          ls -la || true
         run: npx playwright install --with-deps chromium
 
       - name: Start WordPress (wp-now) in background
