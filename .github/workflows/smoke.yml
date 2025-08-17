@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BASE_URL: http://127.0.0.1:8888
+      WP_VER: 6.8.2
 
     steps:
       - name: Checkout
@@ -26,32 +27,30 @@ jobs:
           npm ci || npm i
           npx playwright install --with-deps chromium
 
-      - name: Create temp root plugin (QA endpoints)
+      - name: Start wp-now (plugin mode) on :8888
         run: |
-          cat > wp-now-plugin.php <<'PHP'
+          nohup npx wp-now start --wp "$WP_VER" --port 8888 --path . > wp-now.log 2>&1 &
+          echo $! > wp-now.pid
+          sleep 2
+
+      - name: Inject MU plugin (always-loaded QA endpoints)
+        run: |
+          MU="$HOME/.wp-now/wordpress-versions/$WP_VER/wp-content/mu-plugins"
+          mkdir -p "$MU"
+          cat > "$MU/zzz-mb-qa-temp.php" <<'PHP'
           <?php
-          /**
-           * Plugin Name: MB QA Temp Plugin
-           */
+          // Always loaded; no activation needed.
           add_action('rest_api_init', function () {
             register_rest_route('mb-qa/v1', '/ping', [
               'methods'  => 'GET',
               'permission_callback' => '__return_true',
-              'callback' => function () {
-                return ['ok' => true, 'ts' => time()];
-              }
+              'callback' => function () { return ['ok' => true, 'ts' => time(), 'src' => 'mu']; }
             ]);
           });
-          function _mb_qa_echo() { wp_send_json(['ok'=>true,'action'=>'mb_qa_echo','ts'=>time()]); }
+          function _mb_qa_echo() { wp_send_json(['ok'=>true,'ts'=>time(),'src'=>'mu']); }
           add_action('wp_ajax_mb_qa_echo', '_mb_qa_echo');
           add_action('wp_ajax_nopriv_mb_qa_echo', '_mb_qa_echo');
           PHP
-
-      - name: Start wp-now (plugin mode) on :8888
-        run: |
-          nohup npx wp-now start --wp 6.8.2 --port 8888 --path . > wp-now.log 2>&1 &
-          echo $! > wp-now.pid
-          sleep 2
 
       - name: Health check (up to 240s)
         shell: bash
@@ -72,11 +71,24 @@ jobs:
           fi
           curl -sS "$BASE_URL/" | head -c 200 || true
 
+      - name: Sanity GET REST (mb-qa/v1/ping)
+        shell: bash
+        run: |
+          set +e; set +o pipefail
+          code=$(curl -s -o rest.json -w '%{http_code}' "$BASE_URL/wp-json/mb-qa/v1/ping" || true)
+          echo "rest_status=$code"
+          head -c 300 rest.json || true; echo
+          if [ "$code" != "200" ]; then
+            echo "===== wp-now.log (tail) ====="; [ -f wp-now.log ] && tail -n 200 wp-now.log || true
+            exit 1
+          fi
+
       - name: Sanity POST admin-ajax (mb_qa_echo)
         shell: bash
         run: |
+          set +e; set +o pipefail
           code=$(curl -s -o resp.json -w '%{http_code}' -X POST -d "action=mb_qa_echo" "$BASE_URL/wp-admin/admin-ajax.php" || true)
-          echo "status=$code"
+          echo "ajax_status=$code"
           head -c 300 resp.json || true; echo
           if [ "$code" != "200" ]; then
             echo "===== wp-now.log (tail) =====" || true
