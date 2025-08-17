@@ -29,6 +29,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Start WordPress (wp-now) in background
+        shell: bash
         run: |
           npx wp-now start --wp 6.8.2 --port 8888 --path . > wp-now.log 2>&1 &
           echo "wp-now started"; sleep 2
@@ -36,25 +37,12 @@ jobs:
       - name: Debug pre-check (ps/ss and wp-now.log head)
         shell: bash
         run: |
-          echo "== ps -ef | grep -E \"wp-now|php\" =="
+          echo "== ps -ef | grep -E 'wp-now|php' =="
           ps -ef | grep -E "wp-now|php" || true
           echo "== ss -ltnp | grep 8888 =="
           ss -ltnp | grep 8888 || true
           echo "== wp-now.log (head 60) =="
           head -n 60 wp-now.log || true
-
-      - name: Derive BASE_URL from wp-now.log (optional)
-        shell: bash
-        run: |
-          url=$(grep -Eo "https?://[^ ]+" -m1 wp-now.log || true)
-          if [ -n "$url" ]; then
-            echo "Found url=$url"
-            # wp-now が https のトンネルURLを出しても、テストは localhost:8888 で叩く
-            new=http://localhost:8888
-          else
-            new=http://localhost:8888
-          fi
-          echo "BASE_URL=$new" >> "$GITHUB_ENV"
 
       - name: Health check (wait up to ~180s)
         shell: bash
@@ -74,16 +62,14 @@ jobs:
       - name: Inject QA MU plugin (REST ping / AJAX echo)
         shell: bash
         run: |
-          # 候補ルートを推定（ログから/標準パス）
-          candidates=()
+          roots=()
           if grep -q "/wordpress-versions/" wp-now.log; then
-            root=$(grep -oE "/home/runner/.wp-now/wordpress-versions/[0-9.]+" -m1 wp-now.log || true)
-            [ -n "$root" ] && candidates+=("$root" "$root/wordpress")
+            r=$(grep -oE "/home/runner/.wp-now/wordpress-versions/[0-9.]+" -m1 wp-now.log || true)
+            [ -n "$r" ] && roots+=("$r" "$r/wordpress")
           fi
-          candidates+=("$HOME/.wp-now/wordpress-versions/6.8.2" "$HOME/.wp-now/wordpress-versions/6.8.2/wordpress")
-          echo "Candidates: ${candidates[@]}"
-
-          for base in "${candidates[@]}"; do
+          roots+=("$HOME/.wp-now/wordpress-versions/6.8.2" "$HOME/.wp-now/wordpress-versions/6.8.2/wordpress")
+          echo "Roots: ${roots[@]}"
+          for base in "${roots[@]}"; do
             mu="$base/wp-content/mu-plugins"
             mkdir -p "$mu" || true
             target="$mu/mb-qa-smoke.php"
