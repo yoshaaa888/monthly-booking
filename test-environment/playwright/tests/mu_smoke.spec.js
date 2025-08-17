@@ -9,7 +9,7 @@ test("REST ping responds ok (smoke)", async ({ request }) => {
   expect(json.ok).toBe(true);
 });
 
-test("admin-ajax responds (smoke)", async ({ request }) => {
+test("admin-ajax responds (smoke-2)", async ({ request }) => {
   const res = await request.post(BASE + "/wp-admin/admin-ajax.php", {
     form: { action: "mb_qa_echo" },
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
