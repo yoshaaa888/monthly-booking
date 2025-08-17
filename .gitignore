@@ -1,28 +1,3 @@
-# Node.js dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# WordPress
-wp-config.php
-wp-content/uploads/
-.htaccess
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log/test-environment/playwright/test-results/
-/test-environment/playwright/test-results/
-
 # WordPress wp-now
 .wp-now/
 wp.pid
