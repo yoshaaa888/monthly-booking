@@ -14,6 +14,7 @@ trap 'cleanup' EXIT
 PORT="${PORT:-8888}"
 WP_VER="${WP_VER:-6.8.2}"
 BASE_URL="http://127.0.0.1:${PORT}"
+export MB_FIXER_ACTIVE="${MB_FIXER_ACTIVE:-}"
 rest_ready=0
 has_ok_or_success_true() {
   grep -Eq '"ok"[[:space:]]*:[[:space:]]*true' "$1" \
@@ -149,46 +150,14 @@ printf "%s" "$MU_PHP" | npx wp-now php -r '
   echo $exists ? "mu=exists\n" : "mu=missing\n";
 ' || true
 
-if [ "$rest_ready" != 1 ]; then
-  echo "::warning:: REST not ready → MU injection fallback"
-  MU_PHP='<?php
-add_action("rest_api_init", function(){ register_rest_route("mb-qa/v1","/ping",[
-  "methods"=>"GET","permission_callback"=>"__return_true",
-  "callback"=>function(){ return ["success"=>true,"ok"=>true,"ts"=>time(),"src"=>"mu"]; }
-]);});
-remove_all_actions("wp_ajax_mb_qa_echo");
-remove_all_actions("wp_ajax_nopriv_mb_qa_echo");
-add_action("wp_ajax_mb_qa_echo", function () { wp_send_json(["success"=>true,"ok"=>true,"ts"=>time(),"src"=>"mu"]); }, 0);
-add_action("wp_ajax_nopriv_mb_qa_echo", function () { wp_send_json(["success"=>true,"ok"=>true,"ts"=>time(),"src"=>"mu"]); }, 0);
-add_action("init", function () {
-  if (!empty($_REQUEST["action"]) && $_REQUEST["action"] === "mb_qa_echo") {
-    _mb_qa_echo_s();
-  }
-}, 0);
-add_action("wp_head", function(){ echo "<!-- MB_FIXER_ACTIVE -->\n<div id=\"mb-fixer-active\" style=\"display:none\">MB_FIXER_ACTIVE</div>\n"; });
-add_action("wp_footer", function(){ echo "<!-- MB_FIXER_ACTIVE -->\n<div id=\"mb-fixer-active\" style=\"display:none\">MB_FIXER_ACTIVE</div>\n"; });
-add_action("wp_body_open", function(){ echo "<!-- MB_FIXER_ACTIVE -->\n<div id=\"mb-fixer-active\" style=\"display:none\">MB_FIXER_ACTIVE</div>\n"; });
-add_filter("the_content", function($c){ return "<!-- MB_FIXER_ACTIVE -->\n<div id=\"mb-fixer-active\" style=\"display:none\">MB_FIXER_ACTIVE</div>\n".$c; });'
-  printf "%s" "$MU_PHP" | npx wp-now php -r '
-    chdir("/var/www/html"); require "wp-load.php";
-    $cands = [];
-    if (defined("WPMU_PLUGIN_DIR")) $cands[] = WPMU_PLUGIN_DIR;
-    if (defined("WP_CONTENT_DIR"))  $cands[] = WP_CONTENT_DIR . "/mu-plugins";
-    $cands[] = ABSPATH . "wp-content/mu-plugins";
-    foreach ($cands as $d) { if (@is_dir($d) || @mkdir($d,0777,true)) { $dir=$d; break; } }
-    file_put_contents($dir."/zzz-mb-qa-temp.php", stream_get_contents(STDIN));
-    echo "mu_dir=$dir\n";
-    echo (file_exists($dir."/zzz-mb-qa-temp.php") ? "mu=exists\n" : "mu=missing\n");
-  ' || true
-  echo "::group::REST after MU (<=30s)::"
-  for i in $(seq 1 30); do
-    rcode=$(curl $CURL_OPTS -o rest.json -w '%{http_code}\n' "$BASE_URL/wp-json/mb-qa/v1/ping" || echo 000)
-    echo "rest_status_after_mu[$i]=$rcode"
-    [ "$rcode" = "200" ] && break
-    sleep 1
-  done
-  echo "::endgroup::"
-fi
+echo "::group::REST after MU (<=30s)::"
+for i in $(seq 1 30); do
+  rcode=$(curl $CURL_OPTS -o rest.json -w '%{http_code}\n' "$BASE_URL/wp-json/mb-qa/v1/ping" || echo 000)
+  echo "rest_status_after_mu[$i]=$rcode"
+  [ "$rcode" = "200" ] && break
+  sleep 1
+done
+echo "::endgroup::"
 
 
 echo "::group::Sanity REST::"
@@ -220,16 +189,6 @@ add_action("wp_head", function(){ echo "<!-- MB_FIXER_ACTIVE -->\n<div id=\"mb-f
 add_action("wp_footer", function(){ echo "<!-- MB_FIXER_ACTIVE -->\n<div id=\"mb-fixer-active\" style=\"display:none\">MB_FIXER_ACTIVE</div>\n"; });
 add_action("wp_body_open", function(){ echo "<!-- MB_FIXER_ACTIVE -->\n<div id=\"mb-fixer-active\" style=\"display:none\">MB_FIXER_ACTIVE</div>\n"; });
 add_filter("the_content", function($c){ return "<!-- MB_FIXER_ACTIVE -->\n<div id=\"mb-fixer-active\" style=\"display:none\">MB_FIXER_ACTIVE</div>\n".$c; });'
-  printf "%s" "$MU_PHP" | npx wp-now php -r '
-    chdir("/var/www/html");
-    require "wp-load.php";
-    $dir = defined("WPMU_PLUGIN_DIR") ? WPMU_PLUGIN_DIR : (ABSPATH . "wp-content/mu-plugins");
-    @mkdir($dir, 0777, true);
-    file_put_contents($dir . "/zzz-mb-qa-temp.php", stream_get_contents(STDIN));
-    echo "mu_dir=" . $dir . PHP_EOL;
-    echo (file_exists($dir . "/zzz-mb-qa-temp.php") ? "mu=exists\n" : "mu=missing\n");
-  ' || true
-
   printf "%s" "$MU_PHP" | npx wp-now php -r '
     $php = stream_get_contents(STDIN);
     $dirs = [
@@ -278,19 +237,33 @@ if ! has_ok_or_success_true ajax.json; then
   echo "::group::wp-now.log (head 80)"; head -n 80 wp-now.log || true; echo "::endgroup::"
   echo "::group::wp-now.log (tail 200)"; tail -n 200 wp-now.log || true; echo "::endgroup::"
   echo "::group::MU/REST diagnostics"
-  npx wp-now php -r 'chdir("/var/www/html"); require "wp-load.php";
-    $dir = (defined("WPMU_PLUGIN_DIR") ? WPMU_PLUGIN_DIR : ABSPATH."wp-content/mu-plugins");
-    echo (file_exists($dir."/zzz-mb-qa-temp.php")?"mu=exists\n":"mu=missing\n");
-    foreach(array_keys(rest_get_server()->get_routes()) as $r) if (strpos($r,"mb-qa")!==false) echo "route: $r\n";' || true
+  npx wp-now php -r '
+    $dirs = [
+      "/var/www/html/wp-content/mu-plugins",
+      "/wordpress/wp-content/mu-plugins",
+    ];
+    $exists = "mu=missing\n";
+    foreach ($dirs as $d) {
+      if (file_exists($d . "/zzz-mb-qa-temp.php")) { $exists = "mu=exists\n"; }
+      echo (is_dir($d) ? "mu_dir=" : "mu_dir_try=") . $d . "\n";
+    }
+    echo $exists;
+  ' || true
+  echo "::group::Routes from /wp-json"
+  curl $CURL_OPTS "$BASE_URL/wp-json" | head -c 2000 | sed -n '1,200p' || true
+  echo
+  echo "::endgroup::"
   echo "::endgroup::"
   exit 1
 fi
 
 echo "== run smoke tests =="
 BASE_URL="$BASE_URL" npx playwright test -c playwright.smoke.config.js --reporter=list,html
-{
-  echo "### E2E Smoke Summary"
-  echo "- BASE_URL: ${BASE_URL}"
-  echo "- REST ok: $(grep -o '\"ok\"[[:space:]]*:[[:space:]]*true' rest.json >/dev/null && echo 'true' || echo 'unknown')"
-  echo "- AJAX success: $(grep -o '\"success\"[[:space:]]*:[[:space:]]*true' ajax.json >/dev/null && echo 'true' || echo 'unknown')"
-} >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+  {
+    echo "### E2E Smoke Summary"
+    echo "- BASE_URL: ${BASE_URL}"
+    echo "- REST ok: $(grep -o '\"ok\"[[:space:]]*:[[:space:]]*true' rest.json >/dev/null && echo 'true' || echo 'unknown')"
+    echo "- AJAX success: $(grep -o '\"success\"[[:space:]]*:[[:space:]]*true' ajax.json >/dev/null && echo 'true' || echo 'unknown')"
+  } >> "$GITHUB_STEP_SUMMARY"
+fi
