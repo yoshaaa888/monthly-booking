@@ -60,6 +60,18 @@ done
 if [ "$ok" != 1 ]; then
   echo "not healthy"; tail -n 200 wp-now.log || true; exit 1
 fi
+echo "== wait for REST mb-qa ping (<=60s) =="
+rest_ready=0
+for i in $(seq 1 30); do
+  rcode=$(curl -s -o rest.json -w '%{http_code}\n' "$BASE_URL/wp-json/mb-qa/v1/ping" || echo 000)
+  echo "rest_status[$i]=$rcode"
+  if [ "$rcode" = "200" ]; then rest_ready=1; break; fi
+  sleep 2
+done
+if [ "$rest_ready" != 1 ]; then
+  echo "REST not ready yet, will proceed to MU rescue if needed"
+fi
+
 
 echo "== sanity REST =="
 curl -s -o rest.json -w 'rest_status=%{http_code}\n' "$BASE_URL/wp-json/mb-qa/v1/ping" || true
@@ -84,7 +96,7 @@ function _mb_qa_echo_mu() { wp_send_json(['ok' => true, 'ts' => time(), 'src' =>
 add_action('wp_ajax_mb_qa_echo', '_mb_qa_echo_mu');
 add_action('wp_ajax_nopriv_mb_qa_echo', '_mb_qa_echo_mu');
 PHP
-  npx wp-now php -r 'mkdir("/var/www/html/wp-content/mu-plugins",0777,true); copy("/workspace/mb-qa-mu-temp.php","/var/www/html/wp-content/mu-plugins/zzz-mb-qa-temp.php"); echo "injected\n";' || true
+  npx wp-now php -r 'mkdir("/var/www/html/wp-content/mu-plugins",0777,true); file_put_contents("/var/www/html/wp-content/mu-plugins/zzz-mb-qa-temp.php", file_get_contents("php://stdin")); echo "injected\n";' < mb-qa-mu-temp.php || true
 
   for i in $(seq 1 30); do
     code=$(curl -s -o ajax.json -w '%{http_code}\n' -X POST -d "action=mb_qa_echo" "$BASE_URL/wp-admin/admin-ajax.php" || true)
