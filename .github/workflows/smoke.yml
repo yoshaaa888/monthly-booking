@@ -51,16 +51,25 @@ jobs:
         run: |
           nohup npx wp-now start --wp 6.8.2 --port 8888 --path . > wp-now.log 2>&1 &
           echo $! > wp-now.pid
+          sleep 2
 
       - name: Health check (up to 240s)
         shell: bash
         run: |
+          set +e
+          set +o pipefail
+          ok=0
           for i in $(seq 1 120); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE_URL/")
-            echo "health=$code"
-            [ "$code" = "200" ] && break
+            code=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE_URL/" || echo 000)
+            echo "health[$i]=$code"
+            if [ "$code" = 200 ]; then ok=1; break; fi
             sleep 2
           done
+          if [ "$ok" != 1 ]; then
+            echo "wp-now didn't become healthy in time"
+            echo "===== tail wp-now.log ====="; [ -f wp-now.log ] && tail -n 200 wp-now.log || true
+            exit 1
+          fi
           curl -sS "$BASE_URL/" | head -c 200 || true
 
       - name: Sanity POST admin-ajax (mb_qa_echo)
