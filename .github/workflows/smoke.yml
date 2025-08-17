@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BASE_URL: http://localhost:8888
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,32 +24,16 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
       - name: Install Playwright browsers & system deps
         run: npx playwright install --with-deps chromium
 
-
       - name: Start WordPress (wp-now) in background
         run: |
-          nohup npx wp-now start --wp 6.8.2 --port 8888 --path . > wp-now.log 2>&1 &
-          echo "wp-now started"; sleep 1
+          npx wp-now start --wp 6.8.2 --port 8888 --path . > wp-now.log 2>&1 &
+          echo "wp-now started"; sleep 2
 
       - name: Debug pre-check (ps/ss and wp-now.log head)
-      - name: Derive BASE_URL from wp-now.log (optional)
-        shell: bash
-        run: |
-          url=$(grep -Eo "https?://[^ ]+" -m1 wp-now.log || true)
-          if [ -n "$url" ]; then
-            echo "Found url=$url"
-            # Prefer http on :8888 for our tests unless only https is provided
-            case "$url" in
-              https://*app.github.dev*) new=http://localhost:8888 ;;
-              http://*|https://*) new=http://localhost:8888 ;;
-              *) new=http://localhost:8888 ;;
-            esac
-          else
-            new=http://localhost:8888
-          fi
-          echo "BASE_URL=$new" >> $GITHUB_ENV
         shell: bash
         run: |
           echo "== ps -ef | grep -E \"wp-now|php\" =="
@@ -57,7 +42,21 @@ jobs:
           ss -ltnp | grep 8888 || true
           echo "== wp-now.log (head 60) =="
           head -n 60 wp-now.log || true
-      - name: Health check (wait up to ~60s)
+
+      - name: Derive BASE_URL from wp-now.log (optional)
+        shell: bash
+        run: |
+          url=$(grep -Eo "https?://[^ ]+" -m1 wp-now.log || true)
+          if [ -n "$url" ]; then
+            echo "Found url=$url"
+            # wp-now が https のトンネルURLを出しても、テストは localhost:8888 で叩く
+            new=http://localhost:8888
+          else
+            new=http://localhost:8888
+          fi
+          echo "BASE_URL=$new" >> "$GITHUB_ENV"
+
+      - name: Health check (wait up to ~180s)
         shell: bash
         run: |
           for i in {1..90}; do
@@ -71,3 +70,55 @@ jobs:
           echo "===== wp-now.log (tail) ====="
           tail -n 200 wp-now.log || true
           exit 1
+
+      - name: Inject QA MU plugin (REST ping / AJAX echo)
+        shell: bash
+        run: |
+          # 候補ルートを推定（ログから/標準パス）
+          candidates=()
+          if grep -q "/wordpress-versions/" wp-now.log; then
+            root=$(grep -oE "/home/runner/.wp-now/wordpress-versions/[0-9.]+" -m1 wp-now.log || true)
+            [ -n "$root" ] && candidates+=("$root" "$root/wordpress")
+          fi
+          candidates+=("$HOME/.wp-now/wordpress-versions/6.8.2" "$HOME/.wp-now/wordpress-versions/6.8.2/wordpress")
+          echo "Candidates: ${candidates[@]}"
+
+          for base in "${candidates[@]}"; do
+            mu="$base/wp-content/mu-plugins"
+            mkdir -p "$mu" || true
+            target="$mu/mb-qa-smoke.php"
+            printf %s\\n "<?php"                                   >  "$target"
+            printf %s\\n "/**"                                      >> "$target"
+            printf %s\\n " * Plugin Name: MB QA Smoke Helpers"      >> "$target"
+            printf %s\\n " */"                                      >> "$target"
+            printf %s\\n "add_action('rest_api_init', function () {" >> "$target"
+            printf %s\\n "  register_rest_route('mb-qa/v1','/ping', array(" >> "$target"
+            printf %s\\n "    'methods'  => 'GET',"                 >> "$target"
+            printf %s\\n "    'callback' => function(){ return array('ok'=>true,'ts'=>time()); }," >> "$target"
+            printf %s\\n "    'permission_callback' => '__return_true'," >> "$target"
+            printf %s\\n "  ));"                                    >> "$target"
+            printf %s\\n "});"                                      >> "$target"
+            printf %s\\n "add_action('wp_ajax_mb_qa_echo', function(){ wp_send_json_success(array('ok'=>true,'who'=>'admin')); });" >> "$target"
+            printf %s\\n "add_action('wp_ajax_nopriv_mb_qa_echo', function(){ wp_send_json_success(array('ok'=>true,'who'=>'guest')); });" >> "$target"
+            echo "Wrote: $target"
+          done
+
+      - name: Sanity: check QA endpoints
+        shell: bash
+        run: |
+          curl -s "$BASE_URL/wp-json/mb-qa/v1/ping" && echo
+          curl -s -X POST -d "action=mb_qa_echo" "$BASE_URL/wp-admin/admin-ajax.php" && echo
+
+      - name: Run Playwright smoke
+        run: npm run test:smoke
+
+      - name: Upload artifacts (reports + wp-now.log)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            wp-now.log
+            playwright-report/**
+            test-results/**
+          if-no-files-found: ignore
