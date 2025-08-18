@@ -15,6 +15,7 @@ class MonthlyBooking_Admin_UI {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         add_action('admin_init', array($this, 'register_settings'));
+        add_action('admin_post_mb_delete_booking', array($this, 'handle_booking_delete'));
     }
     
     /**
@@ -795,60 +796,103 @@ class MonthlyBooking_Admin_UI {
     private function render_plan_availability_calendar($room_id) {
         $room_bookings = $this->get_room_bookings_180_days($room_id);
         $campaigns = $this->get_active_campaigns();
-        $plans = array('SS', 'S', 'M', 'L');
-        $today = date('Y-m-d');
-        
+        $today = current_time('Y-m-d');
+        $start = new DateTimeImmutable($today);
+        $days = array();
+        for ($i = 0; $i < 180; $i++) {
+            $d = $start->modify('+' . $i . ' days');
+            $date = $d->format('Y-m-d');
+            $statuses = array();
+            $campaign_name = null;
+            foreach (array('SS', 'S', 'M', 'L') as $plan) {
+                $avail = $this->get_plan_availability($room_id, $plan, $date, $room_bookings, $campaigns);
+                $statuses[] = $avail['status'];
+                if (!empty($avail['campaign_name']) && !$campaign_name) {
+                    $campaign_name = $avail['campaign_name'];
+                }
+            }
+            if (in_array('unavailable', $statuses, true)) {
+                $final = 'unavailable';
+            } elseif (in_array('campaign', $statuses, true)) {
+                $final = 'campaign';
+            } else {
+                $final = 'available';
+            }
+            $days[] = array('date' => $date, 'final' => $final, 'campaign_name' => $campaign_name);
+        }
         ?>
         <div class="plan-availability-calendar">
+            <style>
+            .availability-table{width:100%;border-collapse:collapse}
+            .availability-table th,.availability-table td{border:1px solid #e2e2e2;padding:6px;vertical-align:top}
+            .availability-table thead th{background:#f6f7f7;font-weight:600;text-align:center}
+            .availability-cell.today{outline:2px solid #9e9e9e}
+            .availability-cell.empty{background:#fafafa}
+            .mb-cell-head{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+            .mb-symbol{font-weight:700}
+            .mb-badge{display:inline-block;padding:2px 6px;background:#fff3e0;color:#ff9800;border:1px solid #ffd699;border-radius:3px;font-size:11px}
+            .mb-actions .button.button-small{margin-right:4px;margin-top:4px}
+            </style>
             <table class="availability-table">
                 <thead>
                     <tr>
-                        <th class="plan-header"><?php _e('プラン', 'monthly-booking'); ?></th>
-                        <?php
-                        for ($i = 0; $i < 180; $i++) {
-                            $date = date('Y-m-d', strtotime("+$i days"));
-                            $day_of_week = date('w', strtotime($date));
-                            $is_today = ($date === $today);
-                            $is_weekend = ($day_of_week == 0 || $day_of_week == 6);
-                            
-                            $header_classes = array('date-header');
-                            if ($is_today) $header_classes[] = 'today';
-                            if ($is_weekend) $header_classes[] = 'weekend';
-                            
-                            echo '<th class="' . implode(' ', $header_classes) . '">';
-                            echo date('n/j', strtotime($date)) . '<br>';
-                            echo date('(D)', strtotime($date));
-                            echo '</th>';
-                        }
-                        ?>
+                        <?php foreach (array('日','月','火','水','木','金','土') as $w) { ?>
+                            <th class="date-header"><?php echo esc_html($w); ?></th>
+                        <?php } ?>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($plans as $plan): ?>
-                        <tr>
-                            <td class="plan-cell"><?php echo esc_html($plan); ?></td>
-                            <?php
-                            for ($i = 0; $i < 180; $i++) {
-                                $date = date('Y-m-d', strtotime("+$i days"));
-                                $availability = $this->get_plan_availability($room_id, $plan, $date, $room_bookings, $campaigns);
-                                $is_today = ($date === $today);
-                                
-                                $cell_classes = array('availability-cell', $availability['status']);
-                                if ($is_today) $cell_classes[] = 'today';
-                                
-                                echo '<td class="' . implode(' ', $cell_classes) . '">';
-                                if ($availability['status'] === 'campaign') {
-                                    echo '<span class="campaign-symbol" title="' . esc_attr($availability['campaign_name']) . '">';
-                                    echo esc_html($availability['symbol']) . ' ' . esc_html($availability['campaign_name']);
-                                    echo '</span>';
-                                } else {
-                                    echo esc_html($availability['symbol']);
-                                }
-                                echo '</td>';
+                    <?php
+                    $i = 0;
+                    $count = count($days);
+                    while ($i < $count) {
+                        echo '<tr>';
+                        $weekday = (int) (new DateTimeImmutable($days[$i]['date']))->format('w');
+                        for ($col = 0; $col < $weekday; $col++) {
+                            echo '<td class="availability-cell empty"></td>';
+                        }
+                        for (; $col < 7 && $i < $count; $col++, $i++) {
+                            $info = $days[$i];
+                            $is_today = ($info['date'] === $today);
+                            $classes = array('availability-cell', $info['final']);
+                            if ($is_today) {
+                                $classes[] = 'today';
                             }
-                            ?>
-                        </tr>
-                    <?php endforeach; ?>
+                            echo '<td class="' . esc_attr(implode(' ', $classes)) . '">';
+                            $symbol = ($info['final'] === 'unavailable') ? '×' : (($info['final'] === 'campaign') ? '△' : '〇');
+                            echo '<div class="mb-cell-head">';
+                            echo '<span class="mb-symbol">' . esc_html($symbol) . '</span> ';
+                            echo '<span class="mb-date">' . esc_html(date_i18n('n/j', strtotime($info['date']))) . '</span>';
+                            if ($info['final'] === 'campaign' && $info['campaign_name']) {
+                                echo '<span class="mb-badge">' . esc_html($info['campaign_name']) . '</span>';
+                            }
+                            echo '</div>';
+                            echo '<div class="mb-actions">';
+                            $room_q = 'room_id=' . $room_id . '&date=' . rawurlencode($info['date']);
+                            $reg = admin_url('admin.php?page=monthly-room-booking-registration&' . $room_q);
+                            $edit = admin_url('admin.php?page=monthly-room-booking-registration&action=edit&' . $room_q);
+                            $nonce = wp_create_nonce('mb_delete_booking_' . $room_id . '_' . $info['date']);
+                            if ($info['final'] === 'available' || $info['final'] === 'campaign') {
+                                echo '<a class="button button-small button-primary" href="' . esc_url($reg) . '">' . esc_html__('予約登録', 'monthly-booking') . '</a>';
+                            } else {
+                                echo '<a class="button button-small" href="' . esc_url($edit) . '">' . esc_html__('編集', 'monthly-booking') . '</a>';
+                                echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="display:inline" onsubmit="return confirm(\'' . esc_js(__('削除しますか？', 'monthly-booking')) . '\');">';
+                                echo '<input type="hidden" name="action" value="mb_delete_booking">';
+                                echo '<input type="hidden" name="room_id" value="' . esc_attr($room_id) . '">';
+                                echo '<input type="hidden" name="date" value="' . esc_attr($info['date']) . '">';
+                                echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
+                                echo '<button type="submit" class="button button-small button-link-delete">' . esc_html__('削除', 'monthly-booking') . '</button>';
+                                echo '</form>';
+                            }
+                            echo '</div>';
+                            echo '</td>';
+                        }
+                        for (; $col < 7; $col++) {
+                            echo '<td class="availability-cell empty"></td>';
+                        }
+                        echo '</tr>';
+                    }
+                    ?>
                 </tbody>
             </table>
         </div>
@@ -1065,17 +1109,150 @@ class MonthlyBooking_Admin_UI {
         if (!current_user_can('manage_options')) {
             wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }
-        
+        global $wpdb;
+        $table = $wpdb->prefix . 'monthly_campaigns';
+        $action = isset($_REQUEST['action']) ? sanitize_text_field($_REQUEST['action']) : '';
+        if ($action === 'create_campaign' && isset($_POST['_wpnonce'])) {
+            check_admin_referer('monthly_booking_campaign_create');
+            $name = sanitize_text_field($_POST['name'] ?? '');
+            $discount_type = sanitize_text_field($_POST['discount_type'] ?? 'percentage');
+            if (!in_array($discount_type, array('percentage','fixed'), true)) {
+                $discount_type = 'percentage';
+            }
+            $discount_value = floatval($_POST['discount_value'] ?? 0);
+            $start_date = sanitize_text_field($_POST['start_date'] ?? '');
+            $end_date = sanitize_text_field($_POST['end_date'] ?? '');
+            $is_active = isset($_POST['is_active']) ? 1 : 0;
+            $wpdb->insert($table, array(
+                'name' => $name,
+                'discount_type' => $discount_type,
+                'discount_value' => $discount_value,
+                'start_date' => $start_date,
+                'end_date' => $end_date,
+                'is_active' => $is_active,
+                'created_at' => current_time('mysql')
+            ), array('%s','%s','%f','%s','%s','%d','%s'));
+            echo '<div class="notice notice-success"><p>' . esc_html__('キャンペーンを追加しました。', 'monthly-booking') . '</p></div>';
+        } elseif ($action === 'update_campaign' && isset($_POST['_wpnonce'])) {
+            $id = intval($_POST['id'] ?? 0);
+            check_admin_referer('monthly_booking_campaign_update_' . $id);
+            $name = sanitize_text_field($_POST['name'] ?? '');
+            $discount_type = sanitize_text_field($_POST['discount_type'] ?? 'percentage');
+            if (!in_array($discount_type, array('percentage','fixed'), true)) {
+                $discount_type = 'percentage';
+            }
+            $discount_value = floatval($_POST['discount_value'] ?? 0);
+            $start_date = sanitize_text_field($_POST['start_date'] ?? '');
+            $end_date = sanitize_text_field($_POST['end_date'] ?? '');
+            $is_active = isset($_POST['is_active']) ? 1 : 0;
+            $wpdb->update($table, array(
+                'name' => $name,
+                'discount_type' => $discount_type,
+                'discount_value' => $discount_value,
+                'start_date' => $start_date,
+                'end_date' => $end_date,
+                'is_active' => $is_active
+            ), array('id' => $id), array('%s','%s','%f','%s','%s','%d'), array('%d'));
+            echo '<div class="notice notice-success"><p>' . esc_html__('キャンペーンを更新しました。', 'monthly-booking') . '</p></div>';
+        } elseif ($action === 'delete' && isset($_GET['id'])) {
+            $id = intval($_GET['id']);
+            check_admin_referer('monthly_booking_campaign_delete_' . $id);
+            $wpdb->delete($table, array('id' => $id), array('%d'));
+            echo '<div class="notice notice-success"><p>' . esc_html__('キャンペーンを削除しました。', 'monthly-booking') . '</p></div>';
+        }
+        $editing = false;
+        $edit_row = null;
+        if ($action === 'edit' && isset($_GET['id'])) {
+            $edit_id = intval($_GET['id']);
+            $edit_row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $edit_id));
+            if ($edit_row) {
+                $editing = true;
+            }
+        }
+        $campaigns = $wpdb->get_results("SELECT * FROM $table ORDER BY id DESC");
         ?>
         <div class="wrap">
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-            
-            <div class="monthly-booking-admin-content">
-                <h2><?php _e('キャンペーン設定', 'monthly-booking'); ?></h2>
-                <p><?php _e('割引キャンペーンの作成・管理を行います。', 'monthly-booking'); ?></p>
-                
-                <div class="notice notice-info">
-                    <p><?php _e('機能実装予定: キャンペーン一覧、新規作成、期間設定、割引率設定', 'monthly-booking'); ?></p>
+            <div class="monthly-booking-admin-content" style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+                <div style="flex:2 1 600px;min-width:480px">
+                    <h2><?php _e('キャンペーン一覧', 'monthly-booking'); ?></h2>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th><?php _e('名称', 'monthly-booking'); ?></th>
+                                <th><?php _e('種別', 'monthly-booking'); ?></th>
+                                <th><?php _e('値', 'monthly-booking'); ?></th>
+                                <th><?php _e('期間', 'monthly-booking'); ?></th>
+                                <th><?php _e('有効', 'monthly-booking'); ?></th>
+                                <th><?php _e('操作', 'monthly-booking'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($campaigns) : ?>
+                                <?php foreach ($campaigns as $c): ?>
+                                    <?php
+                                        $del_url = wp_nonce_url(admin_url('admin.php?page=monthly-room-booking-campaigns&action=delete&id=' . $c->id), 'monthly_booking_campaign_delete_' . $c->id);
+                                        $edit_url = admin_url('admin.php?page=monthly-room-booking-campaigns&action=edit&id=' . $c->id);
+                                    ?>
+                                    <tr>
+                                        <td><?php echo esc_html($c->id); ?></td>
+                                        <td><?php echo esc_html($c->name); ?></td>
+                                        <td><?php echo esc_html($c->discount_type); ?></td>
+                                        <td><?php echo esc_html($c->discount_value); ?></td>
+                                        <td><?php echo esc_html($c->start_date); ?> - <?php echo esc_html($c->end_date); ?></td>
+                                        <td><?php echo $c->is_active ? esc_html__('有効', 'monthly-booking') : esc_html__('無効', 'monthly-booking'); ?></td>
+                                        <td>
+                                            <a class="button button-small" href="<?php echo esc_url($edit_url); ?>"><?php _e('編集', 'monthly-booking'); ?></a>
+                                            <a class="button button-small button-link-delete" href="<?php echo esc_url($del_url); ?>" onclick="return confirm('<?php echo esc_js(__('削除しますか？', 'monthly-booking')); ?>');"><?php _e('削除', 'monthly-booking'); ?></a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr><td colspan="7"><?php _e('キャンペーンがありません。', 'monthly-booking'); ?></td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="flex:1 1 360px;min-width:320px;background:#fff;border:1px solid #dcdcde;padding:16px;border-radius:4px">
+                    <?php if ($editing && $edit_row): ?>
+                        <h2><?php _e('キャンペーン編集', 'monthly-booking'); ?></h2>
+                        <form method="post">
+                            <?php wp_nonce_field('monthly_booking_campaign_update_' . $edit_row->id); ?>
+                            <input type="hidden" name="action" value="update_campaign">
+                            <input type="hidden" name="id" value="<?php echo esc_attr($edit_row->id); ?>">
+                            <p><label><?php _e('名称', 'monthly-booking'); ?><br><input type="text" name="name" value="<?php echo esc_attr($edit_row->name); ?>" class="regular-text" required></label></p>
+                            <p><label><?php _e('種別', 'monthly-booking'); ?><br>
+                                <select name="discount_type">
+                                    <option value="percentage" <?php selected($edit_row->discount_type, 'percentage'); ?>>percentage</option>
+                                    <option value="fixed" <?php selected($edit_row->discount_type, 'fixed'); ?>>fixed</option>
+                                </select>
+                            </label></p>
+                            <p><label><?php _e('値', 'monthly-booking'); ?><br><input type="number" step="0.01" name="discount_value" value="<?php echo esc_attr($edit_row->discount_value); ?>" required></label></p>
+                            <p><label><?php _e('開始日', 'monthly-booking'); ?><br><input type="date" name="start_date" value="<?php echo esc_attr($edit_row->start_date); ?>" required></label></p>
+                            <p><label><?php _e('終了日', 'monthly-booking'); ?><br><input type="date" name="end_date" value="<?php echo esc_attr($edit_row->end_date); ?>" required></label></p>
+                            <p><label><input type="checkbox" name="is_active" value="1" <?php checked($edit_row->is_active, 1); ?>> <?php _e('有効', 'monthly-booking'); ?></label></p>
+                            <p><button type="submit" class="button button-primary"><?php _e('更新', 'monthly-booking'); ?></button></p>
+                        </form>
+                    <?php else: ?>
+                        <h2><?php _e('新規キャンペーン', 'monthly-booking'); ?></h2>
+                        <form method="post">
+                            <?php wp_nonce_field('monthly_booking_campaign_create'); ?>
+                            <input type="hidden" name="action" value="create_campaign">
+                            <p><label><?php _e('名称', 'monthly-booking'); ?><br><input type="text" name="name" class="regular-text" required></label></p>
+                            <p><label><?php _e('種別', 'monthly-booking'); ?><br>
+                                <select name="discount_type">
+                                    <option value="percentage">percentage</option>
+                                    <option value="fixed">fixed</option>
+                                </select>
+                            </label></p>
+                            <p><label><?php _e('値', 'monthly-booking'); ?><br><input type="number" step="0.01" name="discount_value" required></label></p>
+                            <p><label><?php _e('開始日', 'monthly-booking'); ?><br><input type="date" name="start_date" required></label></p>
+                            <p><label><?php _e('終了日', 'monthly-booking'); ?><br><input type="date" name="end_date" required></label></p>
+                            <p><label><input type="checkbox" name="is_active" value="1" checked> <?php _e('有効', 'monthly-booking'); ?></label></p>
+                            <p><button type="submit" class="button button-primary"><?php _e('追加', 'monthly-booking'); ?></button></p>
+                        </form>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -1087,11 +1264,46 @@ class MonthlyBooking_Admin_UI {
      */
     public function admin_page_options_management() {
         if (!current_user_can('manage_options')) {
+    public function handle_booking_delete() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
+        }
+        $room_id = isset($_POST['room_id']) ? intval($_POST['room_id']) : 0;
+        $date = isset($_POST['date']) ? sanitize_text_field($_POST['date']) : '';
+        $nonce = isset($_POST['_wpnonce']) ? $_POST['_wpnonce'] : '';
+        if (!$room_id || !$date || !wp_verify_nonce($nonce, 'mb_delete_booking_' . $room_id . '_' . $date)) {
+            wp_die(__('Bad request.', 'monthly-booking'));
+        }
+        global $wpdb;
+        $table = $wpdb->prefix . 'monthly_bookings';
+        $wpdb->query($wpdb->prepare("DELETE FROM $table WHERE room_id = %d AND %s BETWEEN start_date AND end_date", $room_id, $date));
+        wp_safe_redirect(admin_url('admin.php?page=monthly-room-booking-calendar&room_id=' . $room_id . '&mb_notice=deleted'));
+        exit;
+    }
+
             wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }
         
         global $wpdb;
         $table_name = $wpdb->prefix . 'monthly_options';
+        
+        if (isset($_POST['action']) && $_POST['action'] === 'create_option') {
+            check_admin_referer('monthly_booking_create_option');
+            $display_order = intval($_POST['display_order'] ?? 1);
+            $option_name = sanitize_text_field($_POST['option_name'] ?? '');
+            $price = floatval($_POST['price'] ?? 0);
+            $is_discount_target = isset($_POST['is_discount_target']) ? 1 : 0;
+            $is_active = isset($_POST['is_active']) ? 1 : 0;
+            $wpdb->insert($table_name, array(
+                'display_order' => $display_order,
+                'option_name' => $option_name,
+                'price' => $price,
+                'is_discount_target' => $is_discount_target,
+                'is_active' => $is_active,
+                'created_at' => current_time('mysql')
+            ), array('%d','%s','%f','%d','%d','%s'));
+            echo '<div class="notice notice-success"><p>' . esc_html__('オプションを追加しました。', 'monthly-booking') . '</p></div>';
+        }
         
         if (isset($_POST['action']) && $_POST['action'] === 'update_option') {
             check_admin_referer('monthly_booking_update_option');
@@ -1120,6 +1332,13 @@ class MonthlyBooking_Admin_UI {
             echo '<div class="notice notice-success"><p>' . __('オプションが更新されました。', 'monthly-booking') . '</p></div>';
         }
         
+        if (isset($_GET['action']) && $_GET['action'] === 'delete_option' && isset($_GET['id'])) {
+            $id = intval($_GET['id']);
+            check_admin_referer('monthly_booking_delete_option_' . $id);
+            $wpdb->delete($table_name, array('id' => $id), array('%d'));
+            echo '<div class="notice notice-success"><p>' . esc_html__('オプションを削除しました。', 'monthly-booking') . '</p></div>';
+        }
+        
         $options = $wpdb->get_results("SELECT * FROM $table_name ORDER BY display_order ASC");
         
         ?>
@@ -1129,6 +1348,17 @@ class MonthlyBooking_Admin_UI {
             <div class="monthly-booking-admin-content">
                 <h2><?php _e('オプション管理', 'monthly-booking'); ?></h2>
                 <p><?php _e('月額予約のオプションセットを管理します。', 'monthly-booking'); ?></p>
+                
+                <form method="post" class="mb-new-option" style="margin:12px 0;padding:12px;border:1px solid #dcdcde;background:#fff;border-radius:4px">
+                    <?php wp_nonce_field('monthly_booking_create_option'); ?>
+                    <input type="hidden" name="action" value="create_option">
+                    <label><?php _e('表示順', 'monthly-booking'); ?> <input type="number" name="display_order" min="1" max="99" value="1" style="width:80px" required></label>
+                    <label><?php _e('オプション名', 'monthly-booking'); ?> <input type="text" name="option_name" style="width:200px" required></label>
+                    <label><?php _e('価格', 'monthly-booking'); ?> ¥<input type="number" name="price" min="0" step="10" style="width:120px" required></label>
+                    <label><input type="checkbox" name="is_discount_target" value="1"> <?php _e('割引対象', 'monthly-booking'); ?></label>
+                    <label><input type="checkbox" name="is_active" value="1" checked> <?php _e('有効', 'monthly-booking'); ?></label>
+                    <button type="submit" class="button button-primary"><?php _e('新規追加', 'monthly-booking'); ?></button>
+                </form>
                 
                 <table class="monthly-booking-table">
                     <thead>
@@ -1142,7 +1372,7 @@ class MonthlyBooking_Admin_UI {
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($options as $option): ?>
+                        <?php if ($options): foreach ($options as $option): ?>
                         <tr>
                             <form method="post" style="display: contents;">
                                 <?php wp_nonce_field('monthly_booking_update_option'); ?>
@@ -1172,10 +1402,14 @@ class MonthlyBooking_Admin_UI {
                                 </td>
                                 <td>
                                     <button type="submit" class="button button-primary"><?php _e('更新', 'monthly-booking'); ?></button>
+                                    <?php $del_url = wp_nonce_url(admin_url('admin.php?page=monthly-room-booking-options&action=delete_option&id=' . $option->id), 'monthly_booking_delete_option_' . $option->id); ?>
+                                    <a class="button button-small button-link-delete" href="<?php echo esc_url($del_url); ?>" onclick="return confirm('<?php echo esc_js(__('削除しますか？', 'monthly-booking')); ?>');"><?php _e('削除', 'monthly-booking'); ?></a>
                                 </td>
                             </form>
                         </tr>
-                        <?php endforeach; ?>
+                        <?php endforeach; else: ?>
+                            <tr><td colspan="6"><?php _e('オプションがありません。', 'monthly-booking'); ?></td></tr>
+                        <?php endif; ?>
                     </tbody>
                 </table>
                 
