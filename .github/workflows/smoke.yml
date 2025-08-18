@@ -1,0 +1,79 @@
+name: E2E Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ chore/stabilize-campaign-crud-tests ]
+  pull_request:
+    branches: [ chore/stabilize-campaign-crud-tests ]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: e2e-smoke-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install deps
+        env:
+          npm_config_legacy_peer_deps: "true"
+        run: |
+          npm ci --no-audit --no-fund --legacy-peer-deps \
+            || npm i --no-audit --no-fund --legacy-peer-deps
+          npx playwright install --with-deps chromium
+
+      - name: Run CI smoke script
+        env:
+          MB_FIXER_ACTIVE: "1"
+          NPX_YES: "1"
+        run: |
+          PORT=8888 WP_VER=6.8.2 bash scripts/smoke_local.sh
+
+      - name: Upload wp-now.log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wp-now.log
+          path: wp-now.log
+          if-no-files-found: ignore
+
+      - name: Upload test-results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results
+          if-no-files-found: ignore
+
+      - name: Upload playwright-report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          if-no-files-found: ignore
+
+      - name: Upload sanity JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanity-json
+          path: |
+            rest.json
+            ajax.json
+          if-no-files-found: warn
+    env:
+      NPX_YES: "1"
+      npm_config_yes: "true"
+      npm_config_legacy_peer_deps: "true"
+      CI: "1"
+      ADBLOCK: "1"
+

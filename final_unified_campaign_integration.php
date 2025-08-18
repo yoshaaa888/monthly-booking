@@ -16,7 +16,10 @@ global $wpdb;
 echo "=== Final Unified Campaign Integration ===\n\n";
 
 echo "Step 1: Clearing existing conflicting campaigns...\n";
-$deleted = $wpdb->query("DELETE FROM {$wpdb->prefix}monthly_campaigns WHERE campaign_name IN ('即入居割20%', '早割10%', '早割キャンペーン', '即入居割')");
+$names = array('即入居割20%', '早割10%', '早割キャンペーン', '即入居割');
+$placeholders = implode(',', array_fill(0, count($names), '%s'));
+$sql = "DELETE FROM {$wpdb->prefix}monthly_campaigns WHERE campaign_name IN ($placeholders)";
+$deleted = $wpdb->query($wpdb->prepare($sql, ...$names));
 echo "Deleted {$deleted} existing campaigns.\n\n";
 
 echo "Step 2: Inserting unified campaigns with authoritative schema...\n";

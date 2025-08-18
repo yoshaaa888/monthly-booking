@@ -24,6 +24,9 @@ concurrency:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    env:
+      npm_config_legacy_peer_deps: "true"
+      NPX_YES: "1"
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -49,7 +52,7 @@ jobs:
 
       # ✅ 先に依存を入れる（ここ重要）
       - name: Install deps
-        run: npm ci
+        run: npm ci --no-audit --no-fund --legacy-peer-deps || npm i --no-audit --no-fund --legacy-peer-deps
 
       # ✅ 依存が入った後で Playwright ブラウザを入れる（バージョン整合）
       - name: Install Playwright browsers
@@ -67,6 +70,9 @@ jobs:
   crud:
     needs: smoke
     runs-on: ubuntu-latest
+    env:
+      npm_config_legacy_peer_deps: "true"
+      NPX_YES: "1"
     timeout-minutes: 20
     if: |
       github.event_name == 'schedule' ||
@@ -95,7 +101,7 @@ jobs:
 
       # ✅ 依存 → ブラウザの順
       - name: Install deps
-        run: npm ci
+        run: npm ci --no-audit --no-fund --legacy-peer-deps || npm i --no-audit --no-fund --legacy-peer-deps
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
@@ -118,6 +124,9 @@ jobs:
   nightly-full:
     needs: smoke
     runs-on: ubuntu-latest
+    env:
+      npm_config_legacy_peer_deps: "true"
+      NPX_YES: "1"
     timeout-minutes: 30
     if: |
       github.event_name == 'schedule' ||
@@ -145,7 +154,7 @@ jobs:
 
       # ✅ 依存 → ブラウザの順
       - name: Install deps
-        run: npm ci
+        run: npm ci --no-audit --no-fund --legacy-peer-deps || npm i --no-audit --no-fund --legacy-peer-deps
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium

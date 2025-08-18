@@ -1,24 +1,23 @@
-# Node.js dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# WordPress wp-now
+.wp-now/
+wp.pid
+wp-start.log
 
-# WordPress
-wp-config.php
-wp-content/uploads/
-.htaccess
+# Playwright outputs
+test-environment/playwright/playwright-report/
+test-environment/playwright/test-results/
+test-results/
 
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
+# Local diagnostics
+diagnostics/
+node_modules
+playwright-report/
+rest.json
+ajax.json
+wp-now.log
+wp-now.pid
+scripts/smoke_local.sh.bak
+wp-now-plugin.php
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log/test-environment/playwright/test-results/
-/test-environment/playwright/test-results/
+# ci backups
+.github/workflows/*.bak

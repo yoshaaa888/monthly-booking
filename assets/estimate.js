@@ -211,7 +211,7 @@ jQuery(document).ready(function($) {
             if (estimate.campaign_details && estimate.campaign_details.campaigns && estimate.campaign_details.campaigns.length > 0) {
                 const campaign = estimate.campaign_details.campaigns[0];
                 html += '<div class="cost-item campaign-discount">';
-                html += '<span>' + campaign.campaign_name + '適用後 (' + formatCurrency(estimate.daily_rent) + '/日 × ' + estimate.stay_days + '日)</span>';
+                html += '<span>' + campaign.name + '適用後 (' + formatCurrency(estimate.daily_rent) + '/日 × ' + estimate.stay_days + '日)</span>';
                 html += '<span>' + formatCurrency(estimate.total_rent) + '</span>';
                 html += '</div>';
             }

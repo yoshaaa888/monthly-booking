@@ -11,14 +11,34 @@
     "mu:sync": "bash scripts/mu-sync.sh",
     "wp:start": "bash scripts/wp-start.sh",
     "start": "npm run wp:start",
-    "test:smoke": "BASE_URL=${BASE_URL:-http://127.0.0.1:8888} npx playwright test -c test-environment/playwright/playwright.config.js test-environment/playwright/tests/mu_smoke.spec.js test-environment/playwright/tests/smoke_min.spec.js --project=chromium --reporter=list --trace=on",
-    "test:crud": "BASE_URL=${BASE_URL:-http://127.0.0.1:8888} npx playwright test -c test-environment/playwright/playwright.config.js test-environment/playwright/tests/crud --project=chromium --reporter=list --trace=on --workers=1"
+    "test:smoke": "BASE_URL=${BASE_URL:-http://127.0.0.1:8888} npx playwright test -c playwright.smoke.config.js --reporter=list,html"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
+    "@babel/core": "^7.28.3",
+    "@babel/plugin-proposal-class-properties": "^7.18.6",
+    "@babel/plugin-proposal-decorators": "^7.28.0",
+    "@babel/plugin-transform-runtime": "^7.28.3",
+    "@babel/preset-env": "^7.28.3",
+    "@babel/preset-react": "^7.27.1",
+    "@babel/runtime": "^7.28.3",
     "@playwright/test": "^1.46.0",
+    "@wordpress/env": "^10.28.0",
+    "@wp-now/wp-now": "^0.1.74",
+    "babel-loader": "^8.4.1",
+    "babel-polyfill": "^6.26.0",
+    "clean-webpack-plugin": "^4.0.0",
+    "css-loader": "^7.1.2",
+    "mini-css-extract-plugin": "^2.9.4",
     "mysql2": "^3.6.0",
-    "playwright": "^1.46.0"
+    "playwright": "^1.46.0",
+    "react-svg-loader": "^3.0.3",
+    "rimraf": "^5.0.10",
+    "source-map-support": "^0.5.21",
+    "url-loader": "^4.1.1",
+    "webpack": "^5.101.2",
+    "webpack-plugin-install-deps": "^4.0.5",
+    "webpack-source-map-support": "^2.0.1"
   },
   "keywords": [
     "wordpress",
