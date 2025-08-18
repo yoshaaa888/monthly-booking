@@ -206,3 +206,27 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     echo "- AJAX success: $(grep -o '\"success\"[[:space:]]*:[[:space:]]*true' ajax.json >/dev/null && echo 'true' || echo 'unknown')"
   } >> "$GITHUB_STEP_SUMMARY"
 fi
+
+echo "::group::Health check (max 360s)::"
+set +e
+BASE_URL="${BASE_URL:-http://127.0.0.1:${PORT}}"
+deadline=$((SECONDS + 360))
+ok=0
+while [ $SECONDS -lt $deadline ]; do
+  for URL in "${BASE_URL}/" "${BASE_URL}/wp-json" "${BASE_URL}/wp-admin/admin-ajax.php"; do
+    echo "→ curl -I ${URL}"
+    out=$(curl -sS -m 5 -k -L -I "${URL}" 2>&1); code=$?
+    echo "${out}"
+    if [ $code -eq 0 ] && echo "${out}" | grep -Eiq 'HTTP/.* (200|204)'; then ok=1; break; fi
+  done
+  [ $ok -eq 1 ] && break
+  sleep 3
+done
+set -e
+if [ $ok -ne 1 ]; then
+  echo "::error::Health check failed"
+  head -n 80 wp-now.log || true
+  tail -n 200 wp-now.log || true
+  exit 1
+fi
+echo "::endgroup::"
