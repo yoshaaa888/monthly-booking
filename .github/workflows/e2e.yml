@@ -24,6 +24,9 @@ concurrency:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    env:
+      npm_config_legacy_peer_deps: "true"
+      NPX_YES: "1"
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -67,6 +70,9 @@ jobs:
   crud:
     needs: smoke
     runs-on: ubuntu-latest
+    env:
+      npm_config_legacy_peer_deps: "true"
+      NPX_YES: "1"
     timeout-minutes: 20
     if: |
       github.event_name == 'schedule' ||
@@ -118,6 +124,9 @@ jobs:
   nightly-full:
     needs: smoke
     runs-on: ubuntu-latest
+    env:
+      npm_config_legacy_peer_deps: "true"
+      NPX_YES: "1"
     timeout-minutes: 30
     if: |
       github.event_name == 'schedule' ||
