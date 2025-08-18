@@ -28,7 +28,7 @@ has_ok_or_success_true() {
 }
 
 echo "::group::wp-now env"
-npx wp-now --version || true
+npx -y @wp-now/wp-now@latest --version || true
 node -v || true
 echo "WP_VER=${WP_VER:-unknown}  PORT=${PORT:-unknown}  BASE_URL=${BASE_URL:-unknown}"
 echo "::endgroup::"
@@ -63,7 +63,7 @@ php -l "$MU_HOST/zzz-mb-qa-temp.php" || exit 1
 
 
 echo "== wp-now version =="
-npx wp-now --version || true
+npx -y @wp-now/wp-now@latest --version || true
 echo "== start wp-now on :${PORT} =="
 MB_FIXER_ACTIVE="${MB_FIXER_ACTIVE:-1}" nohup npx -y wp-now@1.0.0 start --wp "$WP_VER" --port "$PORT" > wp-now.log 2>&1 &
 WP_NOW_PID=$!
@@ -96,7 +96,7 @@ done
 echo "::endgroup::"
 echo "== inject MU plugin proactively (runtime write, no wp-load) =="
 for ROOT in /var/www/html /wordpress; do
-  npx wp-now php -r '
+  npx -y @wp-now/wp-now@latest php -r '
     $root = getenv("ROOT");
     $dir = $root."/wp-content/mu-plugins";
     @mkdir($dir,0777,true);
@@ -104,7 +104,7 @@ for ROOT in /var/www/html /wordpress; do
     echo ($ok?"mu_dir_ok=":"mu_dir_try=").$dir.PHP_EOL;
   ' >/dev/null 2>&1 ROOT="$ROOT" CODE="$MU_PHP" || true
 done
-npx wp-now php -r '
+npx -y @wp-now/wp-now@latest php -r '
   $dirs=["/var/www/html/wp-content/mu-plugins","/wordpress/wp-content/mu-plugins"];
   $exists="mu=missing";
   foreach($dirs as $d){ if (file_exists($d."/zzz-mb-qa-temp.php")) { $exists="mu=exists"; } }
@@ -133,7 +133,7 @@ head -c 300 ajax.json || true; echo
 if [ "$code" != "200" ] || ! has_ok_or_success_true ajax.json; then
   echo "Inject MU in runtime and retry (no wp-load)"
   for ROOT in /var/www/html /wordpress; do
-    npx wp-now php -r '
+    npx -y @wp-now/wp-now@latest php -r '
       $r=getenv("ROOT"); $d=$r."/wp-content/mu-plugins";
       @mkdir($d,0777,true);
       $ok=@file_put_contents($d."/zzz-mb-qa-temp.php", getenv("CODE"))!==false;
@@ -167,7 +167,7 @@ if ! has_ok_or_success_true ajax.json; then
   echo "::group::wp-now.log (head 80)"; head -n 80 wp-now.log || true; echo "::endgroup::"
   echo "::group::wp-now.log (tail 200)"; tail -n 200 wp-now.log || true; echo "::endgroup::"
   echo "::group::MU/REST diagnostics"
-  npx wp-now php -r '
+  npx -y @wp-now/wp-now@latest php -r '
     $dirs = [
       "/var/www/html/wp-content/mu-plugins",
       "/wordpress/wp-content/mu-plugins",

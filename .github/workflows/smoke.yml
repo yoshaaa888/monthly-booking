@@ -10,6 +10,9 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    env:
+      npm_config_legacy_peer_deps: "true"
+      NPX_YES: "1"
     concurrency:
       group: e2e-smoke-${{ github.ref }}
       cancel-in-progress: true
@@ -23,7 +26,7 @@ jobs:
         env:
           npm_config_legacy_peer_deps: "true"
         run: |
-          npm ci || npm i --legacy-peer-deps
+          npm ci --no-audit --no-fund --legacy-peer-deps || npm i --no-audit --no-fund --legacy-peer-deps --legacy-peer-deps
           npx playwright install --with-deps chromium
       - name: Run CI smoke script
         run: PORT=8888 WP_VER=6.8.2 bash scripts/smoke_local.sh
