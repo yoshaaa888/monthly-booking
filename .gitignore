@@ -10,3 +10,11 @@ test-results/
 
 # Local diagnostics
 diagnostics/
+node_modules
+playwright-report/
+rest.json
+ajax.json
+wp-now.log
+wp-now.pid
+scripts/smoke_local.sh.bak
+wp-now-plugin.php

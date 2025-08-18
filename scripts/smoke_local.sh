@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# ---- Playwright browsers ensure & npm peer-deps relax ----
+export NPX_YES=${NPX_YES:-1}
+export npm_config_legacy_peer_deps=${npm_config_legacy_peer_deps:-1}
+npx -y playwright install chromium >/dev/null 2>&1 || true
+# -----------------------------------------------------------
 set -euo pipefail
 CURL_OPTS="--connect-timeout 2 --max-time 10 -sS"
 cleanup() {
@@ -60,7 +65,7 @@ php -l "$MU_HOST/zzz-mb-qa-temp.php" || exit 1
 echo "== wp-now version =="
 npx wp-now --version || true
 echo "== start wp-now on :${PORT} =="
-MB_FIXER_ACTIVE="${MB_FIXER_ACTIVE:-1}" nohup npx wp-now start --wp "$WP_VER" --port "$PORT" > wp-now.log 2>&1 &
+MB_FIXER_ACTIVE="${MB_FIXER_ACTIVE:-1}" nohup npx -y wp-now@1.0.0 start --wp "$WP_VER" --port "$PORT" > wp-now.log 2>&1 &
 WP_NOW_PID=$!
 echo "$WP_NOW_PID" > wp-now.pid
 sleep 3
