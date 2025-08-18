@@ -78,7 +78,7 @@ jQuery(document).ready(function($) {
             url: monthlyBookingAjax.ajaxurl,
             type: 'POST',
             data: {
-                action: 'get_calendar_bookings',
+                action: 'mbp_get_calendar_bookings',
                 month: month + 1,
                 year: year,
                 nonce: monthlyBookingAjax.nonce

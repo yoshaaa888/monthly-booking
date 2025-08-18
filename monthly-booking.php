@@ -83,6 +83,10 @@ class MonthlyBooking {
     private function init_ajax_handlers() {
         add_action('wp_ajax_mbp_load_calendar', array($this, 'ajax_load_calendar'));
         add_action('wp_ajax_nopriv_mbp_load_calendar', array($this, 'ajax_load_calendar'));
+        add_action('wp_ajax_get_calendar_bookings', array($this, 'ajax_get_calendar_bookings'));
+        add_action('wp_ajax_nopriv_get_calendar_bookings', array($this, 'ajax_get_calendar_bookings'));
+        add_action('wp_ajax_mbp_get_calendar_bookings', array($this, 'ajax_get_calendar_bookings'));
+        add_action('wp_ajax_nopriv_mbp_get_calendar_bookings', array($this, 'ajax_get_calendar_bookings'));
         
         if ($this->is_feature_enabled('reservations_mvp')) {
             add_action('wp_ajax_mbp_reservation_create', array($this, 'ajax_reservation_create'));
@@ -770,6 +774,72 @@ class MonthlyBooking {
         
         wp_send_json_success($result);
     }
+    public function ajax_get_calendar_bookings() {
+        if (!isset($_POST['nonce'])) {
+            wp_send_json_error(array('message' => 'Missing nonce'), 400);
+        }
+        $nonce = $_POST['nonce'];
+        if (!wp_verify_nonce($nonce, 'mbp_calendar_nonce') && !wp_verify_nonce($nonce, 'monthly_booking_nonce')) {
+            wp_send_json_error(array('message' => 'Invalid nonce'), 403);
+        }
+
+        $month = isset($_POST['month']) ? intval($_POST['month']) : 0;
+        $year = isset($_POST['year']) ? intval($_POST['year']) : 0;
+        $room_id = isset($_POST['room_id']) ? intval($_POST['room_id']) : 0;
+
+        if ($month < 1 || $month > 12 || $year < 1970 || $year > 2100) {
+            wp_send_json_error(array('message' => 'Invalid month/year'), 400);
+        }
+
+        $from = sprintf('%04d-%02d-01', $year, $month);
+        $to_dt = DateTime::createFromFormat('Y-m-d', $from);
+        if (!$to_dt) {
+            wp_send_json_error(array('message' => 'Invalid date'), 400);
+        }
+        $to_dt->modify('last day of this month');
+        $to = $to_dt->format('Y-m-d');
+
+        if (!class_exists('MonthlyBooking_Calendar_API')) {
+            require_once plugin_dir_path(__FILE__) . 'includes/calendar-api.php';
+        }
+        $api = new MonthlyBooking_Calendar_API();
+
+        $rooms = array();
+        $bookings = array();
+        $campaign_days = array();
+
+        if ($room_id > 0) {
+            $rooms = array_filter($api->mbp_get_rooms(), function ($r) use ($room_id) {
+                return intval($r->id) === $room_id;
+            });
+            $rooms = array_values($rooms);
+            $bookings = $api->mbp_get_bookings($room_id, $from, $to);
+            $campaign_days = $api->mbp_get_campaign_days($room_id, $from, $to);
+        } else {
+            $rooms = $api->mbp_get_rooms();
+            foreach ($rooms as $r) {
+                $r_id = intval($r->id);
+                $room_bookings = $api->mbp_get_bookings($r_id, $from, $to);
+                if (!empty($room_bookings)) {
+                    foreach ($room_bookings as $b) {
+                        $b->_room_id = $r_id;
+                        $bookings[] = $b;
+                    }
+                }
+            }
+            $campaign_days = $api->get_global_campaigns($from, $to);
+        }
+
+        wp_send_json_success(array(
+            'month' => $month,
+            'year' => $year,
+            'rooms' => $rooms,
+            'bookings' => $bookings,
+            'campaignDays' => $campaign_days,
+        ));
+    }
+
+
     
     private function insert_default_fee_settings() {
         global $wpdb;
@@ -831,6 +901,7 @@ class MonthlyBooking {
                 'description' => '追加大人1名あたりの1日賃料',
                 'display_order' => 6
             ),
+
             array(
                 'setting_key' => 'additional_adult_utilities',
                 'setting_name' => '追加大人・光熱費（1日）',
