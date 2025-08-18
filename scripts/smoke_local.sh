@@ -74,7 +74,7 @@ php -l "$MU_HOST/zzz-mb-qa-temp.php" || exit 1
 echo "== wp-now version =="
 npx -y @wp-now/wp-now@latest --version || true
 echo "== start wp-now on :${PORT} =="
-MB_FIXER_ACTIVE="${MB_FIXER_ACTIVE:-1}" nohup npx -y @wp-now/wp-now@latest start --wp " --skip-browser$WP_VER" --port "$PORT" > wp-now.log 2>&1 &
+MB_FIXER_ACTIVE="${MB_FIXER_ACTIVE:-1}" nohup npx -y @wp-now/wp-now@latest start --wp "$WP_VER" --port "$PORT" --skip-browser > wp-now.log 2>&1 &
 WP_NOW_PID=$!
 echo "$WP_NOW_PID" > wp-now.pid
 sleep 3
