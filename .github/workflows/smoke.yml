@@ -20,8 +20,10 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 18 }
       - name: Install deps
+        env:
+          npm_config_legacy_peer_deps: "true"
         run: |
-          npm ci || npm i
+          npm ci || npm i --legacy-peer-deps
           npx playwright install --with-deps chromium
       - name: Run CI smoke script
         run: PORT=8888 WP_VER=6.8.2 bash scripts/smoke_local.sh
