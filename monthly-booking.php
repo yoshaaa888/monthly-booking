@@ -20,6 +20,20 @@ define('MONTHLY_BOOKING_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 define('MB_USE_CPTS', true);
 
+if (is_admin()) {
+    require_once __DIR__ . '/includes/admin-ui.php';
+}
+add_action('plugins_loaded', function () {
+    if (!is_admin()) return;
+    if (!isset($GLOBALS['monthlybooking_admin_ui']) || !($GLOBALS['monthlybooking_admin_ui'] instanceof MonthlyBooking_Admin_UI)) {
+        $GLOBALS['monthlybooking_admin_ui'] = new MonthlyBooking_Admin_UI();
+    }
+    add_action('admin_post_mb_rates_export', function () {
+        $ui = $GLOBALS['monthlybooking_admin_ui'] ?? new MonthlyBooking_Admin_UI();
+        $ui->handle_rates_export();
+    });
+});
+
 class MonthlyBooking {
     
     public function __construct() {
@@ -59,7 +73,9 @@ class MonthlyBooking {
     }
     
     private function init_admin() {
-        new MonthlyBooking_Admin_UI();
+        if (!isset($GLOBALS['monthlybooking_admin_ui']) || !($GLOBALS['monthlybooking_admin_ui'] instanceof MonthlyBooking_Admin_UI)) {
+            $GLOBALS['monthlybooking_admin_ui'] = new MonthlyBooking_Admin_UI();
+        }
     }
     
     private function init_frontend() {

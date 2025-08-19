@@ -14,7 +14,6 @@ class MonthlyBooking_Admin_UI {
     public function __construct() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
-        add_action('admin_post_mb_rates_export', array($this, 'handle_rates_export'));
     }
 
     private function mb_build_rates_where($filters, &$params, $alias = 'r') {
@@ -2883,10 +2882,4 @@ class MonthlyBooking_Admin_UI {
         fclose($out);
         exit;
     }
-}
-if (is_admin()) {
-    add_action('admin_post_mb_rates_export', function() {
-        $ui = new MonthlyBooking_Admin_UI();
-        $ui->handle_rates_export();
-    });
 }
