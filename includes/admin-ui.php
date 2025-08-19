@@ -2521,7 +2521,7 @@ class MonthlyBooking_Admin_UI {
         $query_params[] = $per_page;
         $query_params[] = $offset;
         $rows = $wpdb->get_results($wpdb->prepare($query_sql, $query_params));
-        $export_url = wp_nonce_url(admin_url('admin-post.php?action=mb_rates_export' . ($q_room ? '&room_id=' . $q_room : '') . ($q_type !== '' ? '&rate_type=' . urlencode($q_type) : '') . ($q_active !== '' ? '&is_active=' . urlencode($q_active) : '') . ($q_pmin !== '' ? '&price_min=' . $q_pmin : '') . ($q_pmax !== '' ? '&price_max=' . $q_pmax : '') . ($q_start ? '&filter_start=' . urlencode($q_start) : '') . ($q_end ? '&filter_end=' . urlencode($q_end) : '')), 'mb_rates_export', 'mb_rates_export_nonce');
+        $export_url = wp_nonce_url(admin_url('admin-post.php?action=mb_rates_export' . ($q_room ? '&room_id=' . $q_room : '') . ($q_type !== '' ? '&rate_type=' . urlencode($q_type) : '') . ($q_active !== '' ? '&is_active=' . urlencode($q_active) : '') . ($q_pmin !== '' ? '&price_min=' . $q_pmin : '') . ($q_pmax !== '' ? '&price_max=' . $q_pmax : '') . ($q_start ? '&filter_start=' . urlencode($q_start) : '') . ($q_end ? '&filter_end=' . urlencode($q_end) : '')), 'mb_rates_export');
         ?>
         <div class="wrap">
             <h1><?php _e('料金管理', 'monthly-booking'); ?></h1>
@@ -2822,9 +2822,7 @@ class MonthlyBooking_Admin_UI {
         if (!current_user_can('manage_options')) {
             wp_die(__('権限がありません。', 'monthly-booking'));
         }
-        if (!isset($_GET['mb_rates_export_nonce']) || !wp_verify_nonce($_GET['mb_rates_export_nonce'], 'mb_rates_export')) {
-            wp_die(__('不正なリクエストです', 'monthly-booking'));
-        }
+        check_admin_referer('mb_rates_export');
         global $wpdb;
         $rooms_table = $wpdb->prefix . 'monthly_rooms';
         $rates_table = $wpdb->prefix . 'monthly_rates';
