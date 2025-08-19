@@ -875,8 +875,12 @@ jQuery(document).ready(function($) {
             var co = ymdToDate($co.val());
             if (!ci || !co) return;
             var diffDays = Math.round((co - ci) / 86400000);
-            if (Number.isFinite(diffDays) && diffDays >= 0) {
-                $n.val(diffDays);
+            if (Number.isFinite(diffDays)) {
+                if (diffDays > 0) {
+                    $n.val(diffDays);
+                } else {
+                    $n.val('');
+                }
             }
         }
         jQuery(document).on('change', '[name="checkin_date"], [name="checkout_date"]', recalc);
