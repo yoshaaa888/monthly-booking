@@ -38,8 +38,6 @@ class MonthlyBooking {
         
         $this->init_frontend();
     }
-        $this->register_cpts_and_meta();
-
     
     private function include_files() {
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/admin-ui.php';
@@ -56,7 +54,6 @@ class MonthlyBooking {
         new MonthlyBooking_Calendar_Render();
         new MonthlyBooking_Booking_Logic();
         new MonthlyBooking_Campaign_Manager();
-    }
     }
     
     private function register_cpts_and_meta() {
