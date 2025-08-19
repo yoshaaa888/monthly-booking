@@ -2850,7 +2850,7 @@ class MonthlyBooking_Admin_UI {
         $sql = "SELECT r.id, r.room_id, COALESCE(rm.display_name, rm.room_name) AS room_name, r.rate_type, r.base_price, r.currency, r.valid_from, r.valid_to, r.is_active, r.updated_at FROM $rates_table r LEFT JOIN $rooms_table rm ON r.room_id=rm.room_id WHERE $where_sql ORDER BY r.valid_from DESC, r.id DESC";
         $rows = $wpdb->get_results($wpdb->prepare($sql, $params), ARRAY_A);
 
-        if (ob_get_length()) {
+        while (ob_get_level() > 0) {
             ob_end_clean();
         }
         nocache_headers();
