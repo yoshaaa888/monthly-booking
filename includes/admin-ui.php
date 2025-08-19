@@ -2521,7 +2521,18 @@ class MonthlyBooking_Admin_UI {
         $query_params[] = $per_page;
         $query_params[] = $offset;
         $rows = $wpdb->get_results($wpdb->prepare($query_sql, $query_params));
-        $export_url = wp_nonce_url(admin_url('admin-post.php?action=mb_rates_export' . ($q_room ? '&room_id=' . $q_room : '') . ($q_type !== '' ? '&rate_type=' . urlencode($q_type) : '') . ($q_active !== '' ? '&is_active=' . urlencode($q_active) : '') . ($q_pmin !== '' ? '&price_min=' . $q_pmin : '') . ($q_pmax !== '' ? '&price_max=' . $q_pmax : '') . ($q_start ? '&filter_start=' . urlencode($q_start) : '') . ($q_end ? '&filter_end=' . urlencode($q_end) : '')), 'mb_rates_export');
+        $nonce = wp_create_nonce('mb_export_rates');
+        $base  = add_query_arg('action', 'mb_rates_export', admin_url('admin-post.php'));
+        $export_url = add_query_arg(array_filter(array(
+            'room_id'      => $q_room ? $q_room : null,
+            'rate_type'    => ($q_type !== '' ? $q_type : null),
+            'is_active'    => ($q_active !== '' ? $q_active : null),
+            'price_min'    => ($q_pmin !== '' ? $q_pmin : null),
+            'price_max'    => ($q_pmax !== '' ? $q_pmax : null),
+            'filter_start' => ($q_start ?: null),
+            'filter_end'   => ($q_end ?: null),
+            '_wpnonce'     => $nonce,
+        )), $base);
         ?>
         <div class="wrap">
             <h1><?php _e('料金管理', 'monthly-booking'); ?></h1>
@@ -2822,7 +2833,7 @@ class MonthlyBooking_Admin_UI {
         if (!current_user_can('manage_options')) {
             wp_die(__('権限がありません。', 'monthly-booking'));
         }
-        check_admin_referer('mb_rates_export');
+        check_admin_referer('mb_export_rates');
         global $wpdb;
         $rooms_table = $wpdb->prefix . 'monthly_rooms';
         $rates_table = $wpdb->prefix . 'monthly_rates';
@@ -2851,10 +2862,15 @@ class MonthlyBooking_Admin_UI {
         while (ob_get_level() > 0) {
             ob_end_clean();
         }
-        nocache_headers();
-        header('Content-Type: text/csv; charset=utf-8');
+        if (function_exists('apache_setenv')) @apache_setenv('no-gzip','1');
+        @ini_set('zlib.output_compression','0');
+        @ini_set('output_buffering','off');
+        header('Content-Type: text/csv; charset=UTF-8');
         header('X-Content-Type-Options: nosniff');
         header('Content-Disposition: attachment; filename=monthly-rates-' . gmdate('Ymd-Hi') . '.csv');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: 0');
         $out = fopen('php://output', 'w');
         fputcsv($out, array('id','room_id','room_name','rate_type','price_yen','price_display','currency','valid_from','valid_to','is_active','updated_at'));
         if ($rows) {

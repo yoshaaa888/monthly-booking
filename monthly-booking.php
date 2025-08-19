@@ -25,9 +25,14 @@ if (is_admin()) {
 }
 add_action('plugins_loaded', function () {
     if (!is_admin()) return;
+    static $booted = false;
+    if ($booted) return;
+    $booted = true;
+
     if (!isset($GLOBALS['monthlybooking_admin_ui']) || !($GLOBALS['monthlybooking_admin_ui'] instanceof MonthlyBooking_Admin_UI)) {
         $GLOBALS['monthlybooking_admin_ui'] = new MonthlyBooking_Admin_UI();
     }
+
     add_action('admin_post_mb_rates_export', function () {
         $ui = $GLOBALS['monthlybooking_admin_ui'] ?? new MonthlyBooking_Admin_UI();
         $ui->handle_rates_export();
