@@ -14,6 +14,7 @@ class MonthlyBooking_Admin_UI {
     public function __construct() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
+        add_action('admin_post_mb_rates_export', array($this, 'handle_rates_export'));
     }
     private function is_cpt_mode() {
         return defined('MB_USE_CPTS') && MB_USE_CPTS && post_type_exists('mrb_booking') && post_type_exists('mrb_campaign');
@@ -96,6 +97,15 @@ class MonthlyBooking_Admin_UI {
             'monthly-booking-fee-settings',
             array($this, 'render_fee_settings_page')
         );
+        add_submenu_page(
+            'monthly-room-booking',
+            __('料金管理', 'monthly-booking'),
+            __('料金管理', 'monthly-booking'),
+            'manage_options',
+            'monthly-room-booking-rates',
+            array($this, 'render_rates_page')
+        );
+
         
     }
     
@@ -2416,6 +2426,427 @@ class MonthlyBooking_Admin_UI {
         }
     }
     
+        if (!current_user_can('manage_options')) {
+            wp_die(__('権限がありません。', 'monthly-booking'));
+        }
+        global $wpdb;
+        $rooms_table = $wpdb->prefix . 'monthly_rooms';
+        $rates_table = $wpdb->prefix . 'monthly_rates';
+        if (isset($_POST['mb_rates_create_nonce']) && wp_verify_nonce($_POST['mb_rates_create_nonce'], 'mb_rates_create')) {
+            $room_id = isset($_POST['room_id']) ? intval($_POST['room_id']) : 0;
+            $rate_type = isset($_POST['rate_type']) ? sanitize_text_field($_POST['rate_type']) : '';
+            $base_price = isset($_POST['base_price']) ? floatval($_POST['base_price']) : 0;
+            $currency = isset($_POST['currency']) ? sanitize_text_field($_POST['currency']) : 'JPY';
+            $valid_from = isset($_POST['valid_from']) ? sanitize_text_field($_POST['valid_from']) : '';
+            $valid_to = isset($_POST['valid_to']) && $_POST['valid_to'] !== '' ? sanitize_text_field($_POST['valid_to']) : null;
+            $is_active = isset($_POST['is_active']) ? 1 : 0;
+            $errors = array();
+            if ($room_id <= 0) $errors[] = __('部屋を選択してください', 'monthly-booking');
+            if ($rate_type === '') $errors[] = __('rate_type は必須です', 'monthly-booking');
+            if (!is_numeric($base_price) || $base_price < 0) $errors[] = __('base_price が不正です', 'monthly-booking');
+            if ($valid_from === '') $errors[] = __('valid_from は必須です', 'monthly-booking');
+            if ($valid_to !== null && $valid_from !== '' && strtotime($valid_from) > strtotime($valid_to)) $errors[] = __('日付範囲が不正です', 'monthly-booking');
+            $room_exists = $wpdb->get_var($wpdb->prepare("SELECT COUNT(1) FROM $rooms_table WHERE room_id=%d", $room_id));
+            if (!$room_exists) $errors[] = __('指定の部屋が存在しません', 'monthly-booking');
+            if (empty($errors)) {
+                $new_to = $valid_to ? $valid_to : '9999-12-31';
+                $overlap = $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(1) FROM $rates_table r WHERE r.room_id=%d AND r.rate_type=%s AND NOT (IFNULL(r.valid_to,'9999-12-31') < %s OR r.valid_from > %s)",
+                    $room_id, $rate_type, $valid_from, $new_to
+                ));
+                if ($overlap) $errors[] = __('同一room_id+rate_typeで期間が重複しています', 'monthly-booking');
+            }
+            if (empty($errors)) {
+                $wpdb->insert($rates_table, array(
+                    'room_id' => $room_id,
+                    'rate_type' => $rate_type,
+                    'base_price' => $base_price,
+                    'cleaning_fee' => 0,
+                    'service_fee' => 0,
+                    'tax_rate' => 0,
+                    'currency' => $currency,
+                    'valid_from' => $valid_from,
+                    'valid_to' => $valid_to,
+                    'is_active' => $is_active
+                ), array('%d','%s','%f','%f','%f','%f','%s','%s','%s','%d'));
+                echo '<div class="notice notice-success"><p>' . esc_html__('料金を追加しました', 'monthly-booking') . '</p></div>';
+            } else {
+                echo '<div class="notice notice-error"><p>' . esc_html(implode(' / ', $errors)) . '</p></div>';
+            }
+        }
+        $rooms = $wpdb->get_results("SELECT room_id, display_name, room_name FROM $rooms_table ORDER BY display_name, room_name");
+        $q_room = isset($_GET['room_id']) ? intval($_GET['room_id']) : 0;
+        $q_type = isset($_GET['rate_type']) ? sanitize_text_field($_GET['rate_type']) : '';
+        $q_active = isset($_GET['is_active']) ? sanitize_text_field($_GET['is_active']) : '';
+        $q_pmin = isset($_GET['price_min']) && $_GET['price_min'] !== '' ? floatval($_GET['price_min']) : '';
+        $q_pmax = isset($_GET['price_max']) && $_GET['price_max'] !== '' ? floatval($_GET['price_max']) : '';
+        $q_start = isset($_GET['filter_start']) ? sanitize_text_field($_GET['filter_start']) : '';
+        $q_end = isset($_GET['filter_end']) ? sanitize_text_field($_GET['filter_end']) : '';
+        $where = array('1=1');
+        $params = array();
+        if ($q_room) { $where[] = 'r.room_id=%d'; $params[] = $q_room; }
+        if ($q_type !== '') { $where[] = 'r.rate_type=%s'; $params[] = $q_type; }
+        if ($q_active === '0' || $q_active === '1') { $where[] = 'r.is_active=%d'; $params[] = intval($q_active); }
+        if ($q_pmin !== '') { $where[] = 'r.base_price >= %f'; $params[] = (float)$q_pmin; }
+        if ($q_pmax !== '') { $where[] = 'r.base_price <= %f'; $params[] = (float)$q_pmax; }
+        if ($q_start && $q_end) {
+            $where[] = 'NOT (IFNULL(r.valid_to,"9999-12-31") < %s OR r.valid_from >= %s)';
+            $params[] = $q_start; $params[] = $q_end;
+        } elseif ($q_start) {
+            $where[] = 'IFNULL(r.valid_to,"9999-12-31") >= %s';
+            $params[] = $q_start;
+        } elseif ($q_end) {
+            $where[] = 'r.valid_from < %s';
+            $params[] = $q_end;
+        }
+        $where_sql = implode(' AND ', $where);
+        $page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
+        $per_page = 20;
+        $offset = ($page - 1) * $per_page;
+        $count_sql = "SELECT COUNT(1) FROM $rates_table r LEFT JOIN $rooms_table rm ON r.room_id=rm.room_id WHERE $where_sql";
+        $total_items = (int) $wpdb->get_var($wpdb->prepare($count_sql, $params));
+        $total_pages = max(1, ceil($total_items / $per_page));
+        $query_sql = "SELECT r.*, rm.display_name, rm.room_name FROM $rates_table r LEFT JOIN $rooms_table rm ON r.room_id=rm.room_id WHERE $where_sql ORDER BY r.valid_from DESC, r.id DESC LIMIT %d OFFSET %d";
+        $query_params = $params;
+        $query_params[] = $per_page;
+        $query_params[] = $offset;
+        $rows = $wpdb->get_results($wpdb->prepare($query_sql, $query_params));
+        $export_url = wp_nonce_url(admin_url('admin-post.php?action=mb_rates_export' . ($q_room ? '&room_id=' . $q_room : '') . ($q_type !== '' ? '&rate_type=' . urlencode($q_type) : '') . ($q_active !== '' ? '&is_active=' . urlencode($q_active) : '') . ($q_pmin !== '' ? '&price_min=' . $q_pmin : '') . ($q_pmax !== '' ? '&price_max=' . $q_pmax : '') . ($q_start ? '&filter_start=' . urlencode($q_start) : '') . ($q_end ? '&filter_end=' . urlencode($q_end) : '')), 'mb_rates_export', 'mb_rates_export_nonce');
+        ?>
+        <div class="wrap">
+            <h1><?php _e('料金設定', 'monthly-booking'); ?></h1>
+            <form method="get" action="">
+                <input type="hidden" name="page" value="monthly-booking-fee-settings">
+                <div class="tablenav top">
+                    <div class="alignleft actions">
+                        <select name="room_id">
+                            <option value="0"><?php _e('すべての部屋', 'monthly-booking'); ?></option>
+                            <?php foreach ($rooms as $r): ?>
+                                <option value="<?php echo esc_attr($r->room_id); ?>" <?php selected($q_room, $r->room_id); ?>>
+                                    <?php echo esc_html($r->display_name ? $r->display_name : $r->room_name); ?> (<?php echo esc_html($r->room_id); ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <input type="text" name="rate_type" value="<?php echo esc_attr($q_type); ?>" placeholder="rate_type">
+                        <select name="is_active">
+                            <option value=""><?php _e('状態: すべて', 'monthly-booking'); ?></option>
+                            <option value="1" <?php selected($q_active, '1'); ?>><?php _e('有効', 'monthly-booking'); ?></option>
+                            <option value="0" <?php selected($q_active, '0'); ?>><?php _e('無効', 'monthly-booking'); ?></option>
+                        </select>
+                        <input type="number" step="0.01" name="price_min" value="<?php echo $q_pmin !== '' ? esc_attr($q_pmin) : ''; ?>" placeholder="<?php _e('最小価格', 'monthly-booking'); ?>">
+                        <input type="number" step="0.01" name="price_max" value="<?php echo $q_pmax !== '' ? esc_attr($q_pmax) : ''; ?>" placeholder="<?php _e('最大価格', 'monthly-booking'); ?>">
+                        <input type="date" name="filter_start" value="<?php echo esc_attr($q_start); ?>">
+                        <input type="date" name="filter_end" value="<?php echo esc_attr($q_end); ?>">
+                        <button class="button"><?php _e('フィルター適用', 'monthly-booking'); ?></button>
+                        <a class="button" href="<?php echo esc_url(admin_url('admin.php?page=monthly-room-booking-rates')); ?>"><?php _e('リセット', 'monthly-booking'); ?></a>
+                        <a class="button button-secondary" href="<?php echo esc_url($export_url); ?>"><?php _e('CSVエクスポート', 'monthly-booking'); ?></a>
+                    </div>
+                </div>
+            </form>
+            <h2 class="title"><?php _e('新規料金の追加', 'monthly-booking'); ?></h2>
+            <form method="post" action="">
+                <?php wp_nonce_field('mb_rates_create', 'mb_rates_create_nonce'); ?>
+                <table class="form-table">
+                    <tr>
+                        <th><?php _e('部屋', 'monthly-booking'); ?></th>
+                        <td>
+                            <select name="room_id" required>
+                                <option value=""><?php _e('選択してください', 'monthly-booking'); ?></option>
+                                <?php foreach ($rooms as $r): ?>
+                                    <option value="<?php echo esc_attr($r->room_id); ?>"><?php echo esc_html(($r->display_name ? $r->display_name : $r->room_name) . ' (' . $r->room_id . ')'); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>rate_type</th>
+                        <td><input type="text" name="rate_type" required></td>
+                    </tr>
+                    <tr>
+                        <th>base_price</th>
+                        <td><input type="number" step="0.01" name="base_price" required></td>
+                    </tr>
+                    <tr>
+                        <th>currency</th>
+                        <td><input type="text" name="currency" value="JPY"></td>
+                    </tr>
+                    <tr>
+                        <th>valid_from</th>
+                        <td><input type="date" name="valid_from" required></td>
+                    </tr>
+                    <tr>
+                        <th>valid_to</th>
+                        <td><input type="date" name="valid_to"></td>
+                    </tr>
+                    <tr>
+                        <th>is_active</th>
+                        <td><label><input type="checkbox" name="is_active" checked> <?php _e('有効', 'monthly-booking'); ?></label></td>
+                    </tr>
+                </table>
+                <p><button class="button button-primary"><?php _e('追加', 'monthly-booking'); ?></button></p>
+            </form>
+            <h2 class="title"><?php _e('料金一覧', 'monthly-booking'); ?></h2>
+            <table class="wp-list-table widefat fixed striped">
+    public function render_rates_page() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('権限がありません。', 'monthly-booking'));
+        }
+        global $wpdb;
+        $rooms_table = $wpdb->prefix . 'monthly_rooms';
+        $rates_table = $wpdb->prefix . 'monthly_rates';
+        if (isset($_POST['mb_rates_create_nonce']) && wp_verify_nonce($_POST['mb_rates_create_nonce'], 'mb_rates_create')) {
+            $room_id = isset($_POST['room_id']) ? intval($_POST['room_id']) : 0;
+            $rate_type = isset($_POST['rate_type']) ? sanitize_text_field($_POST['rate_type']) : '';
+            $base_price = isset($_POST['base_price']) ? floatval($_POST['base_price']) : 0;
+            $currency = isset($_POST['currency']) ? sanitize_text_field($_POST['currency']) : 'JPY';
+            $valid_from = isset($_POST['valid_from']) ? sanitize_text_field($_POST['valid_from']) : '';
+            $valid_to = isset($_POST['valid_to']) && $_POST['valid_to'] !== '' ? sanitize_text_field($_POST['valid_to']) : null;
+            $is_active = isset($_POST['is_active']) ? 1 : 0;
+            $errors = array();
+            if ($room_id <= 0) $errors[] = __('部屋を選択してください', 'monthly-booking');
+            if ($rate_type === '') $errors[] = __('rate_type は必須です', 'monthly-booking');
+            if (!is_numeric($base_price) || $base_price < 0) $errors[] = __('base_price が不正です', 'monthly-booking');
+            if ($valid_from === '') $errors[] = __('valid_from は必須です', 'monthly-booking');
+            if ($valid_to !== null && $valid_from !== '' && strtotime($valid_from) > strtotime($valid_to)) $errors[] = __('日付範囲が不正です', 'monthly-booking');
+            $room_exists = $wpdb->get_var($wpdb->prepare("SELECT COUNT(1) FROM $rooms_table WHERE room_id=%d", $room_id));
+            if (!$room_exists) $errors[] = __('指定の部屋が存在しません', 'monthly-booking');
+            if (empty($errors)) {
+                $new_to = $valid_to ? $valid_to : '9999-12-31';
+                $overlap = $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(1) FROM $rates_table r WHERE r.room_id=%d AND r.rate_type=%s AND NOT (IFNULL(r.valid_to,'9999-12-31') < %s OR r.valid_from > %s)",
+                    $room_id, $rate_type, $valid_from, $new_to
+                ));
+                if ($overlap) $errors[] = __('同一room_id+rate_typeで期間が重複しています', 'monthly-booking');
+            }
+            if (empty($errors)) {
+                $wpdb->insert($rates_table, array(
+                    'room_id' => $room_id,
+                    'rate_type' => $rate_type,
+                    'base_price' => $base_price,
+                    'cleaning_fee' => 0,
+                    'service_fee' => 0,
+                    'tax_rate' => 0,
+                    'currency' => $currency,
+                    'valid_from' => $valid_from,
+                    'valid_to' => $valid_to,
+                    'is_active' => $is_active
+                ), array('%d','%s','%f','%f','%f','%f','%s','%s','%s','%d'));
+                echo '<div class="notice notice-success"><p>' . esc_html__('料金を追加しました', 'monthly-booking') . '</p></div>';
+            } else {
+                echo '<div class="notice notice-error"><p>' . esc_html(implode(' / ', $errors)) . '</p></div>';
+            }
+        }
+        $rooms = $wpdb->get_results("SELECT room_id, display_name, room_name FROM $rooms_table ORDER BY display_name, room_name");
+        $q_room = isset($_GET['room_id']) ? intval($_GET['room_id']) : 0;
+        $q_type = isset($_GET['rate_type']) ? sanitize_text_field($_GET['rate_type']) : '';
+        $q_active = isset($_GET['is_active']) ? sanitize_text_field($_GET['is_active']) : '';
+        $q_pmin = isset($_GET['price_min']) && $_GET['price_min'] !== '' ? floatval($_GET['price_min']) : '';
+        $q_pmax = isset($_GET['price_max']) && $_GET['price_max'] !== '' ? floatval($_GET['price_max']) : '';
+        $q_start = isset($_GET['filter_start']) ? sanitize_text_field($_GET['filter_start']) : '';
+        $q_end = isset($_GET['filter_end']) ? sanitize_text_field($_GET['filter_end']) : '';
+        $where = array('1=1');
+        $params = array();
+        if ($q_room) { $where[] = 'r.room_id=%d'; $params[] = $q_room; }
+        if ($q_type !== '') { $where[] = 'r.rate_type=%s'; $params[] = $q_type; }
+        if ($q_active === '0' || $q_active === '1') { $where[] = 'r.is_active=%d'; $params[] = intval($q_active); }
+        if ($q_pmin !== '') { $where[] = 'r.base_price >= %f'; $params[] = (float)$q_pmin; }
+        if ($q_pmax !== '') { $where[] = 'r.base_price <= %f'; $params[] = (float)$q_pmax; }
+        if ($q_start && $q_end) {
+            $where[] = 'NOT (IFNULL(r.valid_to,"9999-12-31") < %s OR r.valid_from >= %s)';
+            $params[] = $q_start; $params[] = $q_end;
+        } elseif ($q_start) {
+            $where[] = 'IFNULL(r.valid_to,"9999-12-31") >= %s';
+            $params[] = $q_start;
+        } elseif ($q_end) {
+            $where[] = 'r.valid_from < %s';
+            $params[] = $q_end;
+        }
+        $where_sql = implode(' AND ', $where);
+        $page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
+        $per_page = 20;
+        $offset = ($page - 1) * $per_page;
+        $count_sql = "SELECT COUNT(1) FROM $rates_table r LEFT JOIN $rooms_table rm ON r.room_id=rm.room_id WHERE $where_sql";
+        $total_items = (int) $wpdb->get_var($wpdb->prepare($count_sql, $params));
+        $total_pages = max(1, ceil($total_items / $per_page));
+        $query_sql = "SELECT r.*, rm.display_name, rm.room_name FROM $rates_table r LEFT JOIN $rooms_table rm ON r.room_id=rm.room_id WHERE $where_sql ORDER BY r.valid_from DESC, r.id DESC LIMIT %d OFFSET %d";
+        $query_params = $params;
+        $query_params[] = $per_page;
+        $query_params[] = $offset;
+        $rows = $wpdb->get_results($wpdb->prepare($query_sql, $query_params));
+        $export_url = wp_nonce_url(admin_url('admin-post.php?action=mb_rates_export' . ($q_room ? '&room_id=' . $q_room : '') . ($q_type !== '' ? '&rate_type=' . urlencode($q_type) : '') . ($q_active !== '' ? '&is_active=' . urlencode($q_active) : '') . ($q_pmin !== '' ? '&price_min=' . $q_pmin : '') . ($q_pmax !== '' ? '&price_max=' . $q_pmax : '') . ($q_start ? '&filter_start=' . urlencode($q_start) : '') . ($q_end ? '&filter_end=' . urlencode($q_end) : '')), 'mb_rates_export', 'mb_rates_export_nonce');
+        ?>
+        <div class="wrap">
+            <h1><?php _e('料金管理', 'monthly-booking'); ?></h1>
+            <form method="get" action="">
+                <input type="hidden" name="page" value="monthly-room-booking-rates">
+                <div class="tablenav top">
+                    <div class="alignleft actions">
+                        <select name="room_id">
+                            <option value="0"><?php _e('すべての部屋', 'monthly-booking'); ?></option>
+                            <?php foreach ($rooms as $r): ?>
+                                <option value="<?php echo esc_attr($r->room_id); ?>" <?php selected($q_room, $r->room_id); ?>>
+                                    <?php echo esc_html($r->display_name ? $r->display_name : $r->room_name); ?> (<?php echo esc_html($r->room_id); ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <input type="text" name="rate_type" value="<?php echo esc_attr($q_type); ?>" placeholder="rate_type">
+                        <select name="is_active">
+                            <option value=""><?php _e('状態: すべて', 'monthly-booking'); ?></option>
+                            <option value="1" <?php selected($q_active, '1'); ?>><?php _e('有効', 'monthly-booking'); ?></option>
+                            <option value="0" <?php selected($q_active, '0'); ?>><?php _e('無効', 'monthly-booking'); ?></option>
+                        </select>
+                        <input type="number" step="0.01" name="price_min" value="<?php echo $q_pmin !== '' ? esc_attr($q_pmin) : ''; ?>" placeholder="<?php _e('最小価格', 'monthly-booking'); ?>">
+                        <input type="number" step="0.01" name="price_max" value="<?php echo $q_pmax !== '' ? esc_attr($q_pmax) : ''; ?>" placeholder="<?php _e('最大価格', 'monthly-booking'); ?>">
+                        <input type="date" name="filter_start" value="<?php echo esc_attr($q_start); ?>">
+                        <input type="date" name="filter_end" value="<?php echo esc_attr($q_end); ?>">
+                        <button class="button"><?php _e('フィルター適用', 'monthly-booking'); ?></button>
+                        <a class="button" href="<?php echo esc_url(admin_url('admin.php?page=monthly-room-booking-rates')); ?>"><?php _e('リセット', 'monthly-booking'); ?></a>
+                        <a class="button button-secondary" href="<?php echo esc_url($export_url); ?>"><?php _e('CSVエクスポート', 'monthly-booking'); ?></a>
+                    </div>
+                </div>
+            </form>
+            <h2 class="title"><?php _e('新規料金の追加', 'monthly-booking'); ?></h2>
+            <form method="post" action="">
+                <?php wp_nonce_field('mb_rates_create', 'mb_rates_create_nonce'); ?>
+                <table class="form-table">
+                    <tr>
+                        <th><?php _e('部屋', 'monthly-booking'); ?></th>
+                        <td>
+                            <select name="room_id" required>
+                                <option value=""><?php _e('選択してください', 'monthly-booking'); ?></option>
+                                <?php foreach ($rooms as $r): ?>
+                                    <option value="<?php echo esc_attr($r->room_id); ?>"><?php echo esc_html(($r->display_name ? $r->display_name : $r->room_name) . ' (' . $r->room_id . ')'); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>rate_type</th>
+                        <td><input type="text" name="rate_type" required></td>
+                    </tr>
+                    <tr>
+                        <th>base_price</th>
+                        <td><input type="number" step="0.01" name="base_price" required></td>
+                    </tr>
+                    <tr>
+                        <th>currency</th>
+                        <td><input type="text" name="currency" value="JPY"></td>
+                    </tr>
+                    <tr>
+                        <th>valid_from</th>
+                        <td><input type="date" name="valid_from" required></td>
+                    </tr>
+                    <tr>
+                        <th>valid_to</th>
+                        <td><input type="date" name="valid_to"></td>
+                    </tr>
+                    <tr>
+                        <th>is_active</th>
+                        <td><label><input type="checkbox" name="is_active" checked> <?php _e('有効', 'monthly-booking'); ?></label></td>
+                    </tr>
+                </table>
+                <p><button class="button button-primary"><?php _e('追加', 'monthly-booking'); ?></button></p>
+            </form>
+            <h2 class="title"><?php _e('料金一覧', 'monthly-booking'); ?></h2>
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th><?php _e('部屋', 'monthly-booking'); ?></th>
+                        <th>rate_type</th>
+                        <th>base_price</th>
+                        <th>currency</th>
+                        <th>valid_from</th>
+                        <th>valid_to</th>
+                        <th>is_active</th>
+                        <th>updated_at</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($rows)): ?>
+                        <tr><td colspan="9"><?php _e('データがありません', 'monthly-booking'); ?></td></tr>
+                    <?php else: foreach ($rows as $row): ?>
+                        <tr>
+                            <td><?php echo esc_html($row->id); ?></td>
+                            <td><?php echo esc_html(($row->display_name ? $row->display_name : $row->room_name) . ' (' . $row->room_id . ')'); ?></td>
+                            <td><?php echo esc_html($row->rate_type); ?></td>
+                            <td><?php echo '¥' . esc_html(number_format((float)$row->base_price)); ?></td>
+                            <td><?php echo esc_html($row->currency); ?></td>
+                            <td><?php echo esc_html($row->valid_from); ?></td>
+                            <td><?php echo esc_html($row->valid_to ? $row->valid_to : '-'); ?></td>
+                            <td><?php echo $row->is_active ? __('有効', 'monthly-booking') : __('無効', 'monthly-booking'); ?></td>
+                            <td><?php echo esc_html($row->updated_at); ?></td>
+                        </tr>
+                    <?php endforeach; endif; ?>
+                </tbody>
+            </table>
+            <div class="tablenav bottom">
+                <div class="tablenav-pages">
+                    <?php
+                    $base_url = remove_query_arg('paged');
+                    if ($page > 1) {
+                        $prev_url = add_query_arg('paged', $page - 1, $base_url);
+                        echo '<a class="button" href="' . esc_url($prev_url) . '">&laquo;</a> ';
+                    }
+                    echo '<span class="paging-input">' . esc_html($page) . ' / ' . esc_html($total_pages) . '</span>';
+                    if ($page < $total_pages) {
+                        $next_url = add_query_arg('paged', $page + 1, $base_url);
+                        echo ' <a class="button" href="' . esc_url($next_url) . '">&raquo;</a>';
+                    }
+                    ?>
+                </div>
+            </div>
+        </div>
+    }
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th><?php _e('部屋', 'monthly-booking'); ?></th>
+                        <th>rate_type</th>
+                        <th>base_price</th>
+                        <th>currency</th>
+                        <th>valid_from</th>
+                        <th>valid_to</th>
+                        <th>is_active</th>
+                        <th>updated_at</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($rows)): ?>
+                        <tr><td colspan="9"><?php _e('データがありません', 'monthly-booking'); ?></td></tr>
+                    <?php else: foreach ($rows as $row): ?>
+                        <tr>
+                            <td><?php echo esc_html($row->id); ?></td>
+                            <td><?php echo esc_html(($row->display_name ? $row->display_name : $row->room_name) . ' (' . $row->room_id . ')'); ?></td>
+                            <td><?php echo esc_html($row->rate_type); ?></td>
+                            <td><?php echo '¥' . esc_html(number_format((float)$row->base_price)); ?></td>
+                            <td><?php echo esc_html($row->currency); ?></td>
+                            <td><?php echo esc_html($row->valid_from); ?></td>
+                            <td><?php echo esc_html($row->valid_to ? $row->valid_to : '-'); ?></td>
+                            <td><?php echo $row->is_active ? __('有効', 'monthly-booking') : __('無効', 'monthly-booking'); ?></td>
+                            <td><?php echo esc_html($row->updated_at); ?></td>
+                        </tr>
+                    <?php endforeach; endif; ?>
+                </tbody>
+            </table>
+            <div class="tablenav bottom">
+                <div class="tablenav-pages">
+                    <?php
+                    $base_url = remove_query_arg('paged');
+                    if ($page > 1) {
+                        $prev_url = add_query_arg('paged', $page - 1, $base_url);
+                        echo '<a class="button" href="' . esc_url($prev_url) . '">&laquo;</a> ';
+                    }
+                    echo '<span class="paging-input">' . esc_html($page) . ' / ' . esc_html($total_pages) . '</span>';
+                    if ($page < $total_pages) {
+                        $next_url = add_query_arg('paged', $page + 1, $base_url);
+                        echo ' <a class="button" href="' . esc_url($next_url) . '">&raquo;</a>';
+                    }
+                    ?>
+                </div>
+            </div>
+        </div>
+
     
     public function render_fee_settings_page() {
         if (!current_user_can('manage_options')) {
@@ -2584,5 +3015,65 @@ class MonthlyBooking_Admin_UI {
         });
         </script>
         <?php
+    public function handle_rates_export() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('権限がありません。', 'monthly-booking'));
+        }
+        if (!isset($_GET['mb_rates_export_nonce']) || !wp_verify_nonce($_GET['mb_rates_export_nonce'], 'mb_rates_export')) {
+            wp_die(__('不正なリクエストです', 'monthly-booking'));
+        }
+        global $wpdb;
+        $rooms_table = $wpdb->prefix . 'monthly_rooms';
+        $rates_table = $wpdb->prefix . 'monthly_rates';
+        $q_room = isset($_GET['room_id']) ? intval($_GET['room_id']) : 0;
+        $q_type = isset($_GET['rate_type']) ? sanitize_text_field($_GET['rate_type']) : '';
+        $q_active = isset($_GET['is_active']) ? sanitize_text_field($_GET['is_active']) : '';
+        $q_pmin = isset($_GET['price_min']) && $_GET['price_min'] !== '' ? floatval($_GET['price_min']) : '';
+        $q_pmax = isset($_GET['price_max']) && $_GET['price_max'] !== '' ? floatval($_GET['price_max']) : '';
+        $q_start = isset($_GET['filter_start']) ? sanitize_text_field($_GET['filter_start']) : '';
+        $q_end = isset($_GET['filter_end']) ? sanitize_text_field($_GET['filter_end']) : '';
+        $where = array('1=1'); $params = array();
+        if ($q_room) { $where[] = 'r.room_id=%d'; $params[] = $q_room; }
+        if ($q_type !== '') { $where[] = 'r.rate_type=%s'; $params[] = $q_type; }
+        if ($q_active === '0' || $q_active === '1') { $where[] = 'r.is_active=%d'; $params[] = intval($q_active); }
+        if ($q_pmin !== '') { $where[] = 'r.base_price >= %f'; $params[] = (float)$q_pmin; }
+        if ($q_pmax !== '') { $where[] = 'r.base_price <= %f'; $params[] = (float)$q_pmax; }
+        if ($q_start && $q_end) {
+            $where[] = 'NOT (IFNULL(r.valid_to,"9999-12-31") < %s OR r.valid_from >= %s)';
+            $params[] = $q_start; $params[] = $q_end;
+        } elseif ($q_start) {
+            $where[] = 'IFNULL(r.valid_to,"9999-12-31") >= %s';
+            $params[] = $q_start;
+        } elseif ($q_end) {
+            $where[] = 'r.valid_from < %s';
+            $params[] = $q_end;
+        }
+        $where_sql = implode(' AND ', $where);
+        $sql = "SELECT r.id, r.room_id, COALESCE(rm.display_name, rm.room_name) AS room_name, r.rate_type, r.base_price, r.currency, r.valid_from, r.valid_to, r.is_active, r.updated_at FROM $rates_table r LEFT JOIN $rooms_table rm ON r.room_id=rm.room_id WHERE $where_sql ORDER BY r.valid_from DESC, r.id DESC";
+        $rows = $wpdb->get_results($wpdb->prepare($sql, $params), ARRAY_A);
+        nocache_headers();
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=monthly-rates-' . gmdate('Ymd-Hi') . '.csv');
+        $out = fopen('php://output', 'w');
+        fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
+        fputcsv($out, array('id','room_id','room_name','rate_type','base_price','currency','valid_from','valid_to','is_active','updated_at'));
+        if ($rows) {
+            foreach ($rows as $r) {
+                fputcsv($out, array(
+                    $r['id'],
+                    $r['room_id'],
+                    $r['room_name'],
+                    $r['rate_type'],
+                    number_format((float)$r['base_price'], 0, '.', ''),
+                    $r['currency'],
+                    $r['valid_from'],
+                    $r['valid_to'],
+                    $r['is_active'],
+                    $r['updated_at']
+                ));
+            }
+        }
+        fclose($out);
+        exit;
     }
 }
