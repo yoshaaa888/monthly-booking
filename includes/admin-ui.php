@@ -1258,12 +1258,6 @@ class MonthlyBooking_Admin_UI {
         </div>
         <?php
     }
-    
-    /**
-     * Admin page: オプション管理 (Options Management)
-     */
-    public function admin_page_options_management() {
-        if (!current_user_can('manage_options')) {
     public function handle_booking_delete() {
         if (!current_user_can('manage_options')) {
             wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
@@ -1281,6 +1275,12 @@ class MonthlyBooking_Admin_UI {
         exit;
     }
 
+    
+    /**
+     * Admin page: オプション管理 (Options Management)
+     */
+    public function admin_page_options_management() {
+        if (!current_user_can('manage_options')) {
             wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }
         
