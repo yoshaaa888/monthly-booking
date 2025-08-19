@@ -16,6 +16,18 @@ class MonthlyBooking_Admin_UI {
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         add_action('admin_post_mb_rates_export', array($this, 'handle_rates_export'));
     }
+
+    private function mb_build_rates_where($filters, &$params, $alias = 'r') {
+        $w = array("1=1");
+        if (!empty($filters['room_id'])) { $w[] = "{$alias}.room_id = %d"; $params[] = (int)$filters['room_id']; }
+        if (isset($filters['rate_type']) && $filters['rate_type'] !== '') { $w[] = "{$alias}.rate_type = %s"; $params[] = $filters['rate_type']; }
+        if ($filters['is_active'] !== '' && $filters['is_active'] !== null) { $w[] = "{$alias}.is_active = %d"; $params[] = (int)$filters['is_active']; }
+        if ($filters['price_min'] !== '') { $w[] = "{$alias}.base_price >= %f"; $params[] = (float)$filters['price_min']; }
+        if ($filters['price_max'] !== '') { $w[] = "{$alias}.base_price <= %f"; $params[] = (float)$filters['price_max']; }
+        if (!empty($filters['filter_start'])) { $w[] = "COALESCE({$alias}.valid_to,'9999-12-31') > %s"; $params[] = $filters['filter_start']; }
+        if (!empty($filters['filter_end'])) { $w[] = "{$alias}.valid_from < %s"; $params[] = $filters['filter_end']; }
+        return implode(' AND ', $w);
+    }
     private function is_cpt_mode() {
         return defined('MB_USE_CPTS') && MB_USE_CPTS && post_type_exists('mrb_booking') && post_type_exists('mrb_campaign');
     }
@@ -2452,10 +2464,15 @@ class MonthlyBooking_Admin_UI {
             if (empty($errors)) {
                 $new_to = $valid_to ? $valid_to : '9999-12-31';
                 $overlap = $wpdb->get_var($wpdb->prepare(
-                    "SELECT COUNT(1) FROM $rates_table r WHERE r.room_id=%d AND r.rate_type=%s AND NOT (IFNULL(r.valid_to,'9999-12-31') < %s OR r.valid_from > %s)",
-                    $room_id, $rate_type, $valid_from, $new_to
+                    "SELECT 1 FROM $rates_table r
+                     WHERE r.room_id = %d
+                       AND r.rate_type = %s
+                       AND r.valid_from < %s
+                       AND %s < COALESCE(r.valid_to, '9999-12-31')
+                     LIMIT 1",
+                    $room_id, $rate_type, $new_to, $valid_from
                 ));
-                if ($overlap) $errors[] = __('同一room_id+rate_typeで期間が重複しています', 'monthly-booking');
+                if ($overlap) $errors[] = __('同一部屋で期間が重複しています', 'monthly-booking');
             }
             if (empty($errors)) {
                 $wpdb->insert($rates_table, array(
@@ -2483,24 +2500,17 @@ class MonthlyBooking_Admin_UI {
         $q_pmax = isset($_GET['price_max']) && $_GET['price_max'] !== '' ? floatval($_GET['price_max']) : '';
         $q_start = isset($_GET['filter_start']) ? sanitize_text_field($_GET['filter_start']) : '';
         $q_end = isset($_GET['filter_end']) ? sanitize_text_field($_GET['filter_end']) : '';
-        $where = array('1=1');
         $params = array();
-        if ($q_room) { $where[] = 'r.room_id=%d'; $params[] = $q_room; }
-        if ($q_type !== '') { $where[] = 'r.rate_type=%s'; $params[] = $q_type; }
-        if ($q_active === '0' || $q_active === '1') { $where[] = 'r.is_active=%d'; $params[] = intval($q_active); }
-        if ($q_pmin !== '') { $where[] = 'r.base_price >= %f'; $params[] = (float)$q_pmin; }
-        if ($q_pmax !== '') { $where[] = 'r.base_price <= %f'; $params[] = (float)$q_pmax; }
-        if ($q_start && $q_end) {
-            $where[] = 'NOT (IFNULL(r.valid_to,"9999-12-31") < %s OR r.valid_from >= %s)';
-            $params[] = $q_start; $params[] = $q_end;
-        } elseif ($q_start) {
-            $where[] = 'IFNULL(r.valid_to,"9999-12-31") >= %s';
-            $params[] = $q_start;
-        } elseif ($q_end) {
-            $where[] = 'r.valid_from < %s';
-            $params[] = $q_end;
-        }
-        $where_sql = implode(' AND ', $where);
+        $filters = array(
+            'room_id' => $q_room,
+            'rate_type' => $q_type,
+            'is_active' => ($q_active === '0' || $q_active === '1') ? $q_active : '',
+            'price_min' => $q_pmin,
+            'price_max' => $q_pmax,
+            'filter_start' => $q_start,
+            'filter_end' => $q_end,
+        );
+        $where_sql = $this->mb_build_rates_where($filters, $params, 'r');
         $page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
         $per_page = 20;
         $offset = ($page - 1) * $per_page;
@@ -2825,42 +2835,41 @@ class MonthlyBooking_Admin_UI {
         $q_pmax = isset($_GET['price_max']) && $_GET['price_max'] !== '' ? floatval($_GET['price_max']) : '';
         $q_start = isset($_GET['filter_start']) ? sanitize_text_field($_GET['filter_start']) : '';
         $q_end = isset($_GET['filter_end']) ? sanitize_text_field($_GET['filter_end']) : '';
-        $where = array('1=1'); $params = array();
-        if ($q_room) { $where[] = 'r.room_id=%d'; $params[] = $q_room; }
-        if ($q_type !== '') { $where[] = 'r.rate_type=%s'; $params[] = $q_type; }
-        if ($q_active === '0' || $q_active === '1') { $where[] = 'r.is_active=%d'; $params[] = intval($q_active); }
-        if ($q_pmin !== '') { $where[] = 'r.base_price >= %f'; $params[] = (float)$q_pmin; }
-        if ($q_pmax !== '') { $where[] = 'r.base_price <= %f'; $params[] = (float)$q_pmax; }
-        if ($q_start && $q_end) {
-            $where[] = 'NOT (IFNULL(r.valid_to,"9999-12-31") < %s OR r.valid_from >= %s)';
-            $params[] = $q_start; $params[] = $q_end;
-        } elseif ($q_start) {
-            $where[] = 'IFNULL(r.valid_to,"9999-12-31") >= %s';
-            $params[] = $q_start;
-        } elseif ($q_end) {
-            $where[] = 'r.valid_from < %s';
-            $params[] = $q_end;
-        }
-        $where_sql = implode(' AND ', $where);
+        $params = array();
+        $filters = array(
+            'room_id' => $q_room,
+            'rate_type' => $q_type,
+            'is_active' => ($q_active === '0' || $q_active === '1') ? $q_active : '',
+            'price_min' => $q_pmin,
+            'price_max' => $q_pmax,
+            'filter_start' => $q_start,
+            'filter_end' => $q_end,
+        );
+        $where_sql = $this->mb_build_rates_where($filters, $params, 'r');
+
         $sql = "SELECT r.id, r.room_id, COALESCE(rm.display_name, rm.room_name) AS room_name, r.rate_type, r.base_price, r.currency, r.valid_from, r.valid_to, r.is_active, r.updated_at FROM $rates_table r LEFT JOIN $rooms_table rm ON r.room_id=rm.room_id WHERE $where_sql ORDER BY r.valid_from DESC, r.id DESC";
         $rows = $wpdb->get_results($wpdb->prepare($sql, $params), ARRAY_A);
+
         nocache_headers();
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename=monthly-rates-' . gmdate('Ymd-Hi') . '.csv');
         $out = fopen('php://output', 'w');
-        fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
-        fputcsv($out, array('id','room_id','room_name','rate_type','base_price','currency','valid_from','valid_to','is_active','updated_at'));
+        fputcsv($out, array('id','room_id','room_name','rate_type','price_yen','price_display','currency','valid_from','valid_to','is_active','updated_at'));
         if ($rows) {
             foreach ($rows as $r) {
+                $price_int = number_format((float)$r['base_price'], 0, '.', '');
+                $price_disp = '¥' . number_format((float)$r['base_price']);
+                $vto = ($r['valid_to'] ? $r['valid_to'] : '-');
                 fputcsv($out, array(
                     $r['id'],
                     $r['room_id'],
                     $r['room_name'],
                     $r['rate_type'],
-                    number_format((float)$r['base_price'], 0, '.', ''),
+                    $price_int,
+                    $price_disp,
                     $r['currency'],
                     $r['valid_from'],
-                    $r['valid_to'],
+                    $vto,
                     $r['is_active'],
                     $r['updated_at']
                 ));
