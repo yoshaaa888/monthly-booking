@@ -1264,6 +1264,8 @@ class MonthlyBooking_Admin_UI {
             ));
             ?>
             <div class="wrap">
+                <?php if (isset($_GET['message'])) { $msg = sanitize_text_field($_GET['message']); if ($msg === 'saved' || $msg === 'updated' || $msg === 'deleted') { echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $msg === 'deleted' ? __('予約を削除しました。','monthly-booking') : ($msg === 'updated' ? __('予約を更新しました。','monthly-booking') : __('予約を保存しました。','monthly-booking') ) ) . '</p></div>'; } } ?>
+
                 <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
                 <div class="monthly-booking-admin-content">
                     <div class="reservation-header" style="margin-bottom: 20px;">
@@ -1863,7 +1865,7 @@ class MonthlyBooking_Admin_UI {
                                         <td><?php echo esc_html($pid); ?></td>
                                         <td><?php echo esc_html(get_the_title()); ?></td>
                                         <td><?php echo esc_html(get_post_meta($pid, 'type', true)); ?></td>
-                                        <td><?php $amt = absint(get_post_meta($pid, 'amount', true)); echo $amt ? '¥' . number_format_i18n($amt) : '—'; ?></td>
+                                        <td><?php $type = get_post_meta($pid, 'type', true); $amt = absint(get_post_meta($pid, 'amount', true)); if (!$amt) { echo '—'; } else { if ($type === 'percent') { echo esc_html(number_format_i18n($amt)) . '%'; } else { echo '¥' . esc_html(number_format_i18n($amt)); } } ?></td>
                                         <td><?php echo esc_html(get_post_meta($pid, 'start_date', true) . ' — ' . get_post_meta($pid, 'end_date', true)); ?></td>
                                         <td><?php echo get_post_meta($pid, 'is_active', true) ? __('有効', 'monthly-booking') : __('無効', 'monthly-booking'); ?></td>
                                     </tr>
