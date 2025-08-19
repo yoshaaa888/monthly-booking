@@ -857,6 +857,31 @@ jQuery(document).ready(function($) {
             },
             error: function() {
                 console.error('Network error checking period overlap');
+    (function autoCalcNightsCPT(){
+        function ymdToDate(v){
+            if(!v) return null;
+            var parts = String(v).split('-');
+            if (parts.length !== 3) return null;
+            var y = parseInt(parts[0],10), m = parseInt(parts[1],10), d = parseInt(parts[2],10);
+            if (!y || !m || !d) return null;
+            return new Date(Date.UTC(y, m-1, d));
+        }
+        function recalc(){
+            var $ci = jQuery('[name="checkin_date"]');
+            var $co = jQuery('[name="checkout_date"]');
+            var $n  = jQuery('[name="nights"]');
+            if (!$ci.length || !$co.length || !$n.length) return;
+            var ci = ymdToDate($ci.val());
+            var co = ymdToDate($co.val());
+            if (!ci || !co) return;
+            var diffDays = Math.round((co - ci) / 86400000);
+            if (Number.isFinite(diffDays) && diffDays >= 0) {
+                $n.val(diffDays);
+            }
+        }
+        jQuery(document).on('change', '[name="checkin_date"], [name="checkout_date"]', recalc);
+        jQuery(recalc);
+    })();
             }
         });
     }
