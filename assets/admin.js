@@ -61,6 +61,9 @@ jQuery(document).ready(function($) {
         }).fail(function(){ showCampaignMessage('error', 'ネットワークエラーが発生しました。'); });
     });
     'use strict';
+const fmtYen = n => '¥' + new Intl.NumberFormat('ja-JP').format(Number(n ?? 0));
+const fmtDate = s => (s == null || s === '' ? '-' : s);
+
     
     
     $('.toggle-campaign-status').on('click', function(e) {

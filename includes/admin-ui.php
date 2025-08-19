@@ -22,8 +22,8 @@ class MonthlyBooking_Admin_UI {
         if (!empty($filters['room_id'])) { $w[] = "{$alias}.room_id = %d"; $params[] = (int)$filters['room_id']; }
         if (isset($filters['rate_type']) && $filters['rate_type'] !== '') { $w[] = "{$alias}.rate_type = %s"; $params[] = $filters['rate_type']; }
         if ($filters['is_active'] !== '' && $filters['is_active'] !== null) { $w[] = "{$alias}.is_active = %d"; $params[] = (int)$filters['is_active']; }
-        if ($filters['price_min'] !== '') { $w[] = "{$alias}.base_price >= %f"; $params[] = (float)$filters['price_min']; }
-        if ($filters['price_max'] !== '') { $w[] = "{$alias}.base_price <= %f"; $params[] = (float)$filters['price_max']; }
+        if ($filters['price_min'] !== '') { $w[] = "{$alias}.base_price >= %d"; $params[] = (int)$filters['price_min']; }
+        if ($filters['price_max'] !== '') { $w[] = "{$alias}.base_price <= %d"; $params[] = (int)$filters['price_max']; }
         if (!empty($filters['filter_start'])) { $w[] = "COALESCE({$alias}.valid_to,'9999-12-31') > %s"; $params[] = $filters['filter_start']; }
         if (!empty($filters['filter_end'])) { $w[] = "{$alias}.valid_from < %s"; $params[] = $filters['filter_end']; }
         return implode(' AND ', $w);
@@ -2883,4 +2883,10 @@ class MonthlyBooking_Admin_UI {
         fclose($out);
         exit;
     }
+}
+if (is_admin()) {
+    add_action('admin_post_mb_rates_export', function() {
+        $ui = new MonthlyBooking_Admin_UI();
+        $ui->handle_rates_export();
+    });
 }
