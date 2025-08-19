@@ -20,6 +20,8 @@ define('MONTHLY_BOOKING_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 define('MB_USE_CPTS', true);
 
+
+
 class MonthlyBooking {
     
     public function __construct() {
@@ -55,6 +57,7 @@ class MonthlyBooking {
             require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/reservation-service.php';
         }
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/price-example.php';
+        require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/rate-cpt-admin.php';
 
     }
     
