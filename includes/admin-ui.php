@@ -2646,6 +2646,7 @@ class MonthlyBooking_Admin_UI {
                 </div>
             </div>
         </div>
+<?php
     }
     }
 
