@@ -30,6 +30,7 @@ class MonthlyBooking {
         load_plugin_textdomain('monthly-booking', false, dirname(plugin_basename(__FILE__)) . '/languages');
         
         $this->include_files();
+        $this->register_cpts_and_meta();
         
         if (is_admin()) {
             $this->init_admin();
@@ -37,6 +38,8 @@ class MonthlyBooking {
         
         $this->init_frontend();
     }
+        $this->register_cpts_and_meta();
+
     
     private function include_files() {
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/admin-ui.php';
@@ -54,6 +57,126 @@ class MonthlyBooking {
         new MonthlyBooking_Booking_Logic();
         new MonthlyBooking_Campaign_Manager();
     }
+    }
+    
+    private function register_cpts_and_meta() {
+        register_post_type('mrb_booking', array(
+            'labels' => array(
+                'name' => __('Bookings', 'monthly-booking'),
+                'singular_name' => __('Booking', 'monthly-booking'),
+            ),
+            'public' => false,
+            'show_ui' => true,
+            'show_in_menu' => true,
+            'menu_icon' => 'dashicons-calendar-alt',
+            'show_in_rest' => true,
+            'supports' => array(),
+            'capability_type' => 'post',
+            'map_meta_cap' => true,
+        ));
+        $booking_meta = array(
+            'room_id' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'user_id' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'guest_name' => array('type' => 'string', 'sanitize' => 'sanitize_text_field'),
+            'guest_email' => array('type' => 'string', 'sanitize' => 'sanitize_email'),
+            'guest_phone' => array('type' => 'string', 'sanitize' => 'sanitize_text_field'),
+            'checkin_date' => array('type' => 'string', 'sanitize' => 'mrb_sanitize_date_ymd'),
+            'checkout_date' => array('type' => 'string', 'sanitize' => 'mrb_sanitize_date_ymd'),
+            'nights' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'guests' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'rate_id' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'campaign_id' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'options_json' => array('type' => 'string', 'sanitize' => 'mrb_sanitize_json_options'),
+            'subtotal' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'discount' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'total' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'status' => array('type' => 'string', 'sanitize' => 'mrb_sanitize_status'),
+            'notes' => array('type' => 'string', 'sanitize' => 'sanitize_textarea_field'),
+        );
+        foreach ($booking_meta as $key => $def) {
+            register_post_meta('mrb_booking', $key, array(
+                'type' => $def['type'],
+                'single' => true,
+                'show_in_rest' => true,
+                'sanitize_callback' => $def['sanitize'],
+                'auth_callback' => 'mrb_auth_edit_post',
+            ));
+        }
+        register_post_type('mrb_rate', array(
+            'labels' => array(
+                'name' => __('Rates', 'monthly-booking'),
+                'singular_name' => __('Rate', 'monthly-booking'),
+            ),
+            'public' => false,
+            'show_ui' => true,
+            'show_in_menu' => true,
+            'menu_icon' => 'dashicons-tickets',
+            'show_in_rest' => true,
+            'supports' => array(),
+            'capability_type' => 'post',
+            'map_meta_cap' => true,
+        ));
+        $rate_meta = array(
+            'room_id' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'plan_code' => array('type' => 'string', 'sanitize' => 'sanitize_key'),
+            'name' => array('type' => 'string', 'sanitize' => 'sanitize_text_field'),
+            'daily_rate' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'min_nights' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'max_nights' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'weekday_rules_json' => array('type' => 'string', 'sanitize' => 'mrb_sanitize_json_weekday_rules'),
+            'seasonal_start' => array('type' => 'string', 'sanitize' => 'mrb_sanitize_date_ymd'),
+            'seasonal_end' => array('type' => 'string', 'sanitize' => 'mrb_sanitize_date_ymd'),
+            'cleaning_buffer_days' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'priority' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'is_active' => array('type' => 'integer', 'sanitize' => 'absint'),
+        );
+        foreach ($rate_meta as $key => $def) {
+            register_post_meta('mrb_rate', $key, array(
+                'type' => $def['type'],
+                'single' => true,
+                'show_in_rest' => true,
+                'sanitize_callback' => $def['sanitize'],
+                'auth_callback' => 'mrb_auth_edit_post',
+            ));
+        }
+        register_post_type('mrb_campaign', array(
+            'labels' => array(
+                'name' => __('Campaigns', 'monthly-booking'),
+                'singular_name' => __('Campaign', 'monthly-booking'),
+            ),
+            'public' => false,
+            'show_ui' => true,
+            'show_in_menu' => true,
+            'menu_icon' => 'dashicons-megaphone',
+            'show_in_rest' => true,
+            'supports' => array(),
+            'capability_type' => 'post',
+            'map_meta_cap' => true,
+        ));
+        $camp_meta = array(
+            'type' => array('type' => 'string', 'sanitize' => 'sanitize_text_field'),
+            'amount' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'start_date' => array('type' => 'string', 'sanitize' => 'mrb_sanitize_date_ymd'),
+            'end_date' => array('type' => 'string', 'sanitize' => 'mrb_sanitize_date_ymd'),
+            'room_ids_json' => array('type' => 'string', 'sanitize' => 'mrb_sanitize_json_array_ints'),
+            'min_stay_days' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'booking_lead_days' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'flat_rate_nights' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'stackable' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'priority' => array('type' => 'integer', 'sanitize' => 'absint'),
+            'is_active' => array('type' => 'integer', 'sanitize' => 'absint'),
+        );
+        foreach ($camp_meta as $key => $def) {
+            register_post_meta('mrb_campaign', $key, array(
+                'type' => $def['type'],
+                'single' => true,
+                'show_in_rest' => true,
+                'sanitize_callback' => $def['sanitize'],
+                'auth_callback' => 'mrb_auth_edit_post',
+            ));
+        }
+    }
+
     
     public function activate() {
         $this->create_tables();
@@ -407,3 +530,113 @@ class MonthlyBooking {
 }
 
 new MonthlyBooking();
+add_filter('manage_edit-mrb_booking_columns', function($cols){
+    $new = array();
+    if (isset($cols['cb'])) {
+        $new['cb'] = $cols['cb'];
+    }
+    $new['title'] = __('Booking', 'monthly-booking');
+    $new['mrb_status'] = __('Status', 'monthly-booking');
+    $new['mrb_room'] = __('Room', 'monthly-booking');
+    $new['mrb_period'] = __('Period', 'monthly-booking');
+    $new['mrb_total'] = __('Total', 'monthly-booking');
+    if (isset($cols['date'])) {
+        $new['date'] = $cols['date'];
+    }
+    return $new;
+});
+add_action('manage_mrb_booking_posts_custom_column', function($col, $post_id){
+    if ($col === 'mrb_status') {
+        echo esc_html(get_post_meta($post_id, 'status', true));
+    } elseif ($col === 'mrb_room') {
+        $rid = absint(get_post_meta($post_id, 'room_id', true));
+        if ($rid) {
+            echo esc_html($rid);
+        } else {
+            echo '-';
+        }
+    } elseif ($col === 'mrb_period') {
+        $in = get_post_meta($post_id, 'checkin_date', true);
+        $out = get_post_meta($post_id, 'checkout_date', true);
+        $in = $in ? $in : '-';
+        $out = $out ? $out : '-';
+        echo esc_html($in . ' → ' . $out);
+    } elseif ($col === 'mrb_total') {
+        $total = absint(get_post_meta($post_id, 'total', true));
+        echo esc_html(number_format_i18n($total));
+    }
+}, 10, 2);
+function mrb_auth_edit_post($allowed, $meta_key, $post_id) {
+    return current_user_can('edit_post', $post_id);
+}
+function mrb_sanitize_date_ymd($value) {
+    $v = sanitize_text_field($value);
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $v)) {
+        return $v;
+    }
+    return '';
+}
+function mrb_sanitize_status($value) {
+    $v = sanitize_text_field($value);
+    $allowed = array('pending','confirmed','canceled');
+    if (in_array($v, $allowed, true)) {
+        return $v;
+    }
+    return 'pending';
+}
+function mrb_sanitize_json_array_ints($value) {
+    if (is_array($value)) {
+        $arr = $value;
+    } else {
+        $arr = json_decode($value ? $value : '[]', true);
+    }
+    if (!is_array($arr)) {
+        return '[]';
+    }
+    $out = array();
+    foreach ($arr as $x) {
+        $out[] = absint($x);
+    }
+    return wp_json_encode($out);
+}
+function mrb_sanitize_json_options($value) {
+    if (is_array($value)) {
+        $arr = $value;
+    } else {
+        $arr = json_decode($value ? $value : '[]', true);
+    }
+    if (!is_array($arr)) {
+        return '[]';
+    }
+    $out = array();
+    foreach ($arr as $item) {
+        $out[] = array(
+            'key' => isset($item['key']) ? sanitize_text_field($item['key']) : '',
+            'qty' => isset($item['qty']) ? absint($item['qty']) : 0,
+            'amount' => isset($item['amount']) ? absint($item['amount']) : 0,
+        );
+    }
+    return wp_json_encode($out);
+}
+function mrb_sanitize_json_weekday_rules($value) {
+    if (is_array($value)) {
+        $obj = $value;
+    } else {
+        $obj = json_decode($value ? $value : '{}', true);
+    }
+    if (!is_array($obj)) {
+        return '{}';
+    }
+    $days = array('mon','tue','wed','thu','fri','sat','sun');
+    $out = array();
+    foreach ($days as $d) {
+        if (isset($obj[$d]) && is_array($obj[$d])) {
+            $rate = isset($obj[$d]['rate']) ? absint($obj[$d]['rate']) : null;
+            $out[$d] = array();
+            if ($rate !== null) {
+                $out[$d]['rate'] = $rate;
+            }
+        }
+    }
+    return wp_json_encode($out);
+}
