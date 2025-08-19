@@ -15,6 +15,10 @@ class MonthlyBooking_Admin_UI {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
     }
+    private function is_cpt_mode() {
+        return defined('MB_USE_CPTS') && MB_USE_CPTS && post_type_exists('mrb_booking') && post_type_exists('mrb_campaign');
+    }
+
     
     /**
      * Add admin menu pages using WordPress standards
@@ -1151,6 +1155,161 @@ class MonthlyBooking_Admin_UI {
             wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }
         
+        $action = isset($_GET['action']) ? sanitize_text_field($_GET['action']) : 'list';
+        if ($this->is_cpt_mode()) {
+            if ($action === 'delete') {
+                $post_id = isset($_GET['id']) ? absint($_GET['id']) : 0;
+                if ($post_id) {
+                    check_admin_referer('mrb_booking_delete_' . $post_id);
+                    wp_trash_post($post_id);
+                }
+                wp_redirect(admin_url('admin.php?page=monthly-room-booking-registration&message=deleted'));
+                exit;
+            }
+            if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mrb_booking_submit'])) {
+                check_admin_referer('mrb_booking_save');
+                $post_id = isset($_POST['post_id']) ? absint($_POST['post_id']) : 0;
+                $title = isset($_POST['guest_name']) ? sanitize_text_field($_POST['guest_name']) : '';
+                if ($post_id) {
+                    wp_update_post(array(
+                        'ID' => $post_id,
+                        'post_title' => $title
+                    ));
+                } else {
+                    $post_id = wp_insert_post(array(
+                        'post_type' => 'mrb_booking',
+                        'post_status' => 'publish',
+                        'post_title' => $title
+                    ), true);
+                }
+                if (!is_wp_error($post_id)) {
+                    $meta_keys = array(
+                        'room_id','user_id','guest_name','guest_email','guest_phone',
+                        'checkin_date','checkout_date','nights','guests','rate_id','campaign_id',
+                        'options_json','subtotal','discount','total','status','notes'
+                    );
+                    foreach ($meta_keys as $k) {
+                        if (isset($_POST[$k])) {
+                            update_post_meta($post_id, $k, $_POST[$k]);
+                        }
+                    }
+                }
+                wp_redirect(admin_url('admin.php?page=monthly-room-booking-registration&message=saved'));
+                exit;
+            }
+            if ($action === 'add' || ($action === 'edit' && isset($_GET['id']))) {
+                $edit_id = isset($_GET['id']) ? absint($_GET['id']) : 0;
+                $guest_name = $edit_id ? get_post_meta($edit_id, 'guest_name', true) : '';
+                $guest_email = $edit_id ? get_post_meta($edit_id, 'guest_email', true) : '';
+                $guest_phone = $edit_id ? get_post_meta($edit_id, 'guest_phone', true) : '';
+                $room_id = $edit_id ? get_post_meta($edit_id, 'room_id', true) : '';
+                $checkin_date = $edit_id ? get_post_meta($edit_id, 'checkin_date', true) : '';
+                $checkout_date = $edit_id ? get_post_meta($edit_id, 'checkout_date', true) : '';
+                $nights = $edit_id ? get_post_meta($edit_id, 'nights', true) : '';
+                $guests = $edit_id ? get_post_meta($edit_id, 'guests', true) : '';
+                $rate_id = $edit_id ? get_post_meta($edit_id, 'rate_id', true) : '';
+                $campaign_id = $edit_id ? get_post_meta($edit_id, 'campaign_id', true) : '';
+                $subtotal = $edit_id ? get_post_meta($edit_id, 'subtotal', true) : '';
+                $discount = $edit_id ? get_post_meta($edit_id, 'discount', true) : '';
+                $total = $edit_id ? get_post_meta($edit_id, 'total', true) : '';
+                $status = $edit_id ? get_post_meta($edit_id, 'status', true) : 'pending';
+                $notes = $edit_id ? get_post_meta($edit_id, 'notes', true) : '';
+                ?>
+                <div class="wrap">
+                    <h1><?php echo $action === 'edit' ? __('予約編集', 'monthly-booking') : __('新規予約追加', 'monthly-booking'); ?></h1>
+                    <form method="post" action="">
+                        <?php wp_nonce_field('mrb_booking_save'); ?>
+                        <input type="hidden" name="post_id" value="<?php echo esc_attr($edit_id); ?>">
+                        <table class="form-table">
+                            <tr><th><?php _e('部屋ID', 'monthly-booking'); ?></th><td><input type="number" name="room_id" value="<?php echo esc_attr($room_id); ?>" class="regular-text"></td></tr>
+                            <tr><th><?php _e('顧客名', 'monthly-booking'); ?></th><td><input type="text" name="guest_name" value="<?php echo esc_attr($guest_name); ?>" class="regular-text"></td></tr>
+                            <tr><th><?php _e('メール', 'monthly-booking'); ?></th><td><input type="email" name="guest_email" value="<?php echo esc_attr($guest_email); ?>" class="regular-text"></td></tr>
+                            <tr><th><?php _e('電話', 'monthly-booking'); ?></th><td><input type="text" name="guest_phone" value="<?php echo esc_attr($guest_phone); ?>" class="regular-text"></td></tr>
+                            <tr><th><?php _e('チェックイン', 'monthly-booking'); ?></th><td><input type="date" name="checkin_date" value="<?php echo esc_attr($checkin_date); ?>"></td></tr>
+                            <tr><th><?php _e('チェックアウト', 'monthly-booking'); ?></th><td><input type="date" name="checkout_date" value="<?php echo esc_attr($checkout_date); ?>"></td></tr>
+                            <tr><th><?php _e('泊数', 'monthly-booking'); ?></th><td><input type="number" name="nights" value="<?php echo esc_attr($nights); ?>" class="small-text"></td></tr>
+                            <tr><th><?php _e('人数', 'monthly-booking'); ?></th><td><input type="number" name="guests" value="<?php echo esc_attr($guests); ?>" class="small-text"></td></tr>
+                            <tr><th><?php _e('レートID', 'monthly-booking'); ?></th><td><input type="number" name="rate_id" value="<?php echo esc_attr($rate_id); ?>" class="regular-text"></td></tr>
+                            <tr><th><?php _e('キャンペーンID', 'monthly-booking'); ?></th><td><input type="number" name="campaign_id" value="<?php echo esc_attr($campaign_id); ?>" class="regular-text"></td></tr>
+                            <tr><th><?php _e('小計(¥)', 'monthly-booking'); ?></th><td><input type="number" name="subtotal" value="<?php echo esc_attr($subtotal); ?>" class="regular-text"></td></tr>
+                            <tr><th><?php _e('割引(¥)', 'monthly-booking'); ?></th><td><input type="number" name="discount" value="<?php echo esc_attr($discount); ?>" class="regular-text"></td></tr>
+                            <tr><th><?php _e('合計(¥)', 'monthly-booking'); ?></th><td><input type="number" name="total" value="<?php echo esc_attr($total); ?>" class="regular-text"></td></tr>
+                            <tr><th><?php _e('ステータス', 'monthly-booking'); ?></th>
+                                <td>
+                                    <select name="status">
+                                        <option value="pending" <?php selected($status, 'pending'); ?>>pending</option>
+                                        <option value="confirmed" <?php selected($status, 'confirmed'); ?>>confirmed</option>
+                                        <option value="canceled" <?php selected($status, 'canceled'); ?>>canceled</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr><th><?php _e('メモ', 'monthly-booking'); ?></th><td><textarea name="notes" class="large-text" rows="3"><?php echo esc_textarea($notes); ?></textarea></td></tr>
+                        </table>
+                        <p class="submit">
+                            <button type="submit" name="mrb_booking_submit" class="button button-primary"><?php _e('保存', 'monthly-booking'); ?></button>
+                            <a href="<?php echo esc_url(admin_url('admin.php?page=monthly-room-booking-registration')); ?>" class="button"><?php _e('キャンセル', 'monthly-booking'); ?></a>
+                        </p>
+                    </form>
+                </div>
+                <?php
+                return;
+            }
+            $paged = isset($_GET['paged']) ? max(1, absint($_GET['paged'])) : 1;
+            $q = new WP_Query(array(
+                'post_type' => 'mrb_booking',
+                'posts_per_page' => 20,
+                'paged' => $paged,
+                'orderby' => 'date',
+                'order' => 'DESC',
+            ));
+            ?>
+            <div class="wrap">
+                <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+                <div class="monthly-booking-admin-content">
+                    <div class="reservation-header" style="margin-bottom: 20px;">
+                        <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-registration&action=add'); ?>" class="button button-primary"><?php _e('新規予約追加', 'monthly-booking'); ?></a>
+                    </div>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th><?php _e('ID', 'monthly-booking'); ?></th>
+                                <th><?php _e('部屋', 'monthly-booking'); ?></th>
+                                <th><?php _e('顧客名', 'monthly-booking'); ?></th>
+                                <th><?php _e('チェックイン', 'monthly-booking'); ?></th>
+                                <th><?php _e('チェックアウト', 'monthly-booking'); ?></th>
+                                <th><?php _e('ステータス', 'monthly-booking'); ?></th>
+                                <th><?php _e('合計', 'monthly-booking'); ?></th>
+                                <th><?php _e('操作', 'monthly-booking'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php if ($q->have_posts()): ?>
+                            <?php while ($q->have_posts()): $q->the_post(); $pid = get_the_ID(); ?>
+                                <tr>
+                                    <td><?php echo esc_html($pid); ?></td>
+                                    <td><?php echo esc_html(get_post_meta($pid, 'room_id', true)); ?></td>
+                                    <td><?php echo esc_html(get_post_meta($pid, 'guest_name', true)); ?></td>
+                                    <td><?php echo esc_html(get_post_meta($pid, 'checkin_date', true)); ?></td>
+                                    <td><?php echo esc_html(get_post_meta($pid, 'checkout_date', true)); ?></td>
+                                    <td><?php echo esc_html(get_post_meta($pid, 'status', true)); ?></td>
+                                    <td><?php $t = absint(get_post_meta($pid, 'total', true)); echo $t ? '¥' . number_format_i18n($t) : '¥0'; ?></td>
+                                    <td>
+                                        <a href="<?php echo admin_url('admin.php?page=monthly-room-booking-registration&action=edit&id=' . $pid); ?>"><?php _e('編集', 'monthly-booking'); ?></a> |
+                                        <a href="<?php echo wp_nonce_url(admin_url('admin.php?page=monthly-room-booking-registration&action=delete&id=' . $pid), 'mrb_booking_delete_' . $pid); ?>" onclick="return confirm('<?php _e('本当に削除しますか？', 'monthly-booking'); ?>')"><?php _e('削除', 'monthly-booking'); ?></a>
+                                    </td>
+                                </tr>
+                            <?php endwhile; wp_reset_postdata(); ?>
+                        <?php else: ?>
+                            <tr><td colspan="8" style="text-align:center;"><?php _e('予約がありません。', 'monthly-booking'); ?></td></tr>
+                        <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <?php
+            return;
+        }
+
         
         global $wpdb;
         $table_name = $wpdb->prefix . 'monthly_reservations';
@@ -1618,6 +1777,108 @@ class MonthlyBooking_Admin_UI {
         if (!current_user_can('manage_options')) {
             wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }
+        if ($this->is_cpt_mode()) {
+            if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array($_POST['action'], array('create_campaign','edit_campaign'), true)) {
+                check_admin_referer('mrb_campaign_save');
+                $post_id = isset($_POST['campaign_id']) ? absint($_POST['campaign_id']) : 0;
+                $title = isset($_POST['name']) ? sanitize_text_field($_POST['name']) : '';
+                if ($post_id) {
+                    wp_update_post(array('ID' => $post_id, 'post_title' => $title));
+                } else {
+                    $post_id = wp_insert_post(array(
+                        'post_type' => 'mrb_campaign',
+                        'post_status' => 'publish',
+                        'post_title' => $title
+                    ), true);
+                }
+                if (!is_wp_error($post_id)) {
+                    $meta = array(
+                        'type' => isset($_POST['campaign_type']) ? sanitize_text_field($_POST['campaign_type']) : '',
+                        'amount' => isset($_POST['discount_value']) ? absint($_POST['discount_value']) : 0,
+                        'start_date' => isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '',
+                        'end_date' => isset($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : '',
+                        'room_ids_json' => isset($_POST['room_ids_json']) ? sanitize_text_field($_POST['room_ids_json']) : '',
+                        'is_active' => isset($_POST['is_active']) ? 1 : 0,
+                        'priority' => isset($_POST['priority']) ? absint($_POST['priority']) : 0
+                    );
+                    foreach ($meta as $k => $v) {
+                        update_post_meta($post_id, $k, $v);
+                    }
+                }
+                echo '<div class="notice notice-success"><p>' . esc_html__('キャンペーンを保存しました', 'monthly-booking') . '</p></div>';
+            }
+            $paged = isset($_GET['paged']) ? max(1, absint($_GET['paged'])) : 1;
+            $q = new WP_Query(array(
+                'post_type' => 'mrb_campaign',
+                'posts_per_page' => 20,
+                'paged' => $paged,
+                'orderby' => 'date',
+                'order' => 'DESC',
+            ));
+            ?>
+            <div class="wrap">
+                <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+                <div class="monthly-booking-admin-content">
+                    <div style="margin-bottom: 20px;">
+                        <a href="#" class="button button-primary" onclick="document.getElementById('mrb-campaign-form').style.display='block';return false;"><?php _e('新規作成', 'monthly-booking'); ?></a>
+                    </div>
+                    <form id="mrb-campaign-form" method="post" action="" style="display:none; margin-bottom:20px;">
+                        <?php wp_nonce_field('mrb_campaign_save'); ?>
+                        <input type="hidden" name="action" value="create_campaign">
+                        <table class="form-table">
+                            <tr><th><?php _e('キャンペーン名', 'monthly-booking'); ?></th><td><input type="text" name="name" class="regular-text" required></td></tr>
+                            <tr><th><?php _e('タイプ', 'monthly-booking'); ?></th>
+                                <td>
+                                    <select name="campaign_type" required>
+                                        <option value="immediate"><?php _e('即入居割', 'monthly-booking'); ?></option>
+                                        <option value="earlybird"><?php _e('早割', 'monthly-booking'); ?></option>
+                                        <option value="flatrate"><?php _e('定額', 'monthly-booking'); ?></option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr><th><?php _e('割引値', 'monthly-booking'); ?></th><td><input type="number" name="discount_value" class="regular-text" min="0"></td></tr>
+                            <tr><th><?php _e('開始日', 'monthly-booking'); ?></th><td><input type="date" name="start_date" required></td></tr>
+                            <tr><th><?php _e('終了日', 'monthly-booking'); ?></th><td><input type="date" name="end_date" required></td></tr>
+                            <tr><th><?php _e('有効', 'monthly-booking'); ?></th><td><label><input type="checkbox" name="is_active" value="1" checked> <?php _e('有効にする', 'monthly-booking'); ?></label></td></tr>
+                        </table>
+                        <p class="submit">
+                            <button type="submit" class="button button-primary"><?php _e('保存', 'monthly-booking'); ?></button>
+                        </p>
+                    </form>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th><?php _e('ID', 'monthly-booking'); ?></th>
+                                <th><?php _e('名称', 'monthly-booking'); ?></th>
+                                <th><?php _e('タイプ', 'monthly-booking'); ?></th>
+                                <th><?php _e('割引', 'monthly-booking'); ?></th>
+                                <th><?php _e('期間', 'monthly-booking'); ?></th>
+                                <th><?php _e('ステータス', 'monthly-booking'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($q->have_posts()): ?>
+                                <?php while ($q->have_posts()): $q->the_post(); $pid = get_the_ID(); ?>
+                                    <tr>
+                                        <td><?php echo esc_html($pid); ?></td>
+                                        <td><?php echo esc_html(get_the_title()); ?></td>
+                                        <td><?php echo esc_html(get_post_meta($pid, 'type', true)); ?></td>
+                                        <td><?php $amt = absint(get_post_meta($pid, 'amount', true)); echo $amt ? '¥' . number_format_i18n($amt) : '—'; ?></td>
+                                        <td><?php echo esc_html(get_post_meta($pid, 'start_date', true) . ' — ' . get_post_meta($pid, 'end_date', true)); ?></td>
+                                        <td><?php echo get_post_meta($pid, 'is_active', true) ? __('有効', 'monthly-booking') : __('無効', 'monthly-booking'); ?></td>
+                                    </tr>
+                                <?php endwhile; wp_reset_postdata(); ?>
+                            <?php else: ?>
+                                <tr><td colspan="6" style="text-align:center;"><?php _e('キャンペーンが登録されていません。', 'monthly-booking'); ?></td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <?php
+            return;
+        }
+
         
         global $wpdb;
         $table_name = $wpdb->prefix . 'monthly_campaigns';
