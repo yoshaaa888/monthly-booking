@@ -57,7 +57,7 @@ add_filter('gutenberg_can_edit_post_type', function($can, $type) {
     return ($type === 'mrb_rate') ? false : $can;
 }, 1000, 2);
 add_filter('replace_editor', function ($replace, $post) {
-    return ($post && $post->post_type === 'mrb_rate') ? false : $replace;
+    return ($post && $post->post_type === 'mrb_rate') ? true : $replace;
 }, 1000, 2);
 add_filter('wp_is_block_editor', function($is, $screen = null) {
     $pt = null;
