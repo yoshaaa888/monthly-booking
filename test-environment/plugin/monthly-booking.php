@@ -72,17 +72,6 @@ add_filter('use_block_editor_for_post_type', function($use_block_editor, $post_t
     }
     return $use_block_editor;
 }, 100, 2);
-add_action('admin_notices', function(){
-    if (!empty($_GET['post_type']) && $_GET['post_type']==='mrb_rate') {
-        $hit = get_option('mrb_dbg_filter_hit_te');
-        if ($hit === 'yes') {
-            echo '<div class="notice notice-info"><p>[TE] mrb_rate: block editor disabled by filter.</p></div>';
-        } else {
-            echo '<div class="notice notice-warning"><p>[TE] mrb_rate: disable filter not hit yet.</p></div>';
-        }
-    }
-
-});
 
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/campaign-manager.php';
     }
