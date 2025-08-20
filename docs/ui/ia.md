@@ -29,7 +29,7 @@ C) キャンペーン一覧 → 行アクション［部屋へ紐づけ］
   - カレンダーで確認
 - 主な遷移
   - アラート行クリック → カレンダー（該当部屋・該当月）→［キャンペーン紐づけ］（主導線A）
-- ワイヤー: docs/ui/wireframes/dashboard.png
+- ワイヤー: docs/ui/wire-dashboard.png
 
 ---
 
@@ -45,7 +45,7 @@ C) キャンペーン一覧 → 行アクション［部屋へ紐づけ］
 - 主な遷移
   - ダッシュボードから該当部屋へフォーカス遷移（主導線A）
   - ［キャンペーン紐づけ］→ キャンペーン選択＋期間選択モーダル → 適用
-- ワイヤー: docs/ui/wireframes/calendar.png
+- ワイヤー: docs/ui/wire-calendar.png
 
 ---
 
@@ -61,7 +61,7 @@ C) キャンペーン一覧 → 行アクション［部屋へ紐づけ］
 - 主な遷移
   - ［キャンペーン一括紐づけ］→ キャンペーン選択＋期間選択モーダル → 適用（主導線B）
   - 行クリック → 部屋編集（詳細・個別キャンペーン割当）
-- ワイヤー: docs/ui/wireframes/rooms.png
+- ワイヤー: docs/ui/wire-rooms.png
 
 ---
 
@@ -77,7 +77,7 @@ C) キャンペーン一覧 → 行アクション［部屋へ紐づけ］
 - 主な遷移
   - ［部屋へ紐づけ］→ 部屋選択＋期間選択モーダル → 適用（主導線C）
   - 新規作成/編集 → キャンペーン編集画面
-- ワイヤー: docs/ui/wireframes/campaigns.png
+- ワイヤー: docs/ui/wire-campaigns.png
 
 ---
 
@@ -92,7 +92,7 @@ C) キャンペーン一覧 → 行アクション［部屋へ紐づけ］
   - 詳細を見る、変更、取消（ロールに応じて）
 - 主な遷移
   - 予約詳細 → 予約編集
-- ワイヤー: docs/ui/wireframes/reservations.png
+- ワイヤー: docs/ui/wire-reservations.png
 
 ---
 
@@ -106,7 +106,7 @@ C) キャンペーン一覧 → 行アクション［部屋へ紐づけ］
   - 新規レート、インポート/エクスポート
 - 主な遷移
   - レート編集画面へ遷移
-- ワイヤー: docs/ui/wireframes/rates.png
+- ワイヤー: docs/ui/wire-rates.png
 
 ---
 
@@ -120,7 +120,7 @@ C) キャンペーン一覧 → 行アクション［部屋へ紐づけ］
   - 新規オプション、ルール編集
 - 主な遷移
   - オプション編集画面へ遷移
-- ワイヤー: docs/ui/wireframes/options.png
+- ワイヤー: docs/ui/wire-options.png
 
 ---
 
@@ -133,7 +133,7 @@ C) キャンペーン一覧 → 行アクション［部屋へ紐づけ］
   - 保存
 - 主な遷移
   - なし（保存のみ）
-- ワイヤー: docs/ui/wireframes/settings.png
+- ワイヤー: docs/ui/wire-settings.png
 
 ---
 
