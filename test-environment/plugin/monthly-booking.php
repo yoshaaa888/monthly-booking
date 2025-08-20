@@ -59,6 +59,20 @@ add_filter('gutenberg_can_edit_post_type', function($can, $type) {
 add_filter('replace_editor', function ($replace, $post) {
     return ($post && $post->post_type === 'mrb_rate') ? false : $replace;
 }, 1000, 2);
+add_filter('wp_is_block_editor', function($is, $screen = null) {
+    $pt = null;
+    if (is_object($screen) && isset($screen->post_type)) {
+        $pt = $screen->post_type;
+    } else {
+        $pt = isset($_GET['post_type']) ? sanitize_key($_GET['post_type']) : (isset($_GET['post']) ? get_post_type((int) $_GET['post']) : null);
+    }
+    return ($pt === 'mrb_rate') ? false : $is;
+}, 1000, 2);
+add_filter('should_load_block_editor_scripts_and_styles', function($load, $screen) {
+    $pt = is_object($screen) && isset($screen->post_type) ? $screen->post_type : null;
+    return ($pt === 'mrb_rate') ? false : $load;
+}, 1000, 2);
+
 
 
 
