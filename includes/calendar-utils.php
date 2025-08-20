@@ -1,3 +1,5 @@
+<?php
+
 if (!defined('ABSPATH')) { exit; }
 
 if (!class_exists('MonthlyBooking_Calendar_Utils')) {
