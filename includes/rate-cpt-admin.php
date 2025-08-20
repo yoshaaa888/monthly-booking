@@ -117,7 +117,12 @@ add_action('admin_notices', function () {
     }
 });
 
+add_action('current_screen', function($screen=null){
+    if ($screen) { error_log('[mrb_rate] current_screen id=' . $screen->id . ' post_type=' . (property_exists($screen,'post_type') ? $screen->post_type : '')); }
+});
+
 add_filter('manage_edit-mrb_rate_columns', function ($cols) {
+    error_log('[mrb_rate] manage_edit-mrb_rate_columns fired');
     $new_cols = array();
     $new_cols['cb'] = isset($cols['cb']) ? $cols['cb'] : '<input type="checkbox" />';
     $new_cols['title'] = __('Title');
@@ -130,6 +135,7 @@ add_filter('manage_edit-mrb_rate_columns', function ($cols) {
 }, 20);
 
 add_filter('manage_mrb_rate_posts_columns', function ($cols) {
+    error_log('[mrb_rate] manage_mrb_rate_posts_columns fired');
     $cols['mrb_room_id'] = __('部屋', 'monthly-booking');
     $cols['mrb_price_yen'] = __('価格', 'monthly-booking');
     $cols['mrb_period'] = __('期間', 'monthly-booking');
