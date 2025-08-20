@@ -15,7 +15,7 @@ class MonthlyBooking_Calendar_Utils {
     }
 
     public static function generate_6_month_dates($startYmd) {
-        $start = new DateTime($startYmd);
+        $start = self::get_wp_timezone_date($startYmd);
         $dates = array();
         for ($i=0; $i<180; $i++) {
             $d = clone $start;
@@ -41,7 +41,7 @@ class MonthlyBooking_Calendar_Utils {
     }
 
     public static function generate_dates_span($startYmd, $days) {
-        $start = new DateTime($startYmd);
+        $start = self::get_wp_timezone_date($startYmd);
         $dates = array();
         $n = max(1, min(180, intval($days)));
         for ($i=0; $i<$n; $i++) {
