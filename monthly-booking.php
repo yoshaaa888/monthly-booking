@@ -38,6 +38,16 @@ add_filter('gutenberg_can_edit_post_type', function($can, $type) {
     return ($type === 'mrb_rate') ? false : $can;
 }, 100, 2);
 
+add_filter('replace_editor', 'mrb_force_classic_editor_for_rate_cpt', 10, 2);
+function mrb_force_classic_editor_for_rate_cpt($replace, $post) {
+    if ($post && isset($post->post_type) && $post->post_type === 'mrb_rate') {
+        return true;
+    }
+    return $replace;
+}
+
+
+
 class MonthlyBooking {
     
     public function __construct() {
