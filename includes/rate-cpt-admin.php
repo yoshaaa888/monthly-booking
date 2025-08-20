@@ -117,29 +117,17 @@ add_action('admin_notices', function () {
     }
 });
 
-add_action('current_screen', function ($screen = null) {
-    if (!$screen || $screen->id !== 'edit-mrb_rate') {
-        return;
-    }
-    add_filter('manage_edit-mrb_rate_columns', function ($cols) {
-        $new_cols = array();
-        $new_cols['cb'] = isset($cols['cb']) ? $cols['cb'] : '<input type="checkbox" />';
-        $new_cols['title'] = __('Title');
-        $new_cols['mrb_room_id'] = __('部屋', 'monthly-booking');
-        $new_cols['mrb_price_yen'] = __('価格', 'monthly-booking');
-        $new_cols['mrb_period'] = __('期間', 'monthly-booking');
-        $new_cols['mrb_active'] = __('有効', 'monthly-booking');
-        $new_cols['date'] = isset($cols['date']) ? $cols['date'] : __('Date');
-        return $new_cols;
-    });
-});
-add_filter('manage_mrb_rate_posts_columns', function ($cols) {
-    $cols['mrb_room_id'] = __('部屋', 'monthly-booking');
-    $cols['mrb_price_yen'] = __('価格', 'monthly-booking');
-    $cols['mrb_period'] = __('期間', 'monthly-booking');
-    $cols['mrb_active'] = __('有効', 'monthly-booking');
-    return $cols;
-});
+add_filter('manage_edit-mrb_rate_columns', function ($cols) {
+    $new_cols = array();
+    $new_cols['cb'] = isset($cols['cb']) ? $cols['cb'] : '<input type="checkbox" />';
+    $new_cols['title'] = __('Title');
+    $new_cols['mrb_room_id'] = __('部屋', 'monthly-booking');
+    $new_cols['mrb_price_yen'] = __('価格', 'monthly-booking');
+    $new_cols['mrb_period'] = __('期間', 'monthly-booking');
+    $new_cols['mrb_active'] = __('有効', 'monthly-booking');
+    $new_cols['date'] = isset($cols['date']) ? $cols['date'] : __('Date');
+    return $new_cols;
+}, 20);
 
 add_action('manage_mrb_rate_posts_custom_column', function ($col, $post_id) {
     if ($col === 'mrb_room_id') {
