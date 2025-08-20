@@ -189,32 +189,32 @@ class MonthlyBooking_Admin_UI {
         
         ?>
         <div class="wrap">
-            <h1><?php _e('Property Master Management', 'monthly-booking'); ?></h1>
+            <h1><?php echo esc_html(mb_t('rooms.title')); ?></h1>
             
             <div class="tablenav top">
                 <div class="alignleft actions">
-                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=add'); ?>" class="button button-primary"><?php _e('Add New Property', 'monthly-booking'); ?></a>
+                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=add'); ?>" class="button button-primary"><?php echo esc_html(mb_t('rooms.add_new')); ?></a>
                 </div>
             </div>
             
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
-                        <th><?php _e('Property ID', 'monthly-booking'); ?></th>
-                        <th><?php _e('Room ID', 'monthly-booking'); ?></th>
-                        <th><?php _e('Display Name', 'monthly-booking'); ?></th>
-                        <th><?php _e('Room', 'monthly-booking'); ?></th>
-                        <th><?php _e('Daily Rent', 'monthly-booking'); ?></th>
-                        <th><?php _e('Max Occupants', 'monthly-booking'); ?></th>
-                        <th><?php _e('Station Access', 'monthly-booking'); ?></th>
-                        <th><?php _e('Status', 'monthly-booking'); ?></th>
-                        <th><?php _e('Actions', 'monthly-booking'); ?></th>
+                        <th><?php echo esc_html(mb_t('rooms.table.header.property_id')); ?></th>
+                        <th><?php echo esc_html(mb_t('rooms.table.header.room_id')); ?></th>
+                        <th><?php echo esc_html(mb_t('rooms.table.header.display_name')); ?></th>
+                        <th><?php echo esc_html(mb_t('rooms.table.header.room')); ?></th>
+                        <th><?php echo esc_html(mb_t('rooms.table.header.daily_rent')); ?></th>
+                        <th><?php echo esc_html(mb_t('rooms.table.header.max_occupants')); ?></th>
+                        <th><?php echo esc_html(mb_t('rooms.table.header.station_access')); ?></th>
+                        <th><?php echo esc_html(mb_t('rooms.form.campaign.table.header.status')); ?></th>
+                        <th><?php echo esc_html(mb_t('rooms.form.campaign.table.header.actions')); ?></th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($properties)): ?>
                         <tr>
-                            <td colspan="9"><?php _e('No properties found. Add your first property to get started.', 'monthly-booking'); ?></td>
+                            <td colspan="9"><?php echo esc_html(mb_t('rooms.empty')); ?></td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($properties as $property): ?>
@@ -232,12 +232,12 @@ class MonthlyBooking_Admin_UI {
                                 </td>
                                 <td>
                                     <span class="status-<?php echo $property->is_active ? 'active' : 'inactive'; ?>">
-                                        <?php echo $property->is_active ? __('Active', 'monthly-booking') : __('Inactive', 'monthly-booking'); ?>
+                                        <?php echo $property->is_active ? esc_html(mb_t('status.active')) : esc_html(mb_t('status.inactive')); ?>
                                     </span>
                                 </td>
                                 <td>
-                                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=edit&id=' . $property->room_id); ?>" class="button button-small"><?php _e('Edit', 'monthly-booking'); ?></a>
-                                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=delete&id=' . $property->room_id); ?>" class="button button-small button-link-delete" onclick="return confirm('<?php _e('Are you sure you want to delete this property?', 'monthly-booking'); ?>')"><?php _e('Delete', 'monthly-booking'); ?></a>
+                                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=edit&id=' . $property->room_id); ?>" class="button button-small"><?php echo esc_html(mb_t('rooms.action.edit')); ?></a>
+                                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=delete&id=' . $property->room_id); ?>" class="button button-small button-link-delete" onclick="return confirm('<?php echo esc_js(mb_t('rooms.confirm.delete')); ?>')"><?php echo esc_html(mb_t('rooms.action.delete')); ?></a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -271,7 +271,7 @@ class MonthlyBooking_Admin_UI {
         }
         
         $is_edit = $property_id > 0;
-        $page_title = $is_edit ? __('Edit Property', 'monthly-booking') : __('Add New Property', 'monthly-booking');
+        $page_title = $is_edit ? mb_t('rooms.form.title.edit') : mb_t('rooms.form.title.add');
         
         ?>
         <div class="wrap">
@@ -282,18 +282,18 @@ class MonthlyBooking_Admin_UI {
                 <input type="hidden" name="property_db_id" value="<?php echo $property_id; ?>">
                 
                 <div class="form-section">
-                    <h3><?php _e('Basic Information', 'monthly-booking'); ?></h3>
+                    <h3><?php echo esc_html(mb_t('rooms.form.section.basic')); ?></h3>
                     <table class="form-table">
                         <tr>
-                            <th><label for="property_id"><?php _e('Property ID', 'monthly-booking'); ?></label></th>
+                            <th><label for="property_id"><?php echo esc_html(mb_t('rooms.form.field.property_id')); ?></label></th>
                             <td><input type="number" id="property_id" name="property_id" value="<?php echo $property ? esc_attr($property->property_id) : ''; ?>" class="regular-text" required></td>
                         </tr>
                         <tr>
-                            <th><label for="room_id"><?php _e('Room ID', 'monthly-booking'); ?></label></th>
+                            <th><label for="room_id"><?php echo esc_html(mb_t('rooms.form.field.room_id')); ?></label></th>
                             <td><input type="number" id="room_id" name="room_id" value="<?php echo $property ? esc_attr($property->room_id) : ''; ?>" class="regular-text" required></td>
                         </tr>
                         <tr>
-                            <th><label for="mor_g"><?php _e('Classification', 'monthly-booking'); ?></label></th>
+                            <th><label for="mor_g"><?php echo esc_html(mb_t('rooms.form.field.classification')); ?></label></th>
                             <td>
                                 <select id="mor_g" name="mor_g" required>
                                     <option value="M" <?php selected($property ? $property->mor_g : '', 'M'); ?>>M (マンスリー)</option>
@@ -302,25 +302,25 @@ class MonthlyBooking_Admin_UI {
                             </td>
                         </tr>
                         <tr>
-                            <th><label for="property_name"><?php _e('Property Name (Internal)', 'monthly-booking'); ?></label></th>
+                            <th><label for="property_name"><?php echo esc_html(mb_t('rooms.form.field.property_name_internal')); ?></label></th>
                             <td><input type="text" id="property_name" name="property_name" value="<?php echo $property ? esc_attr($property->property_name) : ''; ?>" class="regular-text" required></td>
                         </tr>
                         <tr>
-                            <th><label for="display_name"><?php _e('Display Name', 'monthly-booking'); ?></label></th>
+                            <th><label for="display_name"><?php echo esc_html(mb_t('rooms.form.field.display_name')); ?></label></th>
                             <td><input type="text" id="display_name" name="display_name" value="<?php echo $property ? esc_attr($property->display_name) : ''; ?>" class="large-text" required></td>
                         </tr>
                         <tr>
-                            <th><label for="room_name"><?php _e('Room Number/Name', 'monthly-booking'); ?></label></th>
+                            <th><label for="room_name"><?php echo esc_html(mb_t('rooms.form.field.room_name')); ?></label></th>
                             <td><input type="text" id="room_name" name="room_name" value="<?php echo $property ? esc_attr($property->room_name) : ''; ?>" class="regular-text" required></td>
                         </tr>
                     </table>
                 </div>
                 
                 <div class="form-section">
-                    <h3><?php _e('Occupancy & Pricing', 'monthly-booking'); ?></h3>
+                    <h3><?php echo esc_html(mb_t('rooms.form.section.occupancy_pricing')); ?></h3>
                     <table class="form-table">
                         <tr>
-                            <th><label for="min_stay_days"><?php _e('Minimum Stay', 'monthly-booking'); ?></label></th>
+                            <th><label for="min_stay_days"><?php echo esc_html(mb_t('rooms.form.field.minimum_stay')); ?></label></th>
                             <td>
                                 <input type="number" id="min_stay_days" name="min_stay_days" value="<?php echo $property ? esc_attr($property->min_stay_days) : '1'; ?>" class="small-text" min="1">
                                 <select name="min_stay_unit">
@@ -330,61 +330,61 @@ class MonthlyBooking_Admin_UI {
                             </td>
                         </tr>
                         <tr>
-                            <th><label for="max_occupants"><?php _e('Maximum Occupants', 'monthly-booking'); ?></label></th>
+                            <th><label for="max_occupants"><?php echo esc_html(mb_t('rooms.form.field.maximum_occupants')); ?></label></th>
                             <td><input type="number" id="max_occupants" name="max_occupants" value="<?php echo $property ? esc_attr($property->max_occupants) : '1'; ?>" class="small-text" min="1" max="10" required></td>
                         </tr>
                         <tr>
-                            <th><label for="daily_rent"><?php _e('Daily Rent (¥)', 'monthly-booking'); ?></label></th>
+                            <th><label for="daily_rent"><?php echo esc_html(mb_t('rooms.form.field.daily_rent')); ?></label></th>
                             <td><input type="number" id="daily_rent" name="daily_rent" value="<?php echo $property ? esc_attr($property->daily_rent) : ''; ?>" class="regular-text" min="0" required></td>
                         </tr>
                     </table>
                 </div>
                 
                 <div class="form-section">
-                    <h3><?php _e('Location & Property Details', 'monthly-booking'); ?></h3>
+                    <h3><?php echo esc_html(mb_t('rooms.form.section.location_details')); ?></h3>
                     <table class="form-table">
                         <tr>
-                            <th><label for="address"><?php _e('Address', 'monthly-booking'); ?></label></th>
+                            <th><label for="address"><?php echo esc_html(mb_t('rooms.form.field.address')); ?></label></th>
                             <td><textarea id="address" name="address" class="large-text" rows="3"><?php echo $property ? esc_textarea($property->address) : ''; ?></textarea></td>
                         </tr>
                         <tr>
-                            <th><label for="layout"><?php _e('Layout', 'monthly-booking'); ?></label></th>
+                            <th><label for="layout"><?php echo esc_html(mb_t('rooms.form.field.layout')); ?></label></th>
                             <td><input type="text" id="layout" name="layout" value="<?php echo $property ? esc_attr($property->layout) : ''; ?>" class="regular-text"></td>
                         </tr>
                         <tr>
-                            <th><label for="floor_area"><?php _e('Floor Area (㎡)', 'monthly-booking'); ?></label></th>
+                            <th><label for="floor_area"><?php echo esc_html(mb_t('rooms.form.field.floor_area')); ?></label></th>
                             <td><input type="number" id="floor_area" name="floor_area" value="<?php echo $property ? esc_attr($property->floor_area) : ''; ?>" class="regular-text" step="0.1" min="0"></td>
                         </tr>
                         <tr>
-                            <th><label for="structure"><?php _e('Building Structure', 'monthly-booking'); ?></label></th>
+                            <th><label for="structure"><?php echo esc_html(mb_t('rooms.form.field.structure')); ?></label></th>
                             <td><input type="text" id="structure" name="structure" value="<?php echo $property ? esc_attr($property->structure) : ''; ?>" class="regular-text"></td>
                         </tr>
                         <tr>
-                            <th><label for="built_year"><?php _e('Built Year', 'monthly-booking'); ?></label></th>
+                            <th><label for="built_year"><?php echo esc_html(mb_t('rooms.form.field.built_year')); ?></label></th>
                             <td><input type="text" id="built_year" name="built_year" value="<?php echo $property ? esc_attr($property->built_year) : ''; ?>" class="regular-text"></td>
                         </tr>
                     </table>
                 </div>
                 
                 <div class="form-section">
-                    <h3><?php _e('Station Access Information', 'monthly-booking'); ?></h3>
+                    <h3><?php echo esc_html(mb_t('rooms.form.section.station_access')); ?></h3>
                     
                     <div class="station-group">
-                        <h4><?php _e('Station 1', 'monthly-booking'); ?></h4>
+                        <h4><?php echo esc_html(mb_t('rooms.form.station.1')); ?></h4>
                         <table class="form-table">
                             <tr>
-                                <th><label for="line1"><?php _e('Line', 'monthly-booking'); ?></label></th>
+                                <th><label for="line1"><?php echo esc_html(mb_t('rooms.form.field.line')); ?></label></th>
                                 <td><input type="text" id="line1" name="line1" value="<?php echo $property ? esc_attr($property->line1) : ''; ?>" class="regular-text"></td>
                             </tr>
                             <tr>
-                                <th><label for="station1"><?php _e('Station', 'monthly-booking'); ?></label></th>
+                                <th><label for="station1"><?php echo esc_html(mb_t('rooms.form.field.station')); ?></label></th>
                                 <td><input type="text" id="station1" name="station1" value="<?php echo $property ? esc_attr($property->station1) : ''; ?>" class="regular-text"></td>
                             </tr>
                             <tr>
-                                <th><label for="access1_type"><?php _e('Access Type', 'monthly-booking'); ?></label></th>
+                                <th><label for="access1_type"><?php echo esc_html(mb_t('rooms.form.field.access_type')); ?></label></th>
                                 <td>
                                     <select id="access1_type" name="access1_type">
-                                        <option value=""><?php _e('Select...', 'monthly-booking'); ?></option>
+                                        <option value=""><?php echo esc_html(mb_t('rooms.form.field.select_placeholder')); ?></option>
                                         <option value="徒歩" <?php selected($property ? $property->access1_type : '', '徒歩'); ?>>徒歩</option>
                                         <option value="バス" <?php selected($property ? $property->access1_type : '', 'バス'); ?>>バス</option>
                                         <option value="自転車" <?php selected($property ? $property->access1_type : '', '自転車'); ?>>自転車</option>
@@ -392,28 +392,28 @@ class MonthlyBooking_Admin_UI {
                                 </td>
                             </tr>
                             <tr>
-                                <th><label for="access1_time"><?php _e('Access Time (minutes)', 'monthly-booking'); ?></label></th>
+                                <th><label for="access1_time"><?php echo esc_html(mb_t('rooms.form.field.access_time')); ?></label></th>
                                 <td><input type="number" id="access1_time" name="access1_time" value="<?php echo $property ? esc_attr($property->access1_time) : ''; ?>" class="small-text" min="0"></td>
                             </tr>
                         </table>
                     </div>
                     
                     <div class="station-group">
-                        <h4><?php _e('Station 2', 'monthly-booking'); ?></h4>
+                        <h4><?php echo esc_html(mb_t('rooms.form.station.2')); ?></h4>
                         <table class="form-table">
                             <tr>
-                                <th><label for="line2"><?php _e('Line', 'monthly-booking'); ?></label></th>
+                                <th><label for="line2"><?php echo esc_html(mb_t('rooms.form.field.line')); ?></label></th>
                                 <td><input type="text" id="line2" name="line2" value="<?php echo $property ? esc_attr($property->line2) : ''; ?>" class="regular-text"></td>
                             </tr>
                             <tr>
-                                <th><label for="station2"><?php _e('Station', 'monthly-booking'); ?></label></th>
+                                <th><label for="station2"><?php echo esc_html(mb_t('rooms.form.field.station')); ?></label></th>
                                 <td><input type="text" id="station2" name="station2" value="<?php echo $property ? esc_attr($property->station2) : ''; ?>" class="regular-text"></td>
                             </tr>
                             <tr>
-                                <th><label for="access2_type"><?php _e('Access Type', 'monthly-booking'); ?></label></th>
+                                <th><label for="access2_type"><?php echo esc_html(mb_t('rooms.form.field.access_type')); ?></label></th>
                                 <td>
                                     <select id="access2_type" name="access2_type">
-                                        <option value=""><?php _e('Select...', 'monthly-booking'); ?></option>
+                                        <option value=""><?php echo esc_html(mb_t('rooms.form.field.select_placeholder')); ?></option>
                                         <option value="徒歩" <?php selected($property ? $property->access2_type : '', '徒歩'); ?>>徒歩</option>
                                         <option value="バス" <?php selected($property ? $property->access2_type : '', 'バス'); ?>>バス</option>
                                         <option value="自転車" <?php selected($property ? $property->access2_type : '', '自転車'); ?>>自転車</option>
@@ -421,28 +421,28 @@ class MonthlyBooking_Admin_UI {
                                 </td>
                             </tr>
                             <tr>
-                                <th><label for="access2_time"><?php _e('Access Time (minutes)', 'monthly-booking'); ?></label></th>
+                                <th><label for="access2_time"><?php echo esc_html(mb_t('rooms.form.field.access_time')); ?></label></th>
                                 <td><input type="number" id="access2_time" name="access2_time" value="<?php echo $property ? esc_attr($property->access2_time) : ''; ?>" class="small-text" min="0"></td>
                             </tr>
                         </table>
                     </div>
                     
                     <div class="station-group">
-                        <h4><?php _e('Station 3', 'monthly-booking'); ?></h4>
+                        <h4><?php echo esc_html(mb_t('rooms.form.station.3')); ?></h4>
                         <table class="form-table">
                             <tr>
-                                <th><label for="line3"><?php _e('Line', 'monthly-booking'); ?></label></th>
+                                <th><label for="line3"><?php echo esc_html(mb_t('rooms.form.field.line')); ?></label></th>
                                 <td><input type="text" id="line3" name="line3" value="<?php echo $property ? esc_attr($property->line3) : ''; ?>" class="regular-text"></td>
                             </tr>
                             <tr>
-                                <th><label for="station3"><?php _e('Station', 'monthly-booking'); ?></label></th>
+                                <th><label for="station3"><?php echo esc_html(mb_t('rooms.form.field.station')); ?></label></th>
                                 <td><input type="text" id="station3" name="station3" value="<?php echo $property ? esc_attr($property->station3) : ''; ?>" class="regular-text"></td>
                             </tr>
                             <tr>
-                                <th><label for="access3_type"><?php _e('Access Type', 'monthly-booking'); ?></label></th>
+                                <th><label for="access3_type"><?php echo esc_html(mb_t('rooms.form.field.access_type')); ?></label></th>
                                 <td>
                                     <select id="access3_type" name="access3_type">
-                                        <option value=""><?php _e('Select...', 'monthly-booking'); ?></option>
+                                        <option value=""><?php echo esc_html(mb_t('rooms.form.field.select_placeholder')); ?></option>
                                         <option value="徒歩" <?php selected($property ? $property->access3_type : '', '徒歩'); ?>>徒歩</option>
                                         <option value="バス" <?php selected($property ? $property->access3_type : '', 'バス'); ?>>バス</option>
                                         <option value="自転車" <?php selected($property ? $property->access3_type : '', '自転車'); ?>>自転車</option>
@@ -450,7 +450,7 @@ class MonthlyBooking_Admin_UI {
                                 </td>
                             </tr>
                             <tr>
-                                <th><label for="access3_time"><?php _e('Access Time (minutes)', 'monthly-booking'); ?></label></th>
+                                <th><label for="access3_time"><?php echo esc_html(mb_t('rooms.form.field.access_time')); ?></label></th>
                                 <td><input type="number" id="access3_time" name="access3_time" value="<?php echo $property ? esc_attr($property->access3_time) : ''; ?>" class="small-text" min="0"></td>
                             </tr>
                         </table>
@@ -458,18 +458,18 @@ class MonthlyBooking_Admin_UI {
                 </div>
                 
                 <div class="form-section">
-                    <h3><?php _e('Additional Information', 'monthly-booking'); ?></h3>
+                    <h3><?php echo esc_html(mb_t('rooms.form.section.additional')); ?></h3>
                     <table class="form-table">
                         <tr>
-                            <th><label for="room_amenities"><?php _e('Room Amenities', 'monthly-booking'); ?></label></th>
+                            <th><label for="room_amenities"><?php echo esc_html(mb_t('rooms.form.field.room_amenities')); ?></label></th>
                             <td><textarea id="room_amenities" name="room_amenities" class="large-text" rows="3"><?php echo $property ? esc_textarea($property->room_amenities) : ''; ?></textarea></td>
                         </tr>
                         <tr>
-                            <th><label for="is_active"><?php _e('Status', 'monthly-booking'); ?></label></th>
+                            <th><label for="is_active"><?php echo esc_html(mb_t('rooms.form.field.status')); ?></label></th>
                             <td>
                                 <label>
                                     <input type="checkbox" id="is_active" name="is_active" value="1" <?php checked($property ? $property->is_active : 1, 1); ?>>
-                                    <?php _e('Active', 'monthly-booking'); ?>
+                                    <?php echo esc_html(mb_t('status.active')); ?>
                                 </label>
                             </td>
                         </tr>
@@ -478,18 +478,18 @@ class MonthlyBooking_Admin_UI {
                 
                 <!-- Campaign Assignment Section -->
                 <div class="form-section">
-                    <h3><?php _e('Campaign Assignment', 'monthly-booking'); ?></h3>
+                    <h3><?php echo esc_html(mb_t('rooms.form.section.campaign_assignment')); ?></h3>
                     
                     <!-- Campaign Assignment Table -->
                     <div id="campaign-assignments-container">
                         <table class="wp-list-table widefat fixed striped" id="campaign-assignments-table">
                             <thead>
                                 <tr>
-                                    <th scope="col"><?php _e('Campaign', 'monthly-booking'); ?></th>
-                                    <th scope="col"><?php _e('Period', 'monthly-booking'); ?></th>
-                                    <th scope="col"><?php _e('Duration', 'monthly-booking'); ?></th>
-                                    <th scope="col"><?php _e('Status', 'monthly-booking'); ?></th>
-                                    <th scope="col"><?php _e('Actions', 'monthly-booking'); ?></th>
+                                    <th scope="col"><?php echo esc_html(mb_t('rooms.form.campaign.table.header.campaign')); ?></th>
+                                    <th scope="col"><?php echo esc_html(mb_t('rooms.form.campaign.table.header.period')); ?></th>
+                                    <th scope="col"><?php echo esc_html(mb_t('rooms.form.campaign.table.header.duration')); ?></th>
+                                    <th scope="col"><?php echo esc_html(mb_t('rooms.form.campaign.table.header.status')); ?></th>
+                                    <th scope="col"><?php echo esc_html(mb_t('rooms.form.campaign.table.header.actions')); ?></th>
                                 </tr>
                             </thead>
                             <tbody id="campaign-assignments-tbody">
@@ -498,14 +498,14 @@ class MonthlyBooking_Admin_UI {
                         </table>
                         
                         <div id="no-assignments-message" style="display: none;">
-                            <p><?php _e('No campaign assignments found for this room.', 'monthly-booking'); ?></p>
+                            <p><?php echo esc_html(mb_t('rooms.form.campaign.empty')); ?></p>
                         </div>
                     </div>
                     
                     <!-- Add Assignment Button -->
                     <p class="submit">
                         <button type="button" id="add-campaign-assignment" class="button button-secondary">
-                            <?php _e('Add Campaign Assignment', 'monthly-booking'); ?>
+                            <?php echo esc_html(mb_t('rooms.form.campaign.add_button')); ?>
                         </button>
                     </p>
                 </div>
@@ -514,7 +514,7 @@ class MonthlyBooking_Admin_UI {
                 <div id="campaign-assignment-modal" class="monthly-booking-modal" style="display: none;">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h2 id="modal-title"><?php _e('Add Campaign Assignment', 'monthly-booking'); ?></h2>
+                            <h2 id="modal-title"><?php echo esc_html(mb_t('rooms.form.campaign.modal.title')); ?></h2>
                             <span class="close-modal">&times;</span>
                         </div>
                         
@@ -526,48 +526,48 @@ class MonthlyBooking_Admin_UI {
                                 <table class="form-table">
                                     <tr>
                                         <th scope="row">
-                                            <label for="campaign-select"><?php _e('Campaign', 'monthly-booking'); ?></label>
+                                            <label for="campaign-select"><?php echo esc_html(mb_t('rooms.form.campaign.table.header.campaign')); ?></label>
                                         </th>
                                         <td>
                                             <select id="campaign-select" name="campaign_id" required>
-                                                <option value=""><?php _e('Select Campaign', 'monthly-booking'); ?></option>
+                                                <option value=""><?php echo esc_html(mb_t('rooms.form.campaign.field.select_campaign')); ?></option>
                                                 <!-- Options loaded via AJAX -->
                                             </select>
-                                            <p class="description"><?php _e('Select the campaign to assign to this room.', 'monthly-booking'); ?></p>
+                                            <p class="description"><?php echo esc_html(mb_t('rooms.form.campaign.field.select_campaign_desc')); ?></p>
                                         </td>
                                     </tr>
                                     
                                     <tr>
                                         <th scope="row">
-                                            <label for="start-date"><?php _e('Start Date', 'monthly-booking'); ?></label>
+                                            <label for="start-date"><?php echo esc_html(mb_t('rooms.form.campaign.field.start_date')); ?></label>
                                         </th>
                                         <td>
                                             <input type="date" id="start-date" name="checkin_date" required>
-                                            <p class="description"><?php _e('Campaign application start date.', 'monthly-booking'); ?></p>
+                                            <p class="description"><?php echo esc_html(mb_t('rooms.form.campaign.field.start_date_desc')); ?></p>
                                         </td>
                                     </tr>
                                     
                                     <tr>
                                         <th scope="row">
-                                            <label for="end-date"><?php _e('End Date', 'monthly-booking'); ?></label>
+                                            <label for="end-date"><?php echo esc_html(mb_t('rooms.form.campaign.field.end_date')); ?></label>
                                         </th>
                                         <td>
                                             <input type="date" id="end-date" name="checkout_date" required>
-                                            <p class="description"><?php _e('Campaign application end date.', 'monthly-booking'); ?></p>
+                                            <p class="description"><?php echo esc_html(mb_t('rooms.form.campaign.field.end_date_desc')); ?></p>
                                         </td>
                                     </tr>
                                     
                                     <tr>
                                         <th scope="row">
-                                            <label for="is-active"><?php _e('Status', 'monthly-booking'); ?></label>
+                                            <label for="is-active"><?php echo esc_html(mb_t('rooms.form.campaign.field.status')); ?></label>
                                         </th>
                                         <td>
                                             <label class="toggle-switch">
                                                 <input type="checkbox" id="is-active" name="is_active" value="1" checked>
                                                 <span class="toggle-slider"></span>
                                             </label>
-                                            <span class="toggle-label"><?php _e('Active', 'monthly-booking'); ?></span>
-                                            <p class="description"><?php _e('Enable or disable this campaign assignment.', 'monthly-booking'); ?></p>
+                                            <span class="toggle-label"><?php echo esc_html(mb_t('rooms.form.campaign.toggle.active')); ?></span>
+                                            <p class="description"><?php echo esc_html(mb_t('rooms.form.campaign.toggle.desc')); ?></p>
                                         </td>
                                     </tr>
                                 </table>
@@ -580,18 +580,18 @@ class MonthlyBooking_Admin_UI {
                         
                         <div class="modal-footer">
                             <button type="button" id="save-assignment" class="button button-primary">
-                                <?php _e('Save Assignment', 'monthly-booking'); ?>
+                                <?php echo esc_html(mb_t('rooms.form.campaign.save')); ?>
                             </button>
                             <button type="button" class="button cancel-modal">
-                                <?php _e('Cancel', 'monthly-booking'); ?>
+                                <?php echo esc_html(mb_t('action.cancel')); ?>
                             </button>
                         </div>
                     </div>
                 </div>
                 
                 <p class="submit">
-                    <input type="submit" name="submit_property" class="button-primary" value="<?php echo $is_edit ? __('Update Property', 'monthly-booking') : __('Add Property', 'monthly-booking'); ?>">
-                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking'); ?>" class="button"><?php _e('Cancel', 'monthly-booking'); ?></a>
+                    <input type="submit" name="submit_property" class="button-primary" value="<?php echo $is_edit ? esc_attr(mb_t('rooms.form.submit.update')) : esc_attr(mb_t('rooms.form.submit.add')); ?>">
+                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking'); ?>" class="button"><?php echo esc_html(mb_t('action.cancel_nav')); ?></a>
                 </p>
             </form>
         </div>
