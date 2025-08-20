@@ -47,13 +47,6 @@ add_filter('use_block_editor_for_post_type', function($use_block_editor, $post_t
 }, 100, 2);
 
 
-add_filter('replace_editor', 'mrb_force_classic_editor_for_rate_cpt', 10, 2);
-function mrb_force_classic_editor_for_rate_cpt($replace, $post) {
-    if ($post && isset($post->post_type) && $post->post_type === 'mrb_rate') {
-        return true;
-    }
-    return $replace;
-}
 
 
 
