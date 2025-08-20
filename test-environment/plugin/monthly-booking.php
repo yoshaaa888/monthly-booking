@@ -42,6 +42,11 @@ class MonthlyBooking {
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/admin-ui.php';
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/calendar-render.php';
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/booking-logic.php';
+
+
+
+
+
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/campaign-manager.php';
     }
     

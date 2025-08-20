@@ -20,6 +20,36 @@ define('MONTHLY_BOOKING_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 define('MB_USE_CPTS', true);
 
+require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/rate-cpt-admin.php';
+
+
+add_action('plugins_loaded', function () {
+    if (defined('MRB_RATE_EDITOR_GUARD')) return; define('MRB_RATE_EDITOR_GUARD', true);
+
+    add_filter('use_block_editor_for_post_type', function ($use, $type) {
+        return ($type === 'mrb_rate') ? false : $use;
+    }, 1000, 2);
+
+    add_filter('use_block_editor_for_post', function ($use, $post) {
+        $pt = is_object($post) ? $post->post_type : (is_numeric($post) ? get_post_type($post) : null);
+        return ($pt === 'mrb_rate') ? false : $use;
+    }, 1000, 2);
+
+    add_filter('gutenberg_can_edit_post_type', function ($can, $type) {
+        return ($type === 'mrb_rate') ? false : $can;
+    }, 1000, 2);
+
+    add_filter('replace_editor', function ($replace, $post) {
+        return ($post && $post->post_type === 'mrb_rate') ? false : $replace;
+    }, 1000, 2);
+}, 0);
+
+
+
+
+
+
+
 class MonthlyBooking {
     
     public function __construct() {
@@ -55,6 +85,7 @@ class MonthlyBooking {
             require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/reservation-service.php';
         }
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/price-example.php';
+        require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/rate-cpt-admin.php';
 
     }
     
@@ -126,8 +157,8 @@ class MonthlyBooking {
             'show_ui' => true,
             'show_in_menu' => true,
             'menu_icon' => 'dashicons-tickets',
-            'show_in_rest' => true,
-            'supports' => array(),
+            'show_in_rest' => false,
+            'supports' => array('title'),
             'capability_type' => 'post',
             'map_meta_cap' => true,
         ));
@@ -191,6 +222,7 @@ class MonthlyBooking {
                 'auth_callback' => 'mrb_auth_edit_post',
             ));
         }
+
     }
 
     
