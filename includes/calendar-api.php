@@ -24,6 +24,7 @@ class MonthlyBooking_Calendar_API {
                 array('key'=>'room_id','value'=>intval($room_id),'compare'=>'=','type'=>'NUMERIC'),
                 array('key'=>'checkin_date','value'=>$to,'compare'=>'<','type'=>'CHAR'),
                 array('key'=>'checkout_date','value'=>$from,'compare'=>'>','type'=>'CHAR'),
+                array('key'=>'status','value'=>'cancelled','compare'=>'!=','type'=>'CHAR'),
             ),
             'fields' => 'ids',
         );
@@ -55,6 +56,7 @@ class MonthlyBooking_Calendar_API {
                 ),
                 array('key'=>'checkin_date','value'=>$to,'compare'=>'<','type'=>'CHAR'),
                 array('key'=>'checkout_date','value'=>$from,'compare'=>'>','type'=>'CHAR'),
+                array('key'=>'status','value'=>'cancelled','compare'=>'!=','type'=>'CHAR'),
             ),
             'fields' => 'ids',
         );

@@ -1,3 +1,85 @@
+/* Performance instrumentation for calendar AJAX; gated by monthlyBookingAjax.perfEnabled */
+(function($){
+  $(document).on('mb_calendar:load_matrix', function(e, opts){
+    var perfOn = window.monthlyBookingAjax && !!monthlyBookingAjax.perfEnabled;
+    if (!opts || !opts.url || !opts.data || !opts.$content) return;
+    if (perfOn) {
+      try {
+        console.time('mb_calendar_ajax');
+        performance.mark('mb_ajax_start');
+      } catch(e) {}
+    }
+    $.ajax({
+      url: opts.url,
+      type: 'POST',
+      data: opts.data
+    }).done(function(resp){
+      var $content = opts.$content;
+      if (resp && resp.success && $content && $content.length) {
+        if (perfOn) {
+          try { performance.mark('mb_ajax_done'); } catch(e) {}
+        }
+        var inject = function(){
+          $content.html(resp.data);
+          if (perfOn) {
+            try {
+              performance.mark('mb_dom_injected');
+              requestAnimationFrame(function(){
+                performance.mark('mb_paint');
+                performance.measure('mb_ajax_duration', 'mb_ajax_start', 'mb_ajax_done');
+                performance.measure('mb_inject_to_paint', 'mb_dom_injected', 'mb_paint');
+                console.timeEnd('mb_calendar_ajax');
+                var measures = performance.getEntriesByType('measure').filter(function(m){ return m.name.indexOf('mb_') === 0; });
+                measures.forEach(function(m){
+                  console.log('[perf]', m.name + ': ' + m.duration.toFixed(1) + 'ms');
+                });
+              });
+            } catch(e) {}
+          }
+        };
+        inject();
+      }
+    }).fail(function(){
+      if (perfOn) {
+        try { console.timeEnd('mb_calendar_ajax'); } catch(e) {}
+      }
+    });
+  });
+
+  $(function(){
+    var perfOn = window.monthlyBookingAjax && !!monthlyBookingAjax.perfEnabled;
+    if (!perfOn) return;
+    var $root = $('.monthly-booking-calendar-container');
+    if (!$root.length) return;
+    var $btn = $('#render-matrix');
+    if ($btn.length) {
+      $btn.off('click.mbperf').on('click.mbperf', function(ev){
+        var $content = $('.calendar-content');
+        var $daysInput = $('#matrix-days');
+        var days = parseInt($daysInput.length ? $daysInput.val() : 30, 10) || 30;
+        var roomIds = [];
+        var $selector = $('.room-selector');
+        if ($selector.length && $selector.val()) {
+          roomIds = [$selector.val()];
+        } else {
+          var rid = $content.attr('data-room-id');
+          if (rid) roomIds = [rid];
+        }
+        $(document).trigger('mb_calendar:load_matrix', [{
+          url: (window.monthlyBookingAjax ? monthlyBookingAjax.ajaxurl : (window.ajaxurl || '')),
+          data: {
+            action: 'mbp_load_calendar_matrix',
+            days: days,
+            room_ids: roomIds,
+            nonce: (window.monthlyBookingAjax ? monthlyBookingAjax.nonce : '')
+          },
+          $content: $content
+        }]);
+      });
+    }
+  });
+})(jQuery);
+
 (function($){
   $(document).on('click', '#render-matrix', function(){
     var $content = $('.calendar-content');
