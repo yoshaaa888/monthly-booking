@@ -122,7 +122,7 @@ class MonthlyBooking_Calendar_Render {
                 
                 <div class="calendar-content" data-room-id="<?php echo esc_attr($selected_room_id); ?>">
                     <div id="calendar-announcements" aria-live="polite" aria-atomic="true" class="sr-only"></div>
-                    <?php echo $this->render_6_month_calendar($selected_room_id); ?>
+                    <?php echo $this->render_matrix_calendar(MonthlyBooking_Calendar_Utils::get_wp_timezone_date('today')->format('Y-m-d'), 30, $selected_room_id ? array($selected_room_id) : array()); ?>
                 </div>
                 
                 <div class="calendar-legend">
@@ -144,36 +144,70 @@ class MonthlyBooking_Calendar_Render {
                     </div>
                 </div>
             </div>
+                <div class="calendar-matrix-controls">
+                    <form method="get">
+                        <input type="hidden" name="page_id" value="<?php echo isset($_GET['page_id']) ? intval($_GET['page_id']) : 0; ?>">
+                        <label for="matrix-days"><?php echo esc_html__('表示日数', 'monthly-booking'); ?></label>
+                        <input id="matrix-days" type="number" name="days" value="<?php echo esc_attr(isset($_GET['days']) ? intval($_GET['days']) : 30); ?>" min="7" max="180" style="width:90px;">
+                        <button type="button" class="button" id="render-matrix"><?php echo esc_html__('部屋×日付 マトリクス表示', 'monthly-booking'); ?></button>
+                    </form>
+                </div>
+
         </div>
         
         <script type="text/javascript">
         jQuery(document).ready(function($) {
-            $('.room-selector').on('change', function() {
-                var roomId = $(this).val();
-                var calendarContent = $('.calendar-content');
-                
-                calendarContent.attr('data-room-id', roomId);
-                calendarContent.html('<div class="loading"><?php _e("読み込み中...", "monthly-booking"); ?></div>');
-                
+            function postMatrix(days, roomIds, $content) {
+                $content.html('<div class="loading"><?php _e("読み込み中...", "monthly-booking"); ?></div>');
                 $.ajax({
-                    url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                    url: (window.monthlyBookingAjax ? monthlyBookingAjax.ajaxurl : '<?php echo admin_url('admin-ajax.php'); ?>'),
                     type: 'POST',
                     data: {
-                        action: 'mbp_load_calendar',
-                        room_id: roomId,
-                        nonce: '<?php echo wp_create_nonce('monthly_booking_nonce'); ?>'
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            calendarContent.html(response.data);
-                        } else {
-                            calendarContent.html('<div class="error"><?php _e("カレンダーの読み込みに失敗しました。", "monthly-booking"); ?></div>');
-                        }
-                    },
-                    error: function() {
-                        calendarContent.html('<div class="error"><?php _e("エラーが発生しました。ページを再読み込みしてください。", "monthly-booking"); ?></div>');
+                        action: 'mbp_load_calendar_matrix',
+                        days: days,
+                        room_ids: roomIds,
+                        nonce: (window.monthlyBookingAjax ? monthlyBookingAjax.nonce : '<?php echo wp_create_nonce('monthly_booking_nonce'); ?>')
                     }
+                }).done(function(resp){
+                    if (resp && resp.success) {
+                        $content.html(resp.data);
+                    } else {
+                        $content.html('<div class="error"><?php _e("カレンダーの読み込みに失敗しました。", "monthly-booking"); ?></div>');
+                    }
+                }).fail(function(){
+                    $content.html('<div class="error"><?php _e("エラーが発生しました。ページを再読み込みしてください。", "monthly-booking"); ?></div>');
                 });
+            }
+
+            $('#render-matrix').on('click', function(e){
+                e.preventDefault();
+                var $daysInput = $('#matrix-days');
+                var days = parseInt($daysInput.length ? $daysInput.val() : 30, 10) || 30;
+                var $content = $('.calendar-content');
+                var roomIds = [];
+                var $selector = $('.room-selector');
+                if ($selector.length && $selector.val()) {
+                    roomIds = [$selector.val()];
+                } else {
+                    var rid = $content.attr('data-room-id');
+                    if (rid) { roomIds = [rid]; }
+                }
+                postMatrix(days, roomIds, $content);
+            });
+
+            $('.room-selector').on('change', function() {
+                var roomId = $(this).val();
+                var $content = $('.calendar-content');
+                $content.attr('data-room-id', roomId);
+                var $daysInput = $('#matrix-days');
+                var days = parseInt($daysInput.length ? $daysInput.val() : 30, 10) || 30;
+
+                if ($('#render-matrix').length) {
+                    $('#render-matrix').trigger('click');
+                    return;
+                }
+
+                postMatrix(days, [roomId], $content);
             });
         });
         </script>
@@ -218,7 +252,56 @@ class MonthlyBooking_Calendar_Render {
         foreach ($months as $month_data) {
             echo $this->render_month_grid($month_data, $bookings, $campaign_days, $today);
         }
-        
+        return ob_get_clean();
+    }
+    
+    /**
+     * Render room x date matrix calendar
+     */
+    public function render_matrix_calendar($from_date = '', $days = 30, $room_ids = array()) {
+        if (!class_exists('MonthlyBooking_Calendar_API')) {
+            require_once plugin_dir_path(__FILE__) . 'calendar-api.php';
+        }
+        if (!class_exists('MonthlyBooking_Calendar_Utils')) {
+            require_once plugin_dir_path(__FILE__) . 'calendar-utils.php';
+        }
+        $api = new MonthlyBooking_Calendar_API();
+        $today = MonthlyBooking_Calendar_Utils::get_wp_timezone_date('today')->format('Y-m-d');
+        $start = $from_date ? $from_date : $today;
+        $dates = MonthlyBooking_Calendar_Utils::generate_dates_span($start, $days);
+        $rooms = $api->mbp_get_rooms($room_ids);
+        if (empty($rooms) || empty($dates)) {
+            return '<div class="no-data">' . esc_html__('表示できる部屋がありません。先に部屋を登録してください。', 'monthly-booking') . '</div>';
+        }
+        $room_ids_list = array_map(function($r){ return intval($r->id); }, $rooms);
+        $bookings_by_room = $api->mbp_get_bookings_for_rooms($room_ids_list, $start, end($dates));
+        ob_start();
+        ?>
+        <div class="calendar-matrix" role="grid" aria-labelledby="calendar-title">
+            <div class="matrix-header" role="row">
+                <div class="matrix-cell header room-col" role="columnheader"><?php echo esc_html__('部屋', 'monthly-booking'); ?></div>
+                <?php foreach ($dates as $d): ?>
+                    <div class="matrix-cell header" role="columnheader"><?php echo esc_html(MonthlyBooking_Calendar_Utils::format_day_short($d)); ?></div>
+                <?php endforeach; ?>
+            </div>
+            <?php foreach ($rooms as $room): ?>
+                <div class="matrix-row" role="row" data-room-id="<?php echo esc_attr($room->id); ?>">
+                    <div class="matrix-cell room-col" role="rowheader">
+                        <?php echo esc_html($room->name ? $room->name : $room->room_name); ?>
+                    </div>
+                    <?php
+                    $room_bookings = isset($bookings_by_room[$room->id]) ? $bookings_by_room[$room->id] : array();
+                    foreach ($dates as $d):
+                        $status = MonthlyBooking_Calendar_Utils::get_day_status_for_room($d, $room_bookings);
+                        $classes = array('matrix-cell','day', $status['class']);
+                        $aria = MonthlyBooking_Calendar_Utils::format_japanese_date($d)['formatted'] . ' ' . $status['label'];
+                    ?>
+                        <div class="<?php echo esc_attr(implode(' ', $classes)); ?>" role="gridcell" aria-label="<?php echo esc_attr($aria); ?>" data-date="<?php echo esc_attr($d); ?>"></div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <?php
         return ob_get_clean();
     }
     

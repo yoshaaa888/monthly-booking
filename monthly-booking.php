@@ -211,6 +211,8 @@ class MonthlyBooking {
         add_action('wp_ajax_nopriv_get_calendar_bookings', array($this, 'ajax_get_calendar_bookings'));
         add_action('wp_ajax_mbp_get_calendar_bookings', array($this, 'ajax_get_calendar_bookings'));
         add_action('wp_ajax_nopriv_mbp_get_calendar_bookings', array($this, 'ajax_get_calendar_bookings'));
+        add_action('wp_ajax_mbp_load_calendar_matrix', array($this, 'ajax_load_calendar_matrix'));
+        add_action('wp_ajax_nopriv_mbp_load_calendar_matrix', array($this, 'ajax_load_calendar_matrix'));
         
         if ($this->is_feature_enabled('reservations_mvp')) {
             add_action('wp_ajax_mbp_reservation_create', array($this, 'ajax_reservation_create'));

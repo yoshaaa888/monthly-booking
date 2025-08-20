@@ -1,3 +1,32 @@
+(function($){
+  $(document).on('click', '#render-matrix', function(){
+    var $content = $('.calendar-content');
+    var days = parseInt($('#matrix-days').val() || 30, 10);
+    var roomIdAttr = $content.attr('data-room-id') || '';
+    var roomIds = [];
+    if (roomIdAttr) { roomIds.push(roomIdAttr); }
+    $content.html('<div class="loading">'+ (window.monthlyBookingAjax ? monthlyBookingAjax.loading : 'Loading...') +'</div>');
+    $.ajax({
+      url: (window.monthlyBookingAjax ? monthlyBookingAjax.ajaxurl : '/wp-admin/admin-ajax.php'),
+      type: 'POST',
+      data: {
+        action: 'mbp_load_calendar_matrix',
+        days: days,
+        room_ids: roomIds,
+        nonce: (window.monthlyBookingAjax ? monthlyBookingAjax.nonce : '')
+      }
+    }).done(function(resp){
+      if (resp && resp.success) {
+        $content.html(resp.data);
+      } else {
+        $content.html('<div class="error">'+ (window.monthlyBookingAjax ? monthlyBookingAjax.error : 'Error') +'</div>');
+      }
+    }).fail(function(){
+      $content.html('<div class="error">'+ (window.monthlyBookingAjax ? monthlyBookingAjax.error : 'Error') +'</div>');
+    });
+  });
+})(jQuery);
+
 jQuery(document).ready(function($) {
     'use strict';
     

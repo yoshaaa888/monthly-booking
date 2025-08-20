@@ -1,184 +1,83 @@
 <?php
-if (!defined('ABSPATH')) {
-    exit;
-}
+if (!defined('ABSPATH')) { exit; }
 
+if (!class_exists('MonthlyBooking_Calendar_API')) {
 class MonthlyBooking_Calendar_API {
-    
-    public function __construct() {
-        
-    }
-    
-    public function mbp_get_rooms() {
+
+    public function mbp_get_rooms($room_ids = array()) {
         global $wpdb;
-        
-        $rooms_table = $wpdb->prefix . 'monthly_rooms';
-        
-        $sql = "SELECT room_id as id, display_name as name, room_name, property_name 
-                FROM $rooms_table 
-                WHERE is_active = 1 
-                ORDER BY property_name, room_name";
-        
-        $results = $wpdb->get_results($sql);
-        
-        if ($wpdb->last_error) {
-            error_log('Monthly Booking Calendar API - Room query error: ' . $wpdb->last_error);
-            return array();
+        $table = $wpdb->prefix . 'monthly_rooms';
+        if (!empty($room_ids)) {
+            $in = implode(',', array_map('intval', $room_ids));
+            return $wpdb->get_results("SELECT room_id AS id, room_name AS room_name, display_name AS name FROM $table WHERE room_id IN ($in) AND is_active=1 ORDER BY room_id");
         }
-        
-        return $results ? $results : array();
+        return $wpdb->get_results("SELECT room_id AS id, room_name AS room_name, display_name AS name FROM $table WHERE is_active=1 ORDER BY room_id");
     }
-    
+
     public function mbp_get_bookings($room_id, $from, $to) {
-        global $wpdb;
-        
-        if (!$room_id || !$from || !$to) {
-            return array();
+        $args = array(
+            'post_type' => 'mrb_booking',
+            'post_status' => array('publish','pending','draft'),
+            'posts_per_page' => -1,
+            'meta_query' => array(
+                'relation' => 'AND',
+                array('key'=>'room_id','value'=>intval($room_id),'compare'=>'=','type'=>'NUMERIC'),
+                array('key'=>'checkin_date','value'=>$to,'compare'=>'<','type'=>'CHAR'),
+                array('key'=>'checkout_date','value'=>$from,'compare'=>'>','type'=>'CHAR'),
+            ),
+            'fields' => 'ids',
+        );
+        $q = new WP_Query($args);
+        $res = array();
+        foreach ($q->posts as $pid) {
+            $ci = get_post_meta($pid, 'checkin_date', true);
+            $co = get_post_meta($pid, 'checkout_date', true);
+            if (!$ci || !$co) continue;
+            $status = get_post_meta($pid, 'status', true);
+            if ($status === 'cancelled') continue;
+            $res[] = array('id'=>$pid,'checkin'=>$ci,'checkout'=>$co,'status'=>$status);
         }
-        
-        $bookings_table = $wpdb->prefix . 'monthly_bookings';
-        $reservations_table = $wpdb->prefix . 'monthly_reservations';
-        
-        $bookings = array();
-        
-        $sql = "SELECT start_date as checkin_date, end_date as checkout_date, status
-                FROM $bookings_table 
-                WHERE room_id = %d 
-                AND (start_date <= %s AND end_date >= %s) 
-                AND status != 'cancelled'
-                ORDER BY start_date";
-        
-        $results = $wpdb->get_results($wpdb->prepare($sql, $room_id, $to, $from));
-        
-        if ($results) {
-            $bookings = array_merge($bookings, $results);
-        }
-        
-        if (defined('MB_FEATURE_RESERVATIONS_MVP') && MB_FEATURE_RESERVATIONS_MVP) {
-            $sql = "SELECT checkin_date, checkout_date, status
-                    FROM $reservations_table 
-                    WHERE room_id = %d 
-                    AND (checkin_date <= %s AND checkout_date >= %s) 
-                    AND status != 'canceled'
-                    ORDER BY checkin_date";
-            
-            $reservation_results = $wpdb->get_results($wpdb->prepare($sql, $room_id, $to, $from));
-            
-            if ($reservation_results) {
-                foreach ($reservation_results as $reservation) {
-                    $reservation->checkin_date = $reservation->checkin_date;
-                    $reservation->checkout_date = $reservation->checkout_date;
-                }
-                $bookings = array_merge($bookings, $reservation_results);
-            }
-        }
-        
-        if ($wpdb->last_error) {
-            error_log('Monthly Booking Calendar API - Booking query error: ' . $wpdb->last_error);
-            return array();
-        }
-        
-        return $bookings;
+        return $res;
     }
-    
+
+    public function mbp_get_bookings_for_rooms($room_ids, $from, $to) {
+        if (empty($room_ids)) return array();
+        $args = array(
+            'post_type' => 'mrb_booking',
+            'post_status' => array('publish','pending','draft'),
+            'posts_per_page' => -1,
+            'meta_query' => array(
+                'relation' => 'AND',
+                array(
+                    'key'=>'room_id',
+                    'value'=> array_map('intval', $room_ids),
+                    'compare'=>'IN',
+                ),
+                array('key'=>'checkin_date','value'=>$to,'compare'=>'<','type'=>'CHAR'),
+                array('key'=>'checkout_date','value'=>$from,'compare'=>'>','type'=>'CHAR'),
+            ),
+            'fields' => 'ids',
+        );
+        $q = new WP_Query($args);
+        $out = array();
+        foreach ($room_ids as $rid) { $out[intval($rid)] = array(); }
+        foreach ($q->posts as $pid) {
+            $rid = intval(get_post_meta($pid, 'room_id', true));
+            $ci = get_post_meta($pid, 'checkin_date', true);
+            $co = get_post_meta($pid, 'checkout_date', true);
+            if (!$rid || !$ci || !$co) continue;
+            $status = get_post_meta($pid, 'status', true);
+            if ($status === 'cancelled') continue;
+            $out[$rid][] = array('id'=>$pid,'checkin'=>$ci,'checkout'=>$co,'status'=>$status);
+        }
+        return $out;
+    }
+
     public function mbp_get_campaign_days($room_id, $from, $to) {
-        global $wpdb;
-        
-        if (!$room_id || !$from || !$to) {
-            return array();
-        }
-        
-        $campaigns_table = $wpdb->prefix . 'monthly_campaigns';
-        $room_campaigns_table = $wpdb->prefix . 'monthly_room_campaigns';
-        
-        $sql = "SELECT c.campaign_name as name, c.type, rc.start_date, rc.end_date
-                FROM $campaigns_table c
-                INNER JOIN $room_campaigns_table rc ON c.id = rc.campaign_id
-                WHERE rc.room_id = %d 
-                AND c.is_active = 1 
-                AND rc.is_active = 1
-                AND (rc.start_date <= %s AND rc.end_date >= %s)
-                ORDER BY rc.start_date";
-        
-        $results = $wpdb->get_results($wpdb->prepare($sql, $room_id, $to, $from));
-        
-        if ($wpdb->last_error) {
-            error_log('Monthly Booking Calendar API - Campaign query error: ' . $wpdb->last_error);
-            return array();
-        }
-        
-        $campaign_days = array();
-        
-        if ($results) {
-            foreach ($results as $campaign) {
-                $start = new DateTime($campaign->start_date);
-                $end = new DateTime($campaign->end_date);
-                $end->modify('+1 day');
-                
-                $period = new DatePeriod($start, new DateInterval('P1D'), $end);
-                
-                foreach ($period as $date) {
-                    $date_str = $date->format('Y-m-d');
-                    if ($date_str >= $from && $date_str <= $to) {
-                        $campaign_days[$date_str] = array(
-                            'name' => $campaign->name,
-                            'type' => $campaign->type
-                        );
-                    }
-                }
-            }
-        }
-        
-        return $campaign_days;
+        return array();
     }
-    
+
     public function get_global_campaigns($from, $to) {
-        global $wpdb;
-        
-        if (!$from || !$to) {
-            return array();
-        }
-        
-        $campaigns_table = $wpdb->prefix . 'monthly_campaigns';
-        
-        $sql = "SELECT campaign_name as name, type, start_date, end_date
-                FROM $campaigns_table 
-                WHERE is_active = 1 
-                AND (start_date <= %s AND end_date >= %s)
-                ORDER BY start_date";
-        
-        $results = $wpdb->get_results($wpdb->prepare($sql, $to, $from));
-        
-        if ($wpdb->last_error) {
-            error_log('Monthly Booking Calendar API - Global campaign query error: ' . $wpdb->last_error);
-            return array();
-        }
-        
-        $campaign_days = array();
-        
-        if ($results) {
-            foreach ($results as $campaign) {
-                $start = new DateTime($campaign->start_date);
-                $end = new DateTime($campaign->end_date);
-                $end->modify('+1 day');
-                
-                $period = new DatePeriod($start, new DateInterval('P1D'), $end);
-                
-                foreach ($period as $date) {
-                    $date_str = $date->format('Y-m-d');
-                    if ($date_str >= $from && $date_str <= $to) {
-                        if (!isset($campaign_days[$date_str])) {
-                            $campaign_days[$date_str] = array();
-                        }
-                        $campaign_days[$date_str][] = array(
-                            'name' => $campaign->name,
-                            'type' => $campaign->type
-                        );
-                    }
-                }
-            }
-        }
-        
-        return $campaign_days;
+        return array();
     }
-}
+}}

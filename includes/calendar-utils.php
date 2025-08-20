@@ -1,143 +1,102 @@
 <?php
-if (!defined('ABSPATH')) {
-    exit;
-}
 
+if (!defined('ABSPATH')) { exit; }
+
+if (!class_exists('MonthlyBooking_Calendar_Utils')) {
 class MonthlyBooking_Calendar_Utils {
-    
-    public static function date_ranges_overlap($start1, $end1, $start2, $end2) {
-        return ($start1 <= $end2) && ($end1 >= $start2);
-    }
-    
-    public static function calculate_cleaning_buffer($checkin_date, $checkout_date) {
-        $checkin = new DateTime($checkin_date);
-        $checkout = new DateTime($checkout_date);
-        
-        $buffer_start = clone $checkin;
-        $buffer_start->modify('-5 days');
-        
-        $buffer_end = clone $checkout;
-        $buffer_end->modify('+5 days');
-        
-        return array(
-            'start' => $buffer_start->format('Y-m-d'),
-            'end' => $buffer_end->format('Y-m-d')
-        );
-    }
-    
-    public static function get_wp_timezone_date($date_string = 'now') {
-        $timezone = wp_timezone();
-        $date = new DateTime($date_string, $timezone);
-        return $date;
-    }
-    
-    public static function format_japanese_date($date_string) {
-        $date = new DateTime($date_string);
-        $month = $date->format('n');
-        $day = $date->format('j');
-        $day_of_week = $date->format('w');
-        
-        $japanese_days = array('日', '月', '火', '水', '木', '金', '土');
-        
-        return array(
-            'month' => $month,
-            'day' => $day,
-            'day_of_week' => $japanese_days[$day_of_week],
-            'formatted' => $month . '/' . $day . '(' . $japanese_days[$day_of_week] . ')'
-        );
-    }
-    
-    public static function get_day_status($date, $bookings, $campaign_days) {
-        $date_obj = new DateTime($date);
-        $date_str = $date_obj->format('Y-m-d');
-        
-        foreach ($bookings as $booking) {
-            $checkin = new DateTime($booking->checkin_date);
-            $checkout = new DateTime($booking->checkout_date);
-            
-            if ($date_obj >= $checkin && $date_obj < $checkout) {
-                return array(
-                    'status' => 'booked',
-                    'symbol' => '×',
-                    'class' => 'booked',
-                    'label' => '予約済み'
-                );
-            }
-            
-            $buffer = self::calculate_cleaning_buffer($booking->checkin_date, $booking->checkout_date);
-            $buffer_start = new DateTime($buffer['start']);
-            $buffer_end = new DateTime($buffer['end']);
-            
-            if ($date_obj >= $buffer_start && $date_obj <= $buffer_end && 
-                !($date_obj >= $checkin && $date_obj < $checkout)) {
-                return array(
-                    'status' => 'cleaning',
-                    'symbol' => '×',
-                    'class' => 'booked',
-                    'label' => '清掃期間'
-                );
-            }
+
+    public static function get_wp_timezone_date($rel = 'today') {
+        $tz = wp_timezone();
+        $dt = new DateTime('now', $tz);
+        if ($rel !== 'today') {
+            $dt = new DateTime($rel, $tz);
         }
-        
-        if (isset($campaign_days[$date_str])) {
-            $campaign = $campaign_days[$date_str];
-            return array(
-                'status' => 'campaign',
-                'symbol' => '△',
-                'class' => 'campaign',
-                'label' => 'キャンペーン対象',
-                'campaign_name' => $campaign['name'],
-                'campaign_type' => $campaign['type']
-            );
-        }
-        
-        return array(
-            'status' => 'available',
-            'symbol' => '〇',
-            'class' => 'available',
-            'label' => '空室'
-        );
+        return $dt;
     }
-    
-    public static function generate_6_month_dates($start_date = null) {
-        if (!$start_date) {
-            $start_date = self::get_wp_timezone_date('today')->format('Y-m-d');
-        }
-        
-        $start = new DateTime($start_date);
-        $end = clone $start;
-        $end->modify('+180 days');
-        
+
+    public static function generate_6_month_dates($startYmd) {
+        $start = new DateTime($startYmd);
         $dates = array();
-        $current = clone $start;
-        
-        while ($current < $end) {
-            $dates[] = $current->format('Y-m-d');
-            $current->modify('+1 day');
+        for ($i=0; $i<180; $i++) {
+            $d = clone $start;
+            $d->modify("+$i days");
+            $dates[] = $d->format('Y-m-d');
         }
-        
         return $dates;
     }
-    
+
     public static function group_dates_by_month($dates) {
-        $months = array();
-        
-        foreach ($dates as $date) {
-            $date_obj = new DateTime($date);
-            $month_key = $date_obj->format('Y-m');
-            
-            if (!isset($months[$month_key])) {
-                $months[$month_key] = array(
-                    'year' => $date_obj->format('Y'),
-                    'month' => $date_obj->format('n'),
-                    'month_name' => $date_obj->format('Y年n月'),
-                    'dates' => array()
-                );
+        $res = array();
+        foreach ($dates as $d) {
+            $y = intval(substr($d,0,4));
+            $m = intval(substr($d,5,2));
+            $key = "$y-$m";
+            if (!isset($res[$key])) {
+                $month_name = $y.'年'.$m.'月';
+                $res[$key] = array('year'=>$y,'month'=>$m,'month_name'=>$month_name,'dates'=>array());
             }
-            
-            $months[$month_key]['dates'][] = $date;
+            $res[$key]['dates'][] = $d;
         }
-        
-        return $months;
+        return array_values($res);
     }
-}
+
+    public static function generate_dates_span($startYmd, $days) {
+        $start = new DateTime($startYmd);
+        $dates = array();
+        $n = max(1, min(180, intval($days)));
+        for ($i=0; $i<$n; $i++) {
+            $d = clone $start;
+            $d->modify("+$i days");
+            $dates[] = $d->format('Y-m-d');
+        }
+        return $dates;
+    }
+
+    public static function format_japanese_date($ymd) {
+        $y = intval(substr($ymd,0,4));
+        $m = intval(substr($ymd,5,2));
+        $d = intval(substr($ymd,8,2));
+        return array(
+            'formatted' => sprintf('%04d年%02d月%02d日', $y, $m, $d),
+            'day' => $d
+        );
+    }
+
+    public static function format_day_short($ymd) {
+        $m = intval(substr($ymd,5,2));
+        $d = intval(substr($ymd,8,2));
+        return $m.'/'.$d;
+    }
+
+    public static function get_day_status($date, $bookings, $campaign_days) {
+        $isBooked = false;
+        foreach ($bookings as $b) {
+            $ci = $b['checkin'];
+            $co = $b['checkout'];
+            if ($date >= $ci && $date < $co) {
+                $isBooked = true;
+                break;
+            }
+        }
+        if ($isBooked) {
+            return array('class'=>'booked','label'=>__('予約済み','monthly-booking'),'symbol'=>'×');
+        }
+        if (is_array($campaign_days) && in_array($date, $campaign_days, true)) {
+            return array('class'=>'campaign','label'=>__('キャンペーン対象','monthly-booking'),'symbol'=>'△','campaign_name'=>__('キャンペーン','monthly-booking'),'campaign_type'=>'generic');
+        }
+        return array('class'=>'available','label'=>__('空室','monthly-booking'),'symbol'=>'〇');
+    }
+
+    public static function get_day_status_for_room($date, $room_bookings) {
+        $isBooked = false;
+        foreach ($room_bookings as $b) {
+            $ci = $b['checkin'];
+            $co = $b['checkout'];
+            if ($date >= $ci && $date < $co) { $isBooked = true; break; }
+        }
+        if ($isBooked) {
+            return array('class'=>'booked','label'=>__('予約済み','monthly-booking'),'symbol'=>'×');
+        }
+        return array('class'=>'available','label'=>__('空室','monthly-booking'),'symbol'=>'〇');
+    }
+}}

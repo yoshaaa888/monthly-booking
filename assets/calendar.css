@@ -1,3 +1,22 @@
+.calendar-matrix { overflow-x: auto; border:1px solid #ddd; }
+.calendar-matrix .matrix-header, .calendar-matrix .matrix-row { display:flex; }
+.calendar-matrix .matrix-cell { min-width:32px; height:28px; border-right:1px solid #eee; border-bottom:1px solid #eee; }
+.calendar-matrix .matrix-cell.header { background:#f5f5f5; font-size:12px; line-height:28px; text-align:center; }
+.calendar-matrix .matrix-cell.room-col { min-width:180px; padding:4px 8px; white-space:nowrap; background:#fafafa; }
+.calendar-matrix .matrix-cell.day.available { background:#e8f7ea; }
+.calendar-matrix .matrix-cell.day.booked { background:#fde6e6; }
+.calendar-matrix .matrix-row:nth-child(odd) .room-col { background:#fdfdfd; }
+.calendar-matrix-controls { margin:8px 0; }
+.calendar-matrix { overflow-x: auto; border:1px solid #ddd; }
+.calendar-matrix .matrix-header, .calendar-matrix .matrix-row { display:flex; }
+.calendar-matrix .matrix-cell { min-width:32px; height:28px; border-right:1px solid #eee; border-bottom:1px solid #eee; }
+.calendar-matrix .matrix-cell.header { background:#f5f5f5; font-size:12px; line-height:28px; text-align:center; }
+.calendar-matrix .matrix-cell.room-col { min-width:180px; padding:4px 8px; white-space:nowrap; background:#fafafa; }
+.calendar-matrix .matrix-cell.day.available { background:#e8f7ea; }
+.calendar-matrix .matrix-cell.day.booked { background:#fde6e6; }
+.calendar-matrix .matrix-row:nth-child(odd) .room-col { background:#fdfdfd; }
+.calendar-matrix-controls { margin:8px 0; }
+
 /* Monthly Booking Calendar Styles */
 .monthly-booking-calendar-container {
     max-width: 1200px;
