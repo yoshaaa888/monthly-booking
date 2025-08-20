@@ -130,7 +130,7 @@ class MonthlyBooking {
             'show_in_menu' => true,
             'menu_icon' => 'dashicons-tickets',
             'show_in_rest' => true,
-            'supports' => array(),
+            'supports' => array('title'),
             'capability_type' => 'post',
             'map_meta_cap' => true,
         ));
