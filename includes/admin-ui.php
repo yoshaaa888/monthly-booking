@@ -9,6 +9,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once plugin_dir_path(__FILE__) . 'i18n.php';
+
 class MonthlyBooking_Admin_UI {
     
     public function __construct() {
@@ -1900,34 +1902,34 @@ class MonthlyBooking_Admin_UI {
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
             
             <div class="monthly-booking-admin-content">
-                <h2><?php _e('キャンペーン設定', 'monthly-booking'); ?></h2>
-                <p><?php _e('割引キャンペーンの作成・管理を行います。', 'monthly-booking'); ?></p>
+                <h2><?php echo esc_html(mb_t('campaigns.title')); ?></h2>
+                <p><?php echo esc_html(mb_t('campaigns.description')); ?></p>
                 
                 <!-- New Campaign Button -->
                 <div style="margin-bottom: 20px;">
-                    <button type="button" class="button button-primary" onclick="showCampaignModal()"><?php _e('新規作成', 'monthly-booking'); ?></button>
+                    <button type="button" class="button button-primary" onclick="showCampaignModal()"><?php echo esc_html(mb_t('action.create')); ?></button>
                 </div>
                 
                 <!-- Campaign List Table -->
                 <table class="monthly-booking-table widefat">
                     <thead>
                         <tr>
-                            <th><?php _e('キャンペーン名', 'monthly-booking'); ?></th>
-                            <th><?php _e('タイプ', 'monthly-booking'); ?></th>
-                            <th><?php _e('割引率', 'monthly-booking'); ?></th>
-                            <th><?php _e('適用期間', 'monthly-booking'); ?></th>
-                            <th><?php _e('対象プラン', 'monthly-booking'); ?></th>
-                            <th><?php _e('ステータス', 'monthly-booking'); ?></th>
-                            <th><?php _e('操作', 'monthly-booking'); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.table.header.name')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.table.header.type')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.table.header.discount_rate')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.table.header.period')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.table.header.target_plan')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.table.header.status')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.table.header.actions')); ?></th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($campaigns)): ?>
                         <tr>
                             <td colspan="7" style="text-align: center; padding: 20px;">
-                                <?php _e('キャンペーンが登録されていません。', 'monthly-booking'); ?>
+                                <?php echo esc_html(mb_t('campaigns.empty')); ?>
                                 <br>
-                                <small><?php _e('「新規作成」ボタンからキャンペーンを追加してください。', 'monthly-booking'); ?></small>
+                                <small><?php echo esc_html(mb_t('campaigns.empty.hint')); ?></small>
                             </td>
                         </tr>
                         <?php else: ?>
@@ -1937,9 +1939,9 @@ class MonthlyBooking_Admin_UI {
                             <td>
                                 <?php 
                                 $type_labels = array(
-                                    'immediate' => '即入居割',
-                                    'earlybird' => '早割',
-                                    'flatrate' => 'コミコミ10万円'
+                                    'immediate' => mb_t('campaign.type.immediate'),
+                                    'earlybird' => mb_t('campaign.type.earlybird'),
+                                    'flatrate' => mb_t('campaign.type.flatrate')
                                 );
                                 echo esc_html($type_labels[$campaign->type] ?? $campaign->type);
                                 ?>
@@ -1959,7 +1961,7 @@ class MonthlyBooking_Admin_UI {
                             <td><?php echo esc_html($campaign->target_plan); ?></td>
                             <td>
                                 <span class="campaign-status <?php echo $campaign->is_active ? 'active' : 'inactive'; ?>">
-                                    <?php echo $campaign->is_active ? __('有効', 'monthly-booking') : __('無効', 'monthly-booking'); ?>
+                                    <?php echo $campaign->is_active ? esc_html(mb_t('status.active')) : esc_html(mb_t('status.inactive')); ?>
                                 </span>
                             </td>
                             <td>
@@ -1982,12 +1984,12 @@ class MonthlyBooking_Admin_UI {
                 </table>
                 
                 <div class="notice notice-info" style="margin-top: 20px;">
-                    <p><strong><?php _e('キャンペーンルール:', 'monthly-booking'); ?></strong></p>
+                    <p><strong><?php echo esc_html(mb_t('campaigns.rules.title')); ?></strong></p>
                     <ul>
-                        <li><?php _e('即入居割: チェックイン7日以内で自動適用', 'monthly-booking'); ?></li>
-                        <li><?php _e('早割: チェックイン30日以上前で自動適用', 'monthly-booking'); ?></li>
-                        <li><?php _e('コミコミ10万円: 7-10日滞在で全込み10万円', 'monthly-booking'); ?></li>
-                        <li><?php _e('最大1つのキャンペーンのみ適用されます', 'monthly-booking'); ?></li>
+                        <li><?php echo esc_html(mb_t('campaigns.rules.immediate')); ?></li>
+                        <li><?php echo esc_html(mb_t('campaigns.rules.earlybird')); ?></li>
+                        <li><?php echo esc_html(mb_t('campaigns.rules.flatrate')); ?></li>
+                        <li><?php echo esc_html(mb_t('campaigns.rules.only_one')); ?></li>
                     </ul>
                 </div>
 
@@ -2000,11 +2002,11 @@ class MonthlyBooking_Admin_UI {
                 <table class="monthly-booking-table">
                     <thead>
                         <tr>
-                            <th><?php _e('名称', 'monthly-booking'); ?></th>
-                            <th><?php _e('割引', 'monthly-booking'); ?></th>
-                            <th><?php _e('期間', 'monthly-booking'); ?></th>
-                            <th><?php _e('ステータス', 'monthly-booking'); ?></th>
-                            <th><?php _e('操作', 'monthly-booking'); ?></th>
+                            <th><?php echo esc_html(mb_t('common.name')); ?></th>
+                            <th><?php echo esc_html(mb_t('common.discount')); ?></th>
+                            <th><?php echo esc_html(mb_t('common.period')); ?></th>
+                            <th><?php echo esc_html(mb_t('common.status')); ?></th>
+                            <th><?php echo esc_html(mb_t('common.actions')); ?></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2022,22 +2024,22 @@ class MonthlyBooking_Admin_UI {
                                         ?>
                                     </td>
                                     <td><?php echo esc_html($c->start_date . ' — ' . $c->end_date); ?></td>
-                                    <td><?php echo $c->is_active ? __('有効', 'monthly-booking') : __('無効', 'monthly-booking'); ?></td>
+                                    <td><?php echo $c->is_active ? esc_html(mb_t('status.active')) : esc_html(mb_t('status.inactive')); ?></td>
                                     <td>
                                         <a href="#" class="button toggle-campaign-status"
                                            data-campaign-id="<?php echo esc_attr($c->id); ?>"
                                            data-is-active="<?php echo esc_attr($c->is_active); ?>">
-                                           <?php echo $c->is_active ? __('無効化', 'monthly-booking') : __('有効化', 'monthly-booking'); ?>
+                                           <?php echo $c->is_active ? esc_html(mb_t('action.disable')) : esc_html(mb_t('action.enable')); ?>
                                         </a>
                                         <button type="button" class="button button-small button-link-delete campaign-delete"
                                             data-campaign-id="<?php echo esc_attr($c->id); ?>">
-                                            <?php _e('削除', 'monthly-booking'); ?>
+                                            <?php echo esc_html(mb_t('action.delete')); ?>
                                         </button>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="5"><?php _e('キャンペーンが見つかりません。', 'monthly-booking'); ?></td></tr>
+                            <tr><td colspan="5"><?php echo esc_html(mb_t('campaigns.not_found')); ?></td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
