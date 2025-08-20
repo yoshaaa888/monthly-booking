@@ -132,7 +132,7 @@ add_filter('manage_edit-mrb_rate_columns', function ($cols) {
     $new_cols['mrb_active'] = __('有効', 'monthly-booking');
     $new_cols['date'] = isset($cols['date']) ? $cols['date'] : __('Date');
     return $new_cols;
-}, 20);
+}, 999);
 
 add_filter('manage_mrb_rate_posts_columns', function ($cols) {
     error_log('[mrb_rate] manage_mrb_rate_posts_columns fired');
@@ -141,7 +141,7 @@ add_filter('manage_mrb_rate_posts_columns', function ($cols) {
     $cols['mrb_period'] = __('期間', 'monthly-booking');
     $cols['mrb_active'] = __('有効', 'monthly-booking');
     return $cols;
-}, 20);
+}, 999);
 
 add_action('manage_mrb_rate_posts_custom_column', function ($col, $post_id) {
     if ($col === 'mrb_room_id') {
@@ -178,7 +178,7 @@ add_filter('manage_posts_columns', function ($cols) {
     $cols['mrb_period'] = __('期間', 'monthly-booking');
     $cols['mrb_active'] = __('有効', 'monthly-booking');
     return $cols;
-}, 20);
+}, 999);
 
 add_action('manage_posts_custom_column', function ($col, $post_id) {
     if (get_post_type($post_id) !== 'mrb_rate') return;
