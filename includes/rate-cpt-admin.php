@@ -157,3 +157,34 @@ add_action('manage_mrb_rate_posts_custom_column', function ($col, $post_id) {
         return;
     }
 }, 10, 2);
+
+add_filter('manage_posts_columns', function ($cols) {
+    if (!function_exists('get_current_screen')) {
+        return $cols;
+    }
+    $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+    $pt = is_object($screen) ? $screen->post_type : (isset($_GET['post_type']) ? sanitize_key($_GET['post_type']) : get_post_type());
+    if ($pt !== 'mrb_rate') {
+        return $cols;
+    }
+    $cols['mrb_room_id'] = __('部屋', 'monthly-booking');
+    $cols['mrb_price_yen'] = __('価格', 'monthly-booking');
+    $cols['mrb_period'] = __('期間', 'monthly-booking');
+    $cols['mrb_active'] = __('有効', 'monthly-booking');
+    return $cols;
+}, 20);
+
+add_action('manage_posts_custom_column', function ($col, $post_id) {
+    if (get_post_type($post_id) !== 'mrb_rate') return;
+    if ($col === 'mrb_room_id') {
+        echo (int) get_post_meta($post_id, 'mrb_room_id', true);
+    } elseif ($col === 'mrb_price_yen') {
+        echo '¥' . number_format((int) get_post_meta($post_id, 'mrb_price_yen', true));
+    } elseif ($col === 'mrb_period') {
+        $from = (string) get_post_meta($post_id, 'mrb_valid_from', true);
+        $to = (string) get_post_meta($post_id, 'mrb_valid_to', true);
+        echo esc_html($from . ' 〜 ' . ($to !== '' ? $to : '-'));
+    } elseif ($col === 'mrb_active') {
+        echo get_post_meta($post_id, 'mrb_is_active', true) ? '✓' : '';
+    }
+}, 10, 2);
