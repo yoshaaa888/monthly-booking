@@ -42,36 +42,6 @@ class MonthlyBooking {
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/admin-ui.php';
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/calendar-render.php';
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/booking-logic.php';
-add_filter('use_block_editor_for_post_type', 'mrb_disable_block_editor_for_rate_cpt', 1000, 2);
-function mrb_disable_block_editor_for_rate_cpt($use_block_editor, $post_type) {
-    if ('mrb_rate' === $post_type) {
-        return false;
-    }
-    return $use_block_editor;
-}
-add_filter('use_block_editor_for_post', function($use, $post) {
-    $pt = is_object($post) ? $post->post_type : (is_numeric($post) ? get_post_type($post) : null);
-    return ($pt === 'mrb_rate') ? false : $use;
-}, 1000, 2);
-add_filter('gutenberg_can_edit_post_type', function($can, $type) {
-    return ($type === 'mrb_rate') ? false : $can;
-}, 1000, 2);
-add_filter('replace_editor', function ($replace, $post) {
-    return ($post && $post->post_type === 'mrb_rate') ? false : $replace;
-}, 1000, 2);
-add_filter('wp_is_block_editor', function($is, $screen = null) {
-    $pt = null;
-    if (is_object($screen) && isset($screen->post_type)) {
-        $pt = $screen->post_type;
-    } else {
-        $pt = isset($_GET['post_type']) ? sanitize_key($_GET['post_type']) : (isset($_GET['post']) ? get_post_type((int) $_GET['post']) : null);
-    }
-    return ($pt === 'mrb_rate') ? false : $is;
-}, 1000, 2);
-add_filter('should_load_block_editor_scripts_and_styles', function($load, $screen) {
-    $pt = is_object($screen) && isset($screen->post_type) ? $screen->post_type : null;
-    return ($pt === 'mrb_rate') ? false : $load;
-}, 1000, 2);
 
 
 

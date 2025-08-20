@@ -11,12 +11,6 @@ add_action('init', function () {
     register_post_meta('mrb_rate', 'mrb_is_active', array('type' => 'boolean', 'single' => true, 'show_in_rest' => false, 'auth_callback' => '__return_true'));
 
 });
-function mrb_disable_block_editor_for_rate_cpt($use_block_editor, $post_type) {
-    if ('mrb_rate' === $post_type) {
-        return false;
-    }
-    return $use_block_editor;
-}
 
 
 
@@ -57,9 +51,6 @@ function mrb_rate_render_details_box($post) {
     </table>
     <?php
 }
-add_action('add_meta_boxes', function () {
-    add_meta_box('mrb_rate_details', __('料金詳細', 'monthly-booking'), 'mrb_rate_render_details_box', 'mrb_rate', 'normal', 'default');
-});
 add_action('add_meta_boxes_mrb_rate', function () {
     add_meta_box('mrb_rate_details', __('料金詳細', 'monthly-booking'), 'mrb_rate_render_details_box', 'mrb_rate', 'normal', 'default');
 });
@@ -133,66 +124,18 @@ add_action('admin_notices', function () {
 
 
 add_filter('manage_edit-mrb_rate_columns', function ($cols) {
-    error_log('[mrb_rate] manage_edit-mrb_rate_columns fired');
-    $new_cols = array();
-    $new_cols['cb'] = isset($cols['cb']) ? $cols['cb'] : '<input type="checkbox" />';
-    $new_cols['title'] = __('Title');
-    $new_cols['mrb_room_id'] = __('部屋', 'monthly-booking');
-    $new_cols['mrb_price_yen'] = __('価格', 'monthly-booking');
-    $new_cols['mrb_period'] = __('期間', 'monthly-booking');
-    $new_cols['mrb_active'] = __('有効', 'monthly-booking');
-    $new_cols['date'] = isset($cols['date']) ? $cols['date'] : __('Date');
-    return $new_cols;
-}, 999);
-
-add_filter('manage_mrb_rate_posts_columns', function ($cols) {
-    error_log('[mrb_rate] manage_mrb_rate_posts_columns fired');
-    $cols['mrb_room_id'] = __('部屋', 'monthly-booking');
-    $cols['mrb_price_yen'] = __('価格', 'monthly-booking');
-    $cols['mrb_period'] = __('期間', 'monthly-booking');
-    $cols['mrb_active'] = __('有効', 'monthly-booking');
-    return $cols;
-}, 999);
+    $new = array();
+    $new['cb'] = isset($cols['cb']) ? $cols['cb'] : '<input type="checkbox" />';
+    $new['title'] = isset($cols['title']) ? $cols['title'] : __('Title');
+    $new['mrb_room_id'] = __('部屋', 'monthly-booking');
+    $new['mrb_price_yen'] = __('価格', 'monthly-booking');
+    $new['mrb_period'] = __('期間', 'monthly-booking');
+    $new['mrb_active'] = __('有効', 'monthly-booking');
+    $new['date'] = isset($cols['date']) ? $cols['date'] : __('Date');
+    return $new;
+}, 20);
 
 add_action('manage_mrb_rate_posts_custom_column', function ($col, $post_id) {
-    if ($col === 'mrb_room_id') {
-        echo (int) get_post_meta($post_id, 'mrb_room_id', true);
-        return;
-    }
-    if ($col === 'mrb_price_yen') {
-        echo '¥' . number_format((int) get_post_meta($post_id, 'mrb_price_yen', true));
-        return;
-    }
-    if ($col === 'mrb_period') {
-        $from = (string) get_post_meta($post_id, 'mrb_valid_from', true);
-        $to = (string) get_post_meta($post_id, 'mrb_valid_to', true);
-        echo esc_html($from . ' 〜 ' . ($to !== '' ? $to : '-'));
-        return;
-    }
-    if ($col === 'mrb_active') {
-        echo get_post_meta($post_id, 'mrb_is_active', true) ? '✓' : '';
-        return;
-    }
-}, 10, 2);
-
-add_filter('manage_posts_columns', function ($cols) {
-    if (!function_exists('get_current_screen')) {
-        return $cols;
-    }
-    $screen = function_exists('get_current_screen') ? get_current_screen() : null;
-    $pt = is_object($screen) ? $screen->post_type : (isset($_GET['post_type']) ? sanitize_key($_GET['post_type']) : get_post_type());
-    if ($pt !== 'mrb_rate') {
-        return $cols;
-    }
-    $cols['mrb_room_id'] = __('部屋', 'monthly-booking');
-    $cols['mrb_price_yen'] = __('価格', 'monthly-booking');
-    $cols['mrb_period'] = __('期間', 'monthly-booking');
-    $cols['mrb_active'] = __('有効', 'monthly-booking');
-    return $cols;
-}, 999);
-
-add_action('manage_posts_custom_column', function ($col, $post_id) {
-    if (get_post_type($post_id) !== 'mrb_rate') return;
     if ($col === 'mrb_room_id') {
         echo (int) get_post_meta($post_id, 'mrb_room_id', true);
     } elseif ($col === 'mrb_price_yen') {
