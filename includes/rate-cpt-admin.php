@@ -148,3 +148,96 @@ add_action('manage_mrb_rate_posts_custom_column', function ($col, $post_id) {
         echo get_post_meta($post_id, 'mrb_is_active', true) ? '✓' : '';
     }
 }, 10, 2);
+add_action('restrict_manage_posts', function () {
+    global $typenow;
+    if ($typenow !== 'mrb_rate') return;
+    $min_price = isset($_GET['mrb_min_price']) ? (int)$_GET['mrb_min_price'] : '';
+    $max_price = isset($_GET['mrb_max_price']) ? (int)$_GET['mrb_max_price'] : '';
+    $from_from = isset($_GET['mrb_from_from']) ? sanitize_text_field($_GET['mrb_from_from']) : '';
+    $from_to   = isset($_GET['mrb_from_to']) ? sanitize_text_field($_GET['mrb_from_to']) : '';
+    $room_id   = isset($_GET['mrb_room_id']) ? (int)$_GET['mrb_room_id'] : '';
+    $active    = isset($_GET['mrb_active']) ? sanitize_text_field($_GET['mrb_active']) : '';
+    echo '<input type="number" placeholder="最小価格" name="mrb_min_price" value="' . esc_attr($min_price) . '" style="width:100px;margin-right:6px;" />';
+    echo '<input type="number" placeholder="最大価格" name="mrb_max_price" value="' . esc_attr($max_price) . '" style="width:100px;margin-right:6px;" />';
+    echo '<input type="date" placeholder="開始日(自)" name="mrb_from_from" value="' . esc_attr($from_from) . '" style="margin-right:6px;" />';
+    echo '<input type="date" placeholder="開始日(至)" name="mrb_from_to" value="' . esc_attr($from_to) . '" style="margin-right:6px;" />';
+    echo '<input type="number" placeholder="部屋ID" name="mrb_room_id" value="' . esc_attr($room_id) . '" style="width:100px;margin-right:6px;" />';
+    echo '<select name="mrb_active" style="margin-right:6px;"><option value="">有効(すべて)</option><option value="1"' . selected($active, '1', false) . '>有効のみ</option><option value="0"' . selected($active, '0', false) . '>無効のみ</option></select>';
+    $export_url = add_query_arg(array_merge($_GET, array('action' => 'mrb_rate_export')), admin_url('admin-post.php'));
+    echo '<a href="' . esc_url($export_url) . '" class="button">CSVエクスポート</a>';
+});
+add_action('pre_get_posts', function ($q) {
+    if (!is_admin() || !$q->is_main_query()) return;
+    if ($q->get('post_type') !== 'mrb_rate') return;
+    $meta = array('relation' => 'AND');
+    if (isset($_GET['mrb_min_price']) && $_GET['mrb_min_price'] !== '') {
+        $meta[] = array('key' => 'mrb_price_yen', 'value' => (int)$_GET['mrb_min_price'], 'compare' => '>=', 'type' => 'NUMERIC');
+    }
+    if (isset($_GET['mrb_max_price']) && $_GET['mrb_max_price'] !== '') {
+        $meta[] = array('key' => 'mrb_price_yen', 'value' => (int)$_GET['mrb_max_price'], 'compare' => '<=', 'type' => 'NUMERIC');
+    }
+    if (!empty($_GET['mrb_from_from'])) {
+        $meta[] = array('key' => 'mrb_valid_from', 'value' => sanitize_text_field($_GET['mrb_from_from']), 'compare' => '>=', 'type' => 'CHAR');
+    }
+    if (!empty($_GET['mrb_from_to'])) {
+        $meta[] = array('key' => 'mrb_valid_from', 'value' => sanitize_text_field($_GET['mrb_from_to']), 'compare' => '<=', 'type' => 'CHAR');
+    }
+    if (isset($_GET['mrb_room_id']) && $_GET['mrb_room_id'] !== '') {
+        $meta[] = array('key' => 'mrb_room_id', 'value' => (int)$_GET['mrb_room_id'], 'compare' => '=', 'type' => 'NUMERIC');
+    }
+    if ($_GET['mrb_active'] === '1' || $_GET['mrb_active'] === '0') {
+        $meta[] = array('key' => 'mrb_is_active', 'value' => (int)$_GET['mrb_active'], 'compare' => '=', 'type' => 'NUMERIC');
+    }
+    if (count($meta) > 1) {
+        $q->set('meta_query', $meta);
+    }
+});
+add_action('admin_post_mrb_rate_export', function () {
+    if (!current_user_can('edit_posts')) wp_die('forbidden');
+    $args = array(
+        'post_type' => 'mrb_rate',
+        'post_status' => array('publish','draft','pending'),
+        'posts_per_page' => -1,
+        'fields' => 'ids',
+    );
+    $meta = array('relation' => 'AND');
+    if (isset($_GET['mrb_min_price']) && $_GET['mrb_min_price'] !== '') {
+        $meta[] = array('key' => 'mrb_price_yen', 'value' => (int)$_GET['mrb_min_price'], 'compare' => '>=', 'type' => 'NUMERIC');
+    }
+    if (isset($_GET['mrb_max_price']) && $_GET['mrb_max_price'] !== '') {
+        $meta[] = array('key' => 'mrb_price_yen', 'value' => (int)$_GET['mrb_max_price'], 'compare' => '<=', 'type' => 'NUMERIC');
+    }
+    if (!empty($_GET['mrb_from_from'])) {
+        $meta[] = array('key' => 'mrb_valid_from', 'value' => sanitize_text_field($_GET['mrb_from_from']), 'compare' => '>=', 'type' => 'CHAR');
+    }
+    if (!empty($_GET['mrb_from_to'])) {
+        $meta[] = array('key' => 'mrb_valid_from', 'value' => sanitize_text_field($_GET['mrb_from_to']), 'compare' => '<=', 'type' => 'CHAR');
+    }
+    if (isset($_GET['mrb_room_id']) && $_GET['mrb_room_id'] !== '') {
+        $meta[] = array('key' => 'mrb_room_id', 'value' => (int)$_GET['mrb_room_id'], 'compare' => '=', 'type' => 'NUMERIC');
+    }
+    if (isset($_GET['mrb_active']) && ($_GET['mrb_active'] === '1' || $_GET['mrb_active'] === '0')) {
+        $meta[] = array('key' => 'mrb_is_active', 'value' => (int)$_GET['mrb_active'], 'compare' => '=', 'type' => 'NUMERIC');
+    }
+    if (count($meta) > 1) $args['meta_query'] = $meta;
+    $q = new WP_Query($args);
+    nocache_headers();
+    header('Content-Type: text/csv; charset=UTF-8');
+    $fname = 'monthly-rates-' . gmdate('Ymd-Hi') . '.csv';
+    header('Content-Disposition: attachment; filename="' . $fname . '"');
+    $out = fopen('php://output', 'w');
+    fputcsv($out, array('ID','Title','RoomID','RateType','PriceYen','ValidFrom','ValidTo','Active','Date'));
+    foreach ($q->posts as $pid) {
+        $title = get_the_title($pid);
+        $room = (int)get_post_meta($pid,'mrb_room_id',true);
+        $type = (string)get_post_meta($pid,'mrb_rate_type',true);
+        $price = (int)get_post_meta($pid,'mrb_price_yen',true);
+        $from = (string)get_post_meta($pid,'mrb_valid_from',true);
+        $to   = (string)get_post_meta($pid,'mrb_valid_to',true);
+        $active = get_post_meta($pid,'mrb_is_active',true) ? 1 : 0;
+        $date = get_post_field('post_date', $pid);
+        fputcsv($out, array($pid,$title,$room,$type,$price,$from,$to,$active,$date));
+    }
+    fclose($out);
+    exit;
+});
