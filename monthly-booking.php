@@ -38,13 +38,6 @@ add_filter('gutenberg_can_edit_post_type', function($can, $type) {
     return ($type === 'mrb_rate') ? false : $can;
 }, 100, 2);
 
-add_filter('use_block_editor_for_post_type', function($use_block_editor, $post_type){
-    if ($post_type === 'mrb_rate') {
-        update_option('mrb_dbg_filter_hit', 'yes');
-        return false;
-    }
-    return $use_block_editor;
-}, 100, 2);
 
 
 
