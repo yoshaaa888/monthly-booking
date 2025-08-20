@@ -165,8 +165,8 @@ add_action('restrict_manage_posts', function () {
     echo '<input type="number" placeholder="部屋ID" name="mrb_room_id" value="' . esc_attr($room_id) . '" style="width:100px;margin-right:6px;" />';
     echo '<select name="mrb_active" style="margin-right:6px;"><option value="">有効(すべて)</option><option value="1"' . selected($active, '1', false) . '>有効のみ</option><option value="0"' . selected($active, '0', false) . '>無効のみ</option></select>';
     echo '<input type="text" placeholder="rate_type" name="mrb_rate_type" value="' . esc_attr($rate_type) . '" style="width:120px;margin-right:6px;" />';
-    $nonce = wp_create_nonce('mrb_rate_export');
-    $export_url = add_query_arg(array_merge($_GET, array('action' => 'mrb_rate_export', '_wpnonce' => $nonce)), admin_url('admin-post.php'));
+    $base = add_query_arg(array_merge($_GET, array('action' => 'mrb_rate_export')), admin_url('admin-post.php'));
+    $export_url = wp_nonce_url($base, 'mrb_rate_export');
     echo '<a href="' . esc_url($export_url) . '" class="button">CSVエクスポート</a>';
 });
 add_action('pre_get_posts', function ($q) {
@@ -205,8 +205,8 @@ add_action('pre_get_posts', function ($q) {
     }
 });
 add_action('admin_post_mrb_rate_export', function () {
-    if (!current_user_can('edit_posts')) wp_die('forbidden');
-    if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'mrb_rate_export')) wp_die('invalid nonce');
+    if (!current_user_can('manage_options')) wp_die('権限がありません');
+    check_admin_referer('mrb_rate_export');
     $args = array(
         'post_type' => 'mrb_rate',
         'post_status' => array('publish','draft','pending'),
