@@ -23,7 +23,7 @@ define('MB_USE_CPTS', true);
 require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/rate-cpt-admin.php';
 
 
-add_filter('use_block_editor_for_post_type', 'mrb_disable_block_editor_for_rate_cpt', 100, 2);
+add_filter('use_block_editor_for_post_type', 'mrb_disable_block_editor_for_rate_cpt', 1000, 2);
 function mrb_disable_block_editor_for_rate_cpt($use_block_editor, $post_type) {
     if ('mrb_rate' === $post_type) {
         return false;
@@ -33,10 +33,13 @@ function mrb_disable_block_editor_for_rate_cpt($use_block_editor, $post_type) {
 add_filter('use_block_editor_for_post', function($use, $post) {
     $pt = is_object($post) ? $post->post_type : (is_numeric($post) ? get_post_type($post) : null);
     return ($pt === 'mrb_rate') ? false : $use;
-}, 100, 2);
+}, 1000, 2);
 add_filter('gutenberg_can_edit_post_type', function($can, $type) {
     return ($type === 'mrb_rate') ? false : $can;
-}, 100, 2);
+}, 1000, 2);
+add_filter('replace_editor', function ($replace, $post) {
+    return ($post && $post->post_type === 'mrb_rate') ? false : $replace;
+}, 1000, 2);
 
 
 
