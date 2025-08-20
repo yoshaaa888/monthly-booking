@@ -157,13 +157,16 @@ add_action('restrict_manage_posts', function () {
     $from_to   = isset($_GET['mrb_from_to']) ? sanitize_text_field($_GET['mrb_from_to']) : '';
     $room_id   = isset($_GET['mrb_room_id']) ? (int)$_GET['mrb_room_id'] : '';
     $active    = isset($_GET['mrb_active']) ? sanitize_text_field($_GET['mrb_active']) : '';
+    $rate_type = isset($_GET['mrb_rate_type']) ? sanitize_text_field($_GET['mrb_rate_type']) : '';
     echo '<input type="number" placeholder="最小価格" name="mrb_min_price" value="' . esc_attr($min_price) . '" style="width:100px;margin-right:6px;" />';
     echo '<input type="number" placeholder="最大価格" name="mrb_max_price" value="' . esc_attr($max_price) . '" style="width:100px;margin-right:6px;" />';
     echo '<input type="date" placeholder="開始日(自)" name="mrb_from_from" value="' . esc_attr($from_from) . '" style="margin-right:6px;" />';
     echo '<input type="date" placeholder="開始日(至)" name="mrb_from_to" value="' . esc_attr($from_to) . '" style="margin-right:6px;" />';
     echo '<input type="number" placeholder="部屋ID" name="mrb_room_id" value="' . esc_attr($room_id) . '" style="width:100px;margin-right:6px;" />';
     echo '<select name="mrb_active" style="margin-right:6px;"><option value="">有効(すべて)</option><option value="1"' . selected($active, '1', false) . '>有効のみ</option><option value="0"' . selected($active, '0', false) . '>無効のみ</option></select>';
-    $export_url = add_query_arg(array_merge($_GET, array('action' => 'mrb_rate_export')), admin_url('admin-post.php'));
+    echo '<input type="text" placeholder="rate_type" name="mrb_rate_type" value="' . esc_attr($rate_type) . '" style="width:120px;margin-right:6px;" />';
+    $nonce = wp_create_nonce('mrb_rate_export');
+    $export_url = add_query_arg(array_merge($_GET, array('action' => 'mrb_rate_export', '_wpnonce' => $nonce)), admin_url('admin-post.php'));
     echo '<a href="' . esc_url($export_url) . '" class="button">CSVエクスポート</a>';
 });
 add_action('pre_get_posts', function ($q) {
@@ -176,16 +179,25 @@ add_action('pre_get_posts', function ($q) {
     if (isset($_GET['mrb_max_price']) && $_GET['mrb_max_price'] !== '') {
         $meta[] = array('key' => 'mrb_price_yen', 'value' => (int)$_GET['mrb_max_price'], 'compare' => '<=', 'type' => 'NUMERIC');
     }
-    if (!empty($_GET['mrb_from_from'])) {
-        $meta[] = array('key' => 'mrb_valid_from', 'value' => sanitize_text_field($_GET['mrb_from_from']), 'compare' => '>=', 'type' => 'CHAR');
+    if (isset($_GET['mrb_rate_type']) && $_GET['mrb_rate_type'] !== '') {
+        $meta[] = array('key' => 'mrb_rate_type', 'value' => sanitize_text_field($_GET['mrb_rate_type']), 'compare' => '=', 'type' => 'CHAR');
     }
-    if (!empty($_GET['mrb_from_to'])) {
-        $meta[] = array('key' => 'mrb_valid_from', 'value' => sanitize_text_field($_GET['mrb_from_to']), 'compare' => '<=', 'type' => 'CHAR');
+    $qfrom = !empty($_GET['mrb_from_from']) ? sanitize_text_field($_GET['mrb_from_from']) : '';
+    $qto   = !empty($_GET['mrb_from_to']) ? sanitize_text_field($_GET['mrb_from_to']) : '';
+    if ($qfrom !== '' || $qto !== '') {
+        $qfromDef = $qfrom !== '' ? $qfrom : '0000-01-01';
+        $qtoDef   = $qto !== '' ? $qto : '9999-12-31';
+        $meta[] = array('key' => 'mrb_valid_from', 'value' => $qtoDef, 'compare' => '<', 'type' => 'CHAR');
+        $meta[] = array(
+            'relation' => 'OR',
+            array('key' => 'mrb_valid_to', 'value' => '', 'compare' => '='),
+            array('key' => 'mrb_valid_to', 'value' => $qfromDef, 'compare' => '>', 'type' => 'CHAR'),
+        );
     }
     if (isset($_GET['mrb_room_id']) && $_GET['mrb_room_id'] !== '') {
         $meta[] = array('key' => 'mrb_room_id', 'value' => (int)$_GET['mrb_room_id'], 'compare' => '=', 'type' => 'NUMERIC');
     }
-    if ($_GET['mrb_active'] === '1' || $_GET['mrb_active'] === '0') {
+    if (isset($_GET['mrb_active']) && ($_GET['mrb_active'] === '1' || $_GET['mrb_active'] === '0')) {
         $meta[] = array('key' => 'mrb_is_active', 'value' => (int)$_GET['mrb_active'], 'compare' => '=', 'type' => 'NUMERIC');
     }
     if (count($meta) > 1) {
@@ -194,6 +206,7 @@ add_action('pre_get_posts', function ($q) {
 });
 add_action('admin_post_mrb_rate_export', function () {
     if (!current_user_can('edit_posts')) wp_die('forbidden');
+    if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'mrb_rate_export')) wp_die('invalid nonce');
     $args = array(
         'post_type' => 'mrb_rate',
         'post_status' => array('publish','draft','pending'),
@@ -207,11 +220,20 @@ add_action('admin_post_mrb_rate_export', function () {
     if (isset($_GET['mrb_max_price']) && $_GET['mrb_max_price'] !== '') {
         $meta[] = array('key' => 'mrb_price_yen', 'value' => (int)$_GET['mrb_max_price'], 'compare' => '<=', 'type' => 'NUMERIC');
     }
-    if (!empty($_GET['mrb_from_from'])) {
-        $meta[] = array('key' => 'mrb_valid_from', 'value' => sanitize_text_field($_GET['mrb_from_from']), 'compare' => '>=', 'type' => 'CHAR');
+    if (isset($_GET['mrb_rate_type']) && $_GET['mrb_rate_type'] !== '') {
+        $meta[] = array('key' => 'mrb_rate_type', 'value' => sanitize_text_field($_GET['mrb_rate_type']), 'compare' => '=', 'type' => 'CHAR');
     }
-    if (!empty($_GET['mrb_from_to'])) {
-        $meta[] = array('key' => 'mrb_valid_from', 'value' => sanitize_text_field($_GET['mrb_from_to']), 'compare' => '<=', 'type' => 'CHAR');
+    $qfrom = !empty($_GET['mrb_from_from']) ? sanitize_text_field($_GET['mrb_from_from']) : '';
+    $qto   = !empty($_GET['mrb_from_to']) ? sanitize_text_field($_GET['mrb_from_to']) : '';
+    if ($qfrom !== '' || $qto !== '') {
+        $qfromDef = $qfrom !== '' ? $qfrom : '0000-01-01';
+        $qtoDef   = $qto !== '' ? $qto : '9999-12-31';
+        $meta[] = array('key' => 'mrb_valid_from', 'value' => $qtoDef, 'compare' => '<', 'type' => 'CHAR');
+        $meta[] = array(
+            'relation' => 'OR',
+            array('key' => 'mrb_valid_to', 'value' => '', 'compare' => '='),
+            array('key' => 'mrb_valid_to', 'value' => $qfromDef, 'compare' => '>', 'type' => 'CHAR'),
+        );
     }
     if (isset($_GET['mrb_room_id']) && $_GET['mrb_room_id'] !== '') {
         $meta[] = array('key' => 'mrb_room_id', 'value' => (int)$_GET['mrb_room_id'], 'compare' => '=', 'type' => 'NUMERIC');
