@@ -40,7 +40,7 @@ add_action('plugins_loaded', function () {
     }, 1000, 2);
 
     add_filter('replace_editor', function ($replace, $post) {
-        return ($post && $post->post_type === 'mrb_rate') ? true : $replace;
+        return ($post && $post->post_type === 'mrb_rate') ? false : $replace;
     }, 1000, 2);
 }, 0);
 
