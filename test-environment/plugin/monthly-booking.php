@@ -42,6 +42,48 @@ class MonthlyBooking {
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/admin-ui.php';
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/calendar-render.php';
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/booking-logic.php';
+add_filter('use_block_editor_for_post_type', 'mrb_disable_block_editor_for_rate_cpt', 100, 2);
+function mrb_disable_block_editor_for_rate_cpt($use_block_editor, $post_type) {
+    if ('mrb_rate' === $post_type) {
+        return false;
+    }
+    return $use_block_editor;
+}
+add_filter('use_block_editor_for_post', function($use, $post) {
+    $pt = is_object($post) ? $post->post_type : (is_numeric($post) ? get_post_type($post) : null);
+    return ($pt === 'mrb_rate') ? false : $use;
+}, 100, 2);
+add_filter('gutenberg_can_edit_post_type', function($can, $type) {
+    return ($type === 'mrb_rate') ? false : $can;
+}, 100, 2);
+
+add_filter('replace_editor', 'mrb_force_classic_editor_for_rate_cpt', 10, 2);
+function mrb_force_classic_editor_for_rate_cpt($replace, $post) {
+    if ($post && isset($post->post_type) && $post->post_type === 'mrb_rate') {
+        return true;
+    }
+    return $replace;
+}
+
+add_filter('use_block_editor_for_post_type', function($use_block_editor, $post_type){
+    if ($post_type === 'mrb_rate') {
+        update_option('mrb_dbg_filter_hit_te', 'yes');
+        return false;
+    }
+    return $use_block_editor;
+}, 100, 2);
+add_action('admin_notices', function(){
+    if (!empty($_GET['post_type']) && $_GET['post_type']==='mrb_rate') {
+        $hit = get_option('mrb_dbg_filter_hit_te');
+        if ($hit === 'yes') {
+            echo '<div class="notice notice-info"><p>[TE] mrb_rate: block editor disabled by filter.</p></div>';
+        } else {
+            echo '<div class="notice notice-warning"><p>[TE] mrb_rate: disable filter not hit yet.</p></div>';
+        }
+    }
+
+});
+
         require_once MONTHLY_BOOKING_PLUGIN_DIR . 'includes/campaign-manager.php';
     }
     

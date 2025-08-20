@@ -125,38 +125,12 @@ add_action('save_post_mrb_rate', function ($post_id, $post, $update) {
 }, 10, 3);
 
 add_action('admin_notices', function () {
-add_action('admin_notices', function () {
-    if (!function_exists('get_current_screen')) return;
-    $screen = get_current_screen();
-    if (!$screen) return;
-    if (property_exists($screen,'post_type') && $screen->post_type === 'mrb_rate') {
-        $pt = function_exists('use_block_editor_for_post_type') ? (use_block_editor_for_post_type('mrb_rate') ? 'true' : 'false') : 'n/a';
-        echo '<div class="notice notice-warning"><p>mrb_rate: use_block_editor_for_post_type = ' . esc_html($pt) . '</p></div>';
-    }
-});
     if (isset($_GET['mrb_rate_error']) && $_GET['mrb_rate_error'] === 'overlap') {
         echo '<div class="notice notice-error"><p>' . esc_html__('同一部屋（期間）に重複する料金が存在します。', 'monthly-booking') . '</p></div>';
     }
 });
-add_action('admin_notices', function(){
-    if (!function_exists('get_current_screen')) return;
-    $screen = get_current_screen();
-    if (!$screen || (property_exists($screen,'post_type') && $screen->post_type !== 'mrb_rate')) return;
-    $pt_enabled = function_exists('use_block_editor_for_post_type') ? (use_block_editor_for_post_type('mrb_rate') ? 'true' : 'false') : 'n/a';
-    $post_enabled = 'n/a';
-    if (isset($_GET['post'])) {
-        $pid = absint($_GET['post']);
-        if ($pid) {
-            $post_enabled = function_exists('use_block_editor_for_post') ? (use_block_editor_for_post($pid) ? 'true' : 'false') : 'n/a';
-        }
-    }
-    echo '<div class="notice notice-info"><p>mrb_rate block editor status — for post_type: ' . esc_html($pt_enabled) . ' / for post: ' . esc_html($post_enabled) . '</p></div>';
-});
 
 
-add_action('current_screen', function($screen=null){
-    if ($screen) { error_log('[mrb_rate] current_screen id=' . $screen->id . ' post_type=' . (property_exists($screen,'post_type') ? $screen->post_type : '')); }
-});
 
 add_filter('manage_edit-mrb_rate_columns', function ($cols) {
     error_log('[mrb_rate] manage_edit-mrb_rate_columns fired');
