@@ -9,46 +9,59 @@ add_action('init', function () {
     register_post_meta('mrb_rate', 'mrb_valid_from', array('type' => 'string', 'single' => true, 'show_in_rest' => false, 'auth_callback' => '__return_true'));
     register_post_meta('mrb_rate', 'mrb_valid_to', array('type' => 'string', 'single' => true, 'show_in_rest' => false, 'auth_callback' => '__return_true'));
     register_post_meta('mrb_rate', 'mrb_is_active', array('type' => 'boolean', 'single' => true, 'show_in_rest' => false, 'auth_callback' => '__return_true'));
-});
 
+});
+function mrb_disable_block_editor_for_rate_cpt($use_block_editor, $post_type) {
+    if ('mrb_rate' === $post_type) {
+        return false;
+    }
+    return $use_block_editor;
+}
+
+
+
+function mrb_rate_render_details_box($post) {
+    wp_nonce_field('mrb_rate_save', 'mrb_rate_nonce');
+    $room = (int) get_post_meta($post->ID, 'mrb_room_id', true);
+    $type = (string) get_post_meta($post->ID, 'mrb_rate_type', true);
+    $price = (int) get_post_meta($post->ID, 'mrb_price_yen', true);
+    $from = (string) get_post_meta($post->ID, 'mrb_valid_from', true);
+    $to = (string) get_post_meta($post->ID, 'mrb_valid_to', true);
+    $active = (int) get_post_meta($post->ID, 'mrb_is_active', true);
+    ?>
+    <table class="form-table">
+        <tr>
+            <th><?php _e('部屋ID', 'monthly-booking'); ?></th>
+            <td><input type="number" name="mrb_room_id" value="<?php echo esc_attr($room); ?>" required></td>
+        </tr>
+        <tr>
+            <th><?php _e('rate_type', 'monthly-booking'); ?></th>
+            <td><input type="text" name="mrb_rate_type" value="<?php echo esc_attr($type); ?>" required></td>
+        </tr>
+        <tr>
+            <th><?php _e('価格(円)', 'monthly-booking'); ?></th>
+            <td><input type="number" name="mrb_price_yen" value="<?php echo esc_attr($price); ?>" required></td>
+        </tr>
+        <tr>
+            <th><?php _e('開始日', 'monthly-booking'); ?></th>
+            <td><input type="date" name="mrb_valid_from" value="<?php echo esc_attr($from); ?>" required></td>
+        </tr>
+        <tr>
+            <th><?php _e('終了日', 'monthly-booking'); ?></th>
+            <td><input type="date" name="mrb_valid_to" value="<?php echo esc_attr($to); ?>"></td>
+        </tr>
+        <tr>
+            <th><?php _e('有効', 'monthly-booking'); ?></th>
+            <td><label><input type="checkbox" name="mrb_is_active" <?php checked($active, 1); ?>> <?php _e('有効', 'monthly-booking');?></label></td>
+        </tr>
+    </table>
+    <?php
+}
 add_action('add_meta_boxes', function () {
-    add_meta_box('mrb_rate_details', __('料金詳細', 'monthly-booking'), function ($post) {
-        wp_nonce_field('mrb_rate_save', 'mrb_rate_nonce');
-        $room = (int) get_post_meta($post->ID, 'mrb_room_id', true);
-        $type = (string) get_post_meta($post->ID, 'mrb_rate_type', true);
-        $price = (int) get_post_meta($post->ID, 'mrb_price_yen', true);
-        $from = (string) get_post_meta($post->ID, 'mrb_valid_from', true);
-        $to = (string) get_post_meta($post->ID, 'mrb_valid_to', true);
-        $active = (int) get_post_meta($post->ID, 'mrb_is_active', true);
-        ?>
-        <table class="form-table">
-            <tr>
-                <th><?php _e('部屋ID', 'monthly-booking'); ?></th>
-                <td><input type="number" name="mrb_room_id" value="<?php echo esc_attr($room); ?>" required></td>
-            </tr>
-            <tr>
-                <th><?php _e('rate_type', 'monthly-booking'); ?></th>
-                <td><input type="text" name="mrb_rate_type" value="<?php echo esc_attr($type); ?>" required></td>
-            </tr>
-            <tr>
-                <th><?php _e('価格(円)', 'monthly-booking'); ?></th>
-                <td><input type="number" name="mrb_price_yen" value="<?php echo esc_attr($price); ?>" required></td>
-            </tr>
-            <tr>
-                <th><?php _e('開始日', 'monthly-booking'); ?></th>
-                <td><input type="date" name="mrb_valid_from" value="<?php echo esc_attr($from); ?>" required></td>
-            </tr>
-            <tr>
-                <th><?php _e('終了日', 'monthly-booking'); ?></th>
-                <td><input type="date" name="mrb_valid_to" value="<?php echo esc_attr($to); ?>"></td>
-            </tr>
-            <tr>
-                <th><?php _e('有効', 'monthly-booking'); ?></th>
-                <td><label><input type="checkbox" name="mrb_is_active" <?php checked($active, 1); ?>> <?php _e('有効', 'monthly-booking');?></label></td>
-            </tr>
-        </table>
-        <?php
-    }, 'mrb_rate', 'normal', 'default');
+    add_meta_box('mrb_rate_details', __('料金詳細', 'monthly-booking'), 'mrb_rate_render_details_box', 'mrb_rate', 'normal', 'default');
+});
+add_action('add_meta_boxes_mrb_rate', function () {
+    add_meta_box('mrb_rate_details', __('料金詳細', 'monthly-booking'), 'mrb_rate_render_details_box', 'mrb_rate', 'normal', 'default');
 });
 
 add_action('save_post_mrb_rate', function ($post_id, $post, $update) {
@@ -116,6 +129,21 @@ add_action('admin_notices', function () {
         echo '<div class="notice notice-error"><p>' . esc_html__('同一部屋（期間）に重複する料金が存在します。', 'monthly-booking') . '</p></div>';
     }
 });
+add_action('admin_notices', function(){
+    if (!function_exists('get_current_screen')) return;
+    $screen = get_current_screen();
+    if (!$screen || (property_exists($screen,'post_type') && $screen->post_type !== 'mrb_rate')) return;
+    $pt_enabled = function_exists('use_block_editor_for_post_type') ? (use_block_editor_for_post_type('mrb_rate') ? 'true' : 'false') : 'n/a';
+    $post_enabled = 'n/a';
+    if (isset($_GET['post'])) {
+        $pid = absint($_GET['post']);
+        if ($pid) {
+            $post_enabled = function_exists('use_block_editor_for_post') ? (use_block_editor_for_post($pid) ? 'true' : 'false') : 'n/a';
+        }
+    }
+    echo '<div class="notice notice-info"><p>mrb_rate block editor status — for post_type: ' . esc_html($pt_enabled) . ' / for post: ' . esc_html($post_enabled) . '</p></div>';
+});
+
 
 add_action('current_screen', function($screen=null){
     if ($screen) { error_log('[mrb_rate] current_screen id=' . $screen->id . ' post_type=' . (property_exists($screen,'post_type') ? $screen->post_type : '')); }
