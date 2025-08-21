@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      MB_BASE_URL: http://localhost:8080
+      MB_BASE_URL: http://127.0.0.1:8080
       MB_ADMIN_USER: admin
       MB_ADMIN_PASS: password
       npm_config_legacy_peer_deps: "true"
@@ -57,8 +57,9 @@ jobs:
         run: |
           echo "Waiting for $MB_BASE_URL ..."
           for i in {1..60}; do
-            curl -fsS "$MB_BASE_URL" >/dev/null && echo "WP up" && break
-            sleep 2
+            code="$(curl -L -sS -o /dev/null -w "%{http_code}" "$MB_BASE_URL" || true)"
+            if [[ "$code" =~ ^[23][0-9][0-9]$ ]]; then echo "WP up ($code)"; break; fi
+            sleep 3
           done
 
       - name: Run Playwright tests (Firefox primary, @smoke)

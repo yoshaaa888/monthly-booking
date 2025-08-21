@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../../.."
 
-MB_BASE_URL="${MB_BASE_URL:-http://localhost:8080}"
+MB_BASE_URL="${MB_BASE_URL:-http://127.0.0.1:8080}"
 MB_READY_TOTAL_SEC="${MB_READY_TOTAL_SEC:-180}"
 MB_READY_INTERVAL_SEC="${MB_READY_INTERVAL_SEC:-3}"
 ATTEMPTS=$(( MB_READY_TOTAL_SEC / MB_READY_INTERVAL_SEC ))
@@ -55,5 +55,18 @@ if [ -z "${HTTP_READY}" ]; then
   docker compose -f dev/docker-compose.yml logs --tail=200
   exit 1
 fi
+
+REST_TOTAL=30
+REST_INT=3
+REST_ATTEMPTS=$(( REST_TOTAL / REST_INT ))
+REST_READY=""
+for k in $(seq 1 "$REST_ATTEMPTS"); do
+  code="$(curl -L -sS -o /dev/null -w "%{http_code}" "${MB_BASE_URL%/}/wp-json/" || true)"
+  if [[ "$code" =~ ^[23][0-9][0-9]$ ]]; then
+    REST_READY=1
+    break
+  fi
+  sleep "$REST_INT"
+done
 
 echo "Base URL: ${MB_BASE_URL}"
