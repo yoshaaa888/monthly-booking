@@ -1,4 +1,12 @@
 --
+--   SET @p := 'wp_';
+--   SET @sql := REPLACE('SELECT * FROM {{PREFIX}}monthly_rooms LIMIT 1', '{{PREFIX}}', @p);
+--   PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+--
+--
+--
+
+--
 --
 --
 
