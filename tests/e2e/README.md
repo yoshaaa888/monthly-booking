@@ -1,3 +1,4 @@
+E2E tests run Firefox as the primary browser in CI. Use CI artifacts (playwright-report and test-results) for debugging traces/videos.
 # Monthly Booking — E2E Tests
 
 This folder contains the Playwright-based end-to-end tests for the Monthly Booking plugin.

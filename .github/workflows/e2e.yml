@@ -14,7 +14,6 @@ jobs:
   e2e-chromium:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    container: mcr.microsoft.com/playwright:v1.47.2-jammy
     env:
       MB_BASE_URL: http://localhost:8080
       MB_ADMIN_USER: admin
@@ -44,6 +43,10 @@ jobs:
           else
             npm i --no-audit --no-fund --legacy-peer-deps
           fi
+
+      - name: Install Playwright browsers (with deps)
+        working-directory: tests/e2e
+        run: npx playwright install --with-deps
 
       - name: Start Docker WP stack
         working-directory: tests/e2e
