@@ -10,10 +10,12 @@ Conventions
 - Content-Type: application/x-www-form-urlencoded
 - Authentication:
   - Admin endpoints require logged-in user with manage_options capability unless explicitly stated.
-  - Nonce fields:
-    - monthlyBookingAjax.nonce or field name "nonce" with action "monthly_booking_nonce" for admin/campaign utilities
-    - mbp_calendar_nonce for calendar endpoints
-    - mbp_reservations_nonce (sent as _ajax_nonce) for reservation CRUD
+  - Canonical nonces:
+    - Admin endpoints: action "monthly_booking_admin", field "nonce"
+    - Public endpoints: action "monthly_booking_nonce", field "nonce"
+  - Legacy nonces accepted during transition:
+    - mbp_calendar_nonce (calendar)
+    - mbp_reservations_nonce (reservations, field "_ajax_nonce")
 - Responses:
   - Success: wp_send_json_success(data)
   - Error: wp_send_json_error(messageOrData, [http_status])

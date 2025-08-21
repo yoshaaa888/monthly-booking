@@ -30,7 +30,11 @@ class MonthlyBooking_Campaign_Manager {
      * Create new campaign via AJAX
      */
     public function ajax_create_campaign() {
-        check_ajax_referer('monthly_booking_admin', 'nonce');
+        require_once plugin_dir_path(__FILE__) . 'security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_admin', 'field' => 'nonce'],
+            ['action' => 'monthly_booking_nonce', 'field' => 'nonce'],
+        ]);
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('Insufficient permissions.', 'monthly-booking'));
@@ -65,7 +69,11 @@ class MonthlyBooking_Campaign_Manager {
      * Update existing campaign via AJAX
      */
     public function ajax_update_campaign() {
-        check_ajax_referer('monthly_booking_admin', 'nonce');
+        require_once plugin_dir_path(__FILE__) . 'security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_admin', 'field' => 'nonce'],
+            ['action' => 'monthly_booking_nonce', 'field' => 'nonce'],
+        ]);
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('Insufficient permissions.', 'monthly-booking'));
@@ -98,7 +106,11 @@ class MonthlyBooking_Campaign_Manager {
      * Delete campaign via AJAX
      */
     public function ajax_delete_campaign() {
-        check_ajax_referer('monthly_booking_admin', 'nonce');
+        require_once plugin_dir_path(__FILE__) . 'security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_admin', 'field' => 'nonce'],
+            ['action' => 'monthly_booking_nonce', 'field' => 'nonce'],
+        ]);
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('Insufficient permissions.', 'monthly-booking'));
@@ -119,7 +131,11 @@ class MonthlyBooking_Campaign_Manager {
      * Toggle campaign active status via AJAX
      */
     public function ajax_toggle_campaign() {
-        check_ajax_referer('monthly_booking_admin', 'nonce');
+        require_once plugin_dir_path(__FILE__) . 'security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_admin', 'field' => 'nonce'],
+            ['action' => 'monthly_booking_nonce', 'field' => 'nonce'],
+        ]);
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('Insufficient permissions.', 'monthly-booking'));
@@ -633,7 +649,11 @@ class MonthlyBooking_Campaign_Manager {
      * Save campaign assignment via AJAX
      */
     public function ajax_save_campaign_assignment() {
-        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        require_once plugin_dir_path(__FILE__) . 'security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_admin', 'field' => 'nonce'],
+            ['action' => 'monthly_booking_nonce', 'field' => 'nonce'],
+        ]);
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('Insufficient permissions.', 'monthly-booking'));
@@ -682,7 +702,11 @@ class MonthlyBooking_Campaign_Manager {
      * Delete campaign assignment via AJAX
      */
     public function ajax_delete_campaign_assignment() {
-        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        require_once plugin_dir_path(__FILE__) . 'security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_admin', 'field' => 'nonce'],
+            ['action' => 'monthly_booking_nonce', 'field' => 'nonce'],
+        ]);
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('Insufficient permissions.', 'monthly-booking'));
@@ -710,7 +734,11 @@ class MonthlyBooking_Campaign_Manager {
      * Check for campaign period overlap via AJAX
      */
     public function ajax_check_campaign_period_overlap() {
-        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        require_once plugin_dir_path(__FILE__) . 'security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_admin', 'field' => 'nonce'],
+            ['action' => 'monthly_booking_nonce', 'field' => 'nonce'],
+        ]);
         
         $room_id = intval($_POST['room_id']);
         $start_date = sanitize_text_field($_POST['start_date']);
@@ -749,7 +777,11 @@ class MonthlyBooking_Campaign_Manager {
      * Get room campaign assignments via AJAX
      */
     public function ajax_get_room_campaign_assignments() {
-        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        require_once plugin_dir_path(__FILE__) . 'security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_admin', 'field' => 'nonce'],
+            ['action' => 'monthly_booking_nonce', 'field' => 'nonce'],
+        ]);
         
         $room_id = intval($_POST['room_id']);
         
@@ -772,7 +804,11 @@ class MonthlyBooking_Campaign_Manager {
      * Get active campaigns via AJAX
      */
     public function ajax_get_active_campaigns() {
-        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        require_once plugin_dir_path(__FILE__) . 'security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_admin', 'field' => 'nonce'],
+            ['action' => 'monthly_booking_nonce', 'field' => 'nonce'],
+        ]);
         
         global $wpdb;
         $table_name = $wpdb->prefix . 'monthly_campaigns';
@@ -791,7 +827,11 @@ class MonthlyBooking_Campaign_Manager {
      * Get single campaign assignment via AJAX
      */
     public function ajax_get_campaign_assignment() {
-        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        require_once plugin_dir_path(__FILE__) . 'security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_admin', 'field' => 'nonce'],
+            ['action' => 'monthly_booking_nonce', 'field' => 'nonce'],
+        ]);
         
         $assignment_id = intval($_POST['assignment_id']);
         
@@ -818,7 +858,11 @@ class MonthlyBooking_Campaign_Manager {
      * Toggle assignment status via AJAX
      */
     public function ajax_toggle_assignment_status() {
-        check_ajax_referer('monthly_booking_nonce', 'nonce');
+        require_once plugin_dir_path(__FILE__) . 'security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_admin', 'field' => 'nonce'],
+            ['action' => 'monthly_booking_nonce', 'field' => 'nonce'],
+        ]);
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('Insufficient permissions.', 'monthly-booking'));
