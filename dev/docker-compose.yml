@@ -1,0 +1,70 @@
+version: "3.9"
+services:
+  db:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-wordpress}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-wordpress}
+      MYSQL_USER: ${MYSQL_USER:-wordpress}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-wordpress}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${MYSQL_PASSWORD:-wordpress}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  wordpress:
+    image: wordpress:6.6.2-php8.1-apache
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: ${MYSQL_USER:-wordpress}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD:-wordpress}
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE:-wordpress}
+      WORDPRESS_TABLE_PREFIX: ${WP_TABLE_PREFIX:-wp_}
+    ports:
+      - "8080:80"
+    volumes:
+      - ../:/var/www/html/wp-content/plugins/monthly-booking:rw
+      - wp_data:/var/www/html
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost/wp-login.php || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  wpcli:
+    image: wordpress:cli-php8.1
+    depends_on:
+      wordpress:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: ${MYSQL_USER:-wordpress}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD:-wordpress}
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE:-wordpress}
+      WORDPRESS_TABLE_PREFIX: ${WP_TABLE_PREFIX:-wp_}
+    volumes:
+      - wp_data:/var/www/html
+      - ../:/var/www/html/wp-content/plugins/monthly-booking:rw
+      - ./scripts:/scripts:ro
+    working_dir: /var/www/html
+
+  adminer:
+    image: adminer:4.8.1
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+
+volumes:
+  db_data:
+  wp_data:
