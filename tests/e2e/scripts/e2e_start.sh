@@ -38,6 +38,12 @@ docker compose -f dev/docker-compose.yml run --rm wpcli wp config set WP_SITEURL
 docker compose -f dev/docker-compose.yml run --rm wpcli wp db query "UPDATE \`wp_options\` SET option_value='${MB_BASE_URL%/}' WHERE option_name IN ('home','siteurl');" || true
 docker compose -f dev/docker-compose.yml run --rm wpcli wp cache flush || true
 
+docker compose -f dev/docker-compose.yml run --rm wpcli bash -lc "mkdir -p wp-content/mu-plugins && cat > wp-content/mu-plugins/mb-test-url.php <<'PHP'
+<?php
+add_filter('option_home', function($v){ return '<?= htmlspecialchars($MB_BASE_URL ?? '', ENT_QUOTES) ?>';});
+add_filter('option_siteurl', function($v){ return '<?= htmlspecialchars($MB_BASE_URL ?? '', ENT_QUOTES) ?>';});
+PHP"
+
 docker compose -f dev/docker-compose.yml run --rm wpcli wp plugin activate monthly-booking || true
 if [ -f dist/sample-data.sql ]; then
   echo "Importing sample data..."
