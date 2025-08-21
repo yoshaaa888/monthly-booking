@@ -33,8 +33,10 @@ until docker compose -f dev/docker-compose.yml run --rm wpcli wp core is-install
 done
 docker compose -f dev/docker-compose.yml run --rm wpcli wp option update home "${MB_BASE_URL%/}" || true
 docker compose -f dev/docker-compose.yml run --rm wpcli wp option update siteurl "${MB_BASE_URL%/}" || true
-docker compose -f dev/docker-compose.yml run --rm wpcli wp config set WP_HOME "${MB_BASE_URL%/}" --type=constant --raw
-docker compose -f dev/docker-compose.yml run --rm wpcli wp config set WP_SITEURL "${MB_BASE_URL%/}" --type=constant --raw
+docker compose -f dev/docker-compose.yml run --rm wpcli wp config set WP_HOME "${MB_BASE_URL%/}" --type=constant --raw || true
+docker compose -f dev/docker-compose.yml run --rm wpcli wp config set WP_SITEURL "${MB_BASE_URL%/}" --type=constant --raw || true
+docker compose -f dev/docker-compose.yml run --rm wpcli wp db query "UPDATE \`wp_options\` SET option_value='${MB_BASE_URL%/}' WHERE option_name IN ('home','siteurl');" || true
+docker compose -f dev/docker-compose.yml run --rm wpcli wp cache flush || true
 
 docker compose -f dev/docker-compose.yml run --rm wpcli wp plugin activate monthly-booking || true
 if [ -f dist/sample-data.sql ]; then
