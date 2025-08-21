@@ -109,6 +109,8 @@
   "campaigns.rules.flatrate": { "ja": "コミコミ10万円: 7-10日滞在で全込み10万円" },
   "campaigns.rules.only_one": { "ja": "最大1つのキャンペーンのみ適用されます" },
 
+  "period.type.first_month_30d": { "ja": "初月30日限定" }
+
   "common.id": { "ja": "ID" },
   "common.name": { "ja": "名称" },
   "common.type": { "ja": "タイプ" },
