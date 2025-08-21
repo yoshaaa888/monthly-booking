@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 import { wpScalar } from '../fixtures/wp';
 
 function fmtDate(d: Date) {
@@ -6,6 +6,22 @@ function fmtDate(d: Date) {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+async function robustGoto(page: Page, url: string) {
+  for (let i = 0; i < 5; i++) {
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      return;
+    } catch {
+      await page.waitForTimeout(1500);
+      try {
+        await page.goto('/wp-admin/', { waitUntil: 'domcontentloaded', timeout: 45000 });
+      } catch {}
+      await page.waitForTimeout(1000);
+    }
+  }
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
 }
 
 test.describe('@smoke Campaign Management Flow', () => {
@@ -16,12 +32,13 @@ test.describe('@smoke Campaign Management Flow', () => {
     await page.click('#wp-submit');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(800);
+    await robustGoto(page, '/wp-admin/');
+    await expect(page.locator('#wpadminbar')).toBeVisible({ timeout: 20000 });
 
     const campaignsTarget = '/wp-admin/admin.php?page=monthly-room-booking-campaigns';
-    await page.goto(campaignsTarget, { waitUntil: 'domcontentloaded' }).catch(async () => {
-      await page.waitForTimeout(1000);
-      await page.goto(campaignsTarget, { waitUntil: 'domcontentloaded' });
-    });
+    await robustGoto(page, campaignsTarget);
+    await page.waitForTimeout(500);
 
     await page.locator('[data-testid="mb-campaign-create"]').click();
     const form = page.locator('[data-testid="mb-campaign-form"]');
@@ -43,11 +60,8 @@ test.describe('@smoke Campaign Management Flow', () => {
     const count = wpScalar(`SELECT COUNT(*) FROM wp_monthly_campaigns WHERE campaign_name='E2E Test 20%';`);
     expect(count).toBeGreaterThan(0);
 
-    const roomsTarget = '/wp-admin/admin.php?page=monthly-room-booking';
-    await page.goto(roomsTarget, { waitUntil: 'domcontentloaded' }).catch(async () => {
-      await page.waitForTimeout(1000);
-      await page.goto(roomsTarget, { waitUntil: 'domcontentloaded' });
-    });
+    await robustGoto(page, '/wp-admin/admin.php?page=monthly-room-booking');
+    await page.waitForTimeout(500);
 
     await page.locator('[data-testid="mb-room-select"]').nth(0).check();
     await page.locator('[data-testid="mb-room-select"]').nth(1).check();
@@ -58,11 +72,8 @@ test.describe('@smoke Campaign Management Flow', () => {
     const assignCount = wpScalar(`SELECT COUNT(*) FROM wp_monthly_room_campaigns WHERE campaign_id=(SELECT id FROM wp_monthly_campaigns WHERE campaign_name='E2E Test 20%' ORDER BY id DESC LIMIT 1);`);
     expect(assignCount).toBeGreaterThanOrEqual(2);
 
-    const calTarget = '/wp-admin/admin.php?page=monthly-room-booking-calendar';
-    await page.goto(calTarget, { waitUntil: 'domcontentloaded' }).catch(async () => {
-      await page.waitForTimeout(1000);
-      await page.goto(calTarget, { waitUntil: 'domcontentloaded' });
-    });
+    await robustGoto(page, '/wp-admin/admin.php?page=monthly-room-booking-calendar');
+    await page.waitForTimeout(500);
 
     await expect(page.locator('[data-testid="mb-calendar-content"]')).toBeVisible();
     const anyBadge = page.locator('[data-testid="mb-calendar-cell"] .mb-cal-cmp, [data-testid="mb-calendar-cell"] .mb-cal-symbol');

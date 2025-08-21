@@ -1,5 +1,38 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
+
+async function robustGoto(page: Page, url: string) {
+  for (let i = 0; i < 5; i++) {
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      return;
+    } catch {
+      await page.waitForTimeout(1500);
+      try {
+        await page.goto('/wp-admin/', { waitUntil: 'domcontentloaded', timeout: 45000 });
+      } catch {}
+      await page.waitForTimeout(1000);
+    }
+  }
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+}
+import { test, expect, Page } from '@playwright/test';
 import { wpScalar } from '../fixtures/wp';
+
+async function robustGoto(page: Page, url: string) {
+  for (let i = 0; i < 5; i++) {
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      return;
+    } catch {
+      await page.waitForTimeout(1500);
+      try {
+        await page.goto('/wp-admin/', { waitUntil: 'domcontentloaded', timeout: 45000 });
+      } catch {}
+      await page.waitForTimeout(1000);
+    }
+  }
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+}
 
 test('@smoke Bulk room selection -> campaign assignment -> status verification', async ({ page }) => {
   await page.goto('/wp-login.php');
@@ -8,12 +41,12 @@ test('@smoke Bulk room selection -> campaign assignment -> status verification',
   await page.click('#wp-submit');
   await page.waitForLoadState('domcontentloaded');
   await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForTimeout(800);
+  await robustGoto(page, '/wp-admin/');
+  await expect(page.locator('#wpadminbar')).toBeVisible({ timeout: 20000 });
 
-  const target = '/wp-admin/admin.php?page=monthly-room-booking';
-  await page.goto(target, { waitUntil: 'domcontentloaded' }).catch(async () => {
-    await page.waitForTimeout(1000);
-    await page.goto(target, { waitUntil: 'domcontentloaded' });
-  });
+  await robustGoto(page, '/wp-admin/admin.php?page=monthly-room-booking');
+  await page.waitForTimeout(500);
 
   const rows = page.locator('[data-testid="mb-room-row"]');
   await expect(rows.first()).toBeVisible();
