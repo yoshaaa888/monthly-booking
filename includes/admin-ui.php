@@ -897,6 +897,34 @@ class MonthlyBooking_Admin_UI {
         .legend-symbol.campaign {
             color: #ff9800;
             background: #fff3e0;
+<?php
+add_action('wp_ajax_mb_get_rooms', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $q = isset($_POST['q']) ? sanitize_text_field($_POST['q']) : '';
+    $table = $wpdb->prefix . 'monthly_rooms';
+    if ($q) {
+        $like = '%' . $wpdb->esc_like($q) . '%';
+        $rows = $wpdb->get_results($wpdb->prepare("SELECT id, display_name AS name FROM {$table} WHERE display_name LIKE %s OR room_id LIKE %s LIMIT 50", $like, $like), ARRAY_A);
+    } else {
+        $rows = $wpdb->get_results("SELECT id, display_name AS name FROM {$table} ORDER BY id DESC LIMIT 50", ARRAY_A);
+    }
+    if (!$rows) $rows = [];
+    wp_send_json_success($rows);
+});
+
+add_action('wp_ajax_mb_get_campaigns', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $table = $wpdb->prefix . 'monthly_campaigns';
+    $rows = $wpdb->get_results("SELECT id, name FROM {$table} WHERE is_active=1 ORDER BY id DESC LIMIT 100", ARRAY_A);
+    if (!$rows) $rows = [];
+    wp_send_json_success($rows);
+});
+?>
+
         }
         </style>
         <?php
@@ -2097,6 +2125,43 @@ class MonthlyBooking_Admin_UI {
                                            <?php echo esc_html(mb_t('campaigns.actions.assign_to_rooms')); ?>
                                         </a>
                                         <a href="#" class="button toggle-campaign-status"
+<div id="assignment-modal" style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); z-index:10000;">
+    <div style="position:absolute; top:50%; left:50%; transform: translate(-50%, -50%); background:#fff; padding:24px; width:560px; max-width:90%; border-radius:6px;">
+        <h3 style="margin-top:0;"><?php echo esc_html(mb_t('campaigns.assign.modal.title')); ?></h3>
+        <div id="assignment-message" class="notice" style="display:none;"></div>
+        <table class="form-table">
+            <tr>
+                <th><label for="assignment_room"><?php echo esc_html(mb_t('campaigns.assign.fields.room')); ?></label></th>
+                <td>
+                    <select id="assignment_room"></select>
+                </td>
+            </tr>
+            <tr>
+                <th><label for="assignment_campaign"><?php echo esc_html(mb_t('campaigns.assign.fields.campaign')); ?></label></th>
+                <td>
+                    <select id="assignment_campaign"></select>
+                </td>
+            </tr>
+            <tr>
+                <th><label for="assignment_start"><?php echo esc_html(mb_t('campaigns.assign.fields.start_date')); ?></label></th>
+                <td><input type="date" id="assignment_start"></td>
+            </tr>
+            <tr>
+                <th><label for="assignment_end"><?php echo esc_html(mb_t('campaigns.assign.fields.end_date')); ?></label></th>
+                <td><input type="date" id="assignment_end"></td>
+            </tr>
+            <tr>
+                <th><label for="assignment_active"><?php echo esc_html(mb_t('campaigns.assign.fields.status')); ?></label></th>
+                <td><label><input type="checkbox" id="assignment_active" checked> <?php echo esc_html(mb_t('rooms.form.campaign.toggle.active')); ?></label></td>
+            </tr>
+        </table>
+        <div style="text-align:right;">
+            <button type="button" class="button" id="assignment-cancel"><?php echo esc_html(mb_t('action.cancel')); ?></button>
+            <button type="button" class="button button-primary" id="assignment-save"><?php echo esc_html(mb_t('campaigns.assign.actions.assign')); ?></button>
+        </div>
+    </div>
+</div>
+
                                            data-campaign-id="<?php echo esc_attr($c->id); ?>"
                                            data-is-active="<?php echo esc_attr($c->is_active); ?>">
                                            <?php echo $c->is_active ? esc_html(mb_t('action.disable')) : esc_html(mb_t('action.enable')); ?>
@@ -2930,3 +2995,156 @@ class MonthlyBooking_Admin_UI {
         <?php
     }
 }
+<?php
+add_action('wp_ajax_mb_get_room_assignments', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $room_id = isset($_POST['room_id']) ? absint($_POST['room_id']) : 0;
+    if (!$room_id) wp_send_json_error('invalid_room');
+    $table = $wpdb->prefix . 'monthly_room_campaigns';
+    $rows = $wpdb->get_results($wpdb->prepare("SELECT id, room_id, campaign_id, start_date, end_date, is_active FROM {$table} WHERE room_id=%d ORDER BY start_date ASC", $room_id), ARRAY_A);
+    if (!$rows) $rows = [];
+    $c_table = $wpdb->prefix . 'monthly_campaigns';
+    $ids = array_map(function($r){ return (int)$r['campaign_id']; }, $rows);
+    $names = [];
+    if ($ids) {
+        $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+        $sql = "SELECT id, name FROM {$c_table} WHERE id IN ($placeholders)";
+        $prepared = $wpdb->prepare($sql, $ids);
+        $res = $wpdb->get_results($prepared, ARRAY_A);
+        foreach ($res as $r) $names[$r['id']] = $r['name'];
+    }
+    foreach ($rows as &$r) {
+        $cid = (int)$r['campaign_id'];
+        $r['campaign_name'] = isset($names[$cid]) ? $names[$cid] : '';
+    }
+    wp_send_json_success($rows);
+});
+
+add_action('wp_ajax_mb_check_overlap', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $room_id = isset($_POST['room_id']) ? absint($_POST['room_id']) : 0;
+    $assignment_id = isset($_POST['assignment_id']) ? absint($_POST['assignment_id']) : 0;
+    $sd = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '';
+    $ed = isset($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : '';
+    if (!$room_id || !$sd || !$ed) wp_send_json_error('invalid');
+    $table = $wpdb->prefix . 'monthly_room_campaigns';
+    $query = "SELECT id, start_date, end_date FROM {$table} WHERE room_id=%d AND is_active=1";
+    $params = [$room_id];
+    if ($assignment_id) {
+        $query .= " AND id<>%d";
+        $params[] = $assignment_id;
+    }
+    $rows = $wpdb->get_results($wpdb->prepare($query, $params), ARRAY_A);
+    $overlap = false;
+    $conflict = null;
+    $sd1 = $sd;
+    $ed1 = $ed;
+    foreach ($rows as $row) {
+        $sd2 = $row['start_date'];
+        $ed2 = $row['end_date'];
+        if ($sd1 <= $ed2 && $sd2 <= $ed1) {
+            $overlap = true;
+            $conflict = $row;
+            break;
+        }
+    }
+    if ($overlap) wp_send_json_success(['overlap' => true, 'conflict' => $conflict]);
+    wp_send_json_success(['overlap' => false]);
+});
+
+add_action('wp_ajax_mb_save_room_assignment', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb, $current_user;
+    $room_id = isset($_POST['room_id']) ? absint($_POST['room_id']) : 0;
+    $campaign_id = isset($_POST['campaign_id']) ? absint($_POST['campaign_id']) : 0;
+    $assignment_id = isset($_POST['assignment_id']) ? absint($_POST['assignment_id']) : 0;
+    $sd = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '';
+    $ed = isset($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : '';
+    $is_active = isset($_POST['is_active']) ? (int)($_POST['is_active'] ? 1 : 0) : 1;
+    if (!$room_id || !$campaign_id || !$sd || !$ed) wp_send_json_error('invalid');
+    $table = $wpdb->prefix . 'monthly_room_campaigns';
+    $check = $wpdb->get_results($wpdb->prepare("SELECT id, start_date, end_date FROM {$table} WHERE room_id=%d AND is_active=1" . ($assignment_id ? " AND id<>%d" : ""), $assignment_id ? [$room_id, $assignment_id] : [$room_id]), ARRAY_A);
+    foreach ($check as $row) {
+        if ($sd <= $row['end_date'] && $row['start_date'] <= $ed) {
+            wp_send_json_error(['code' => 'overlap', 'conflict' => $row]);
+        }
+    }
+    $data = [
+        'room_id' => $room_id,
+        'campaign_id' => $campaign_id,
+        'start_date' => $sd,
+        'end_date' => $ed,
+        'is_active' => $is_active,
+    ];
+    $fmt = ['%d','%d','%s','%s','%d'];
+    if ($assignment_id) {
+        $prev = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id=%d", $assignment_id), ARRAY_A);
+        $wpdb->update($table, $data, ['id' => $assignment_id], $fmt, ['%d']);
+        $id = $assignment_id;
+        $action = 'update';
+        $prev_values = $prev ? wp_json_encode($prev) : '';
+    } else {
+        $wpdb->insert($table, $data, $fmt);
+        $id = (int)$wpdb->insert_id;
+        $action = 'assign';
+        $prev_values = '';
+    }
+    $post_id = wp_insert_post([
+        'post_type' => 'mb_campaign_audit',
+        'post_status' => 'private',
+        'post_title' => 'Campaign Assignment Audit'
+    ]);
+    if ($post_id) {
+        add_post_meta($post_id, 'room_id', $room_id);
+        add_post_meta($post_id, 'campaign_id', $campaign_id);
+        add_post_meta($post_id, 'action', $action);
+        add_post_meta($post_id, 'user_id', get_current_user_id());
+        add_post_meta($post_id, 'start_date', $sd);
+        add_post_meta($post_id, 'end_date', $ed);
+        if ($prev_values) add_post_meta($post_id, 'prev_values', $prev_values);
+        add_post_meta($post_id, 'assignment_id', $id);
+    }
+    $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id=%d", $id), ARRAY_A);
+    wp_send_json_success($row);
+});
+
+add_action('wp_ajax_mb_delete_room_assignment', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $id = isset($_POST['assignment_id']) ? absint($_POST['assignment_id']) : 0;
+    if (!$id) wp_send_json_error('invalid');
+    $table = $wpdb->prefix . 'monthly_room_campaigns';
+    $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id=%d", $id), ARRAY_A);
+    $wpdb->delete($table, ['id' => $id], ['%d']);
+    $post_id = wp_insert_post([
+        'post_type' => 'mb_campaign_audit',
+        'post_status' => 'private',
+        'post_title' => 'Campaign Assignment Audit'
+    ]);
+    if ($post_id && $row) {
+        add_post_meta($post_id, 'room_id', $row['room_id']);
+        add_post_meta($post_id, 'campaign_id', $row['campaign_id']);
+        add_post_meta($post_id, 'action', 'unassign');
+        add_post_meta($post_id, 'user_id', get_current_user_id());
+        add_post_meta($post_id, 'start_date', $row['start_date']);
+        add_post_meta($post_id, 'end_date', $row['end_date']);
+        add_post_meta($post_id, 'assignment_id', $id);
+    }
+    wp_send_json_success(true);
+});
+
+add_action('init', function () {
+    register_post_type('mb_campaign_audit', [
+        'labels' => ['name' => 'Campaign Audit'],
+        'public' => false,
+        'show_ui' => false,
+        'show_in_menu' => false,
+        'supports' => ['title']
+    ]);
+});

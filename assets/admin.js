@@ -917,6 +917,85 @@ jQuery(document).ready(function($) {
         if (startDate >= endDate) {
             showValidationErrors(__('End date must be after start date.', 'monthly-booking'));
             return false;
+function openAssignmentModal(opts){
+    var $m = jQuery('#assignment-modal');
+    if (!$m.length) return;
+    var $room = jQuery('#assignment_room');
+    var $camp = jQuery('#assignment_campaign');
+    var $sd = jQuery('#assignment_start');
+    var $ed = jQuery('#assignment_end');
+    var $act = jQuery('#assignment_active');
+    $room.empty(); $camp.empty();
+    jQuery.post(monthlyBookingAdmin.ajaxurl, {
+        action: 'mb_get_rooms',
+        nonce: monthlyBookingAdmin.nonce
+    }, function(resp){
+        if (resp && resp.success && Array.isArray(resp.data)) {
+            resp.data.forEach(function(r){
+                var opt = document.createElement('option');
+                opt.value = r.id; opt.textContent = r.name || r.display_name || ('#'+r.id);
+                $room.append(opt);
+            });
+            if (opts && opts.room_id) $room.val(String(opts.room_id));
+        }
+    });
+    jQuery.post(monthlyBookingAdmin.ajaxurl, {
+        action: 'mb_get_campaigns',
+        nonce: monthlyBookingAdmin.nonce
+    }, function(resp){
+        if (resp && resp.success && Array.isArray(resp.data)) {
+            resp.data.forEach(function(c){
+                var opt = document.createElement('option');
+                opt.value = c.id; opt.textContent = c.name || ('#'+c.id);
+                $camp.append(opt);
+            });
+            if (opts && opts.campaign_id) $camp.val(String(opts.campaign_id));
+        }
+    });
+    if (opts && opts.start_date) $sd.val(opts.start_date); else $sd.val('');
+    if (opts && opts.end_date) $ed.val(opts.end_date); else $ed.val('');
+    $act.prop('checked', !(opts && opts.is_active === 0));
+    $m.show();
+}
+jQuery(document).on('click', '#assignment-cancel', function(){ jQuery('#assignment-modal').hide(); });
+jQuery(document).on('click', '#assignment-save', function(){
+    var t = window.mb_t || function(k){return k;};
+    var room_id = parseInt(jQuery('#assignment_room').val()||'0',10);
+    var campaign_id = parseInt(jQuery('#assignment_campaign').val()||'0',10);
+    var sd = jQuery('#assignment_start').val();
+    var ed = jQuery('#assignment_end').val();
+    var is_active = jQuery('#assignment_active').is(':checked') ? 1 : 0;
+    if (!room_id || !campaign_id || !sd || !ed) { alert(t('campaigns.validation.fixed_dates_required')); return; }
+    jQuery.post(monthlyBookingAdmin.ajaxurl, {
+        action: 'mb_check_overlap', nonce: monthlyBookingAdmin.nonce,
+        room_id: room_id, start_date: sd, end_date: ed
+    }, function(r){
+        if (r && r.success && r.data && r.data.overlap) {
+            alert(t('campaigns.validation.overlap_detected'));
+            return;
+        }
+        jQuery.post(monthlyBookingAdmin.ajaxurl, {
+            action: 'mb_save_room_assignment', nonce: monthlyBookingAdmin.nonce,
+            room_id: room_id, campaign_id: campaign_id, start_date: sd, end_date: ed, is_active: is_active
+        }, function(resp){
+            if (resp && resp.success) {
+                alert(t('notices.saved'));
+                jQuery('#assignment-modal').hide();
+                if (typeof loadCampaignAssignments === 'function') {
+                    loadCampaignAssignments(room_id);
+                }
+            } else {
+                alert(t('error.generic'));
+            }
+        });
+    });
+});
+jQuery(document).on('click', '.campaign-assign', function(e){
+    e.preventDefault();
+    var cid = jQuery(this).data('campaign-id');
+    openAssignmentModal({ campaign_id: cid });
+});
+
         }
         
         return true;
