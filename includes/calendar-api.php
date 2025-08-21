@@ -82,4 +82,37 @@ class MonthlyBooking_Calendar_API {
     public function get_global_campaigns($from, $to) {
         return array();
     }
+
+    public function mbp_get_assignments_for_rooms($room_ids, $from, $to) {
+        global $wpdb;
+        if (empty($room_ids)) return array();
+        $table = $wpdb->prefix . 'monthly_room_campaigns';
+        $in = implode(',', array_map('intval', $room_ids));
+        $from_esc = esc_sql($from);
+        $to_esc = esc_sql($to);
+        $sql = "
+            SELECT room_id, campaign_id, start_date, end_date, is_active
+            FROM $table
+            WHERE room_id IN ($in)
+              AND is_active = 1
+              AND (
+                    (end_date IS NULL OR end_date > '$from_esc')
+                AND (start_date IS NULL OR start_date < '$to_esc')
+              )
+        ";
+        $rows = $wpdb->get_results($sql, ARRAY_A);
+        $out = array();
+        foreach ($room_ids as $rid) { $out[intval($rid)] = array(); }
+        foreach ($rows as $r) {
+            $rid = intval($r['room_id']);
+            if (!isset($out[$rid])) $out[$rid] = array();
+            $out[$rid][] = array(
+                'campaign_id' => intval($r['campaign_id']),
+                'start_date' => $r['start_date'],
+                'end_date' => $r['end_date'],
+                'is_active' => intval($r['is_active'])
+            );
+        }
+        return $out;
+    }
 }}

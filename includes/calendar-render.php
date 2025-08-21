@@ -289,33 +289,61 @@ class MonthlyBooking_Calendar_Render {
         }
         $room_ids_list = array_map(function($r){ return intval($r->id); }, $rooms);
         $bookings_by_room = $api->mbp_get_bookings_for_rooms($room_ids_list, $start, end($dates));
+        $assignments_by_room = $api->mbp_get_assignments_for_rooms($room_ids_list, $start, end($dates));
         $todayYmd = $today;
         ob_start();
         ?>
-        <div class="calendar-matrix" role="grid" aria-labelledby="calendar-title">
-            <div class="matrix-header" role="row">
-                <div class="matrix-cell header room-col" role="columnheader"><?php echo esc_html__('部屋', 'monthly-booking'); ?></div>
-                <?php foreach ($dates as $d): ?>
-                    <div class="matrix-cell header <?php echo $d === $todayYmd ? 'today' : ''; ?>" role="columnheader"><?php echo esc_html(MonthlyBooking_Calendar_Utils::format_day_short($d)); ?></div>
-                <?php endforeach; ?>
-            </div>
-            <?php foreach ($rooms as $room): ?>
-                <div class="matrix-row" role="row" data-room-id="<?php echo esc_attr($room->id); ?>">
-                    <div class="matrix-cell room-col" role="rowheader">
-                        <?php echo esc_html($room->name ? $room->name : $room->room_name); ?>
-                    </div>
-                    <?php
-                    $room_bookings = isset($bookings_by_room[$room->id]) ? $bookings_by_room[$room->id] : array();
-                    foreach ($dates as $d):
-                        $status = MonthlyBooking_Calendar_Utils::get_day_status_for_room($d, $room_bookings);
-                        $classes = array('matrix-cell','day', $status['class']);
-                        if ($d === $todayYmd) { $classes[] = 'today'; }
-                        $aria = MonthlyBooking_Calendar_Utils::format_japanese_date($d)['formatted'] . ' ' . $status['label'];
-                    ?>
-                        <div class="<?php echo esc_attr(implode(' ', $classes)); ?>" role="gridcell" aria-label="<?php echo esc_attr($aria); ?>" data-date="<?php echo esc_attr($d); ?>"></div>
+        <div class="mb-cal-wrap">
+            <div class="calendar-matrix" role="grid" aria-labelledby="calendar-title">
+                <div class="matrix-header" role="row">
+                    <div class="matrix-cell header room-col" role="columnheader"><?php echo esc_html__('部屋', 'monthly-booking'); ?></div>
+                    <?php foreach ($dates as $d): ?>
+                        <div class="matrix-cell header <?php echo $d === $todayYmd ? 'today' : ''; ?>" role="columnheader"><?php echo esc_html(MonthlyBooking_Calendar_Utils::format_day_short($d)); ?></div>
                     <?php endforeach; ?>
                 </div>
-            <?php endforeach; ?>
+                <?php foreach ($rooms as $room): ?>
+                    <div class="matrix-row" role="row" data-room-id="<?php echo esc_attr($room->id); ?>">
+                        <div class="matrix-cell room-col" role="rowheader">
+                            <span class="room-name"><?php echo esc_html($room->name ? $room->name : $room->room_name); ?></span>
+                            <span class="row-actions">
+                                <button type="button" class="button button-small" data-action="assign"><?php echo esc_html(mb_t('calendar.actions.assign')); ?></button>
+                                <button type="button" class="button button-small" data-action="cleaning"><?php echo esc_html(mb_t('calendar.actions.cleaning_toggle')); ?></button>
+                            </span>
+                        </div>
+                        <?php
+                        $room_bookings = isset($bookings_by_room[$room->id]) ? $bookings_by_room[$room->id] : array();
+                        $room_assigns = isset($assignments_by_room[$room->id]) ? $assignments_by_room[$room->id] : array();
+                        foreach ($dates as $d):
+                            $status = MonthlyBooking_Calendar_Utils::get_day_status_for_room($d, $room_bookings, $room_assigns, true);
+                            $classes = array('matrix-cell','day', $status['class']);
+                            if ($d === $todayYmd) { $classes[] = 'today'; }
+                            $aria = MonthlyBooking_Calendar_Utils::format_japanese_date($d)['formatted'] . ' ' . $status['label'];
+                            $symbol = isset($status['symbol']) ? $status['symbol'] : '';
+                            $code = isset($status['code']) ? $status['code'] : 'vac';
+                        ?>
+                            <div class="<?php echo esc_attr(implode(' ', $classes)); ?>" role="gridcell" aria-label="<?php echo esc_attr($aria); ?>" data-date="<?php echo esc_attr($d); ?>" data-code="<?php echo esc_attr($code); ?>">
+                                <span class="mb-cal-symbol mb-cal-<?php echo esc_attr($code); ?>"><?php echo esc_html($symbol); ?></span>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <aside id="mb-cal-sidepanel" aria-live="polite" aria-atomic="true">
+                <h3><?php echo esc_html(mb_t('calendar.panel.title')); ?></h3>
+                <div><strong><?php echo esc_html(mb_t('calendar.panel.room')); ?>:</strong> <span data-field="room"></span></div>
+                <div><strong>日付:</strong> <span data-field="date"></span></div>
+                <div><strong><?php echo esc_html(mb_t('calendar.panel.status')); ?>:</strong> <span data-field="status"></span></div>
+                <div class="panel-actions">
+                    <button type="button" class="button" data-action="assign"><?php echo esc_html(mb_t('calendar.actions.assign')); ?></button>
+                    <button type="button" class="button" data-action="cleaning"><?php echo esc_html(mb_t('calendar.actions.cleaning_toggle')); ?></button>
+                </div>
+                <div class="panel-campaigns">
+                    <div><strong><?php echo esc_html(mb_t('calendar.panel.campaigns_active')); ?></strong></div>
+                    <ul data-field="campaigns-active"></ul>
+                    <div><strong><?php echo esc_html(mb_t('calendar.panel.campaigns_upcoming')); ?></strong></div>
+                    <ul data-field="campaigns-upcoming"></ul>
+                </div>
+            </aside>
         </div>
         <?php
         return ob_get_clean();

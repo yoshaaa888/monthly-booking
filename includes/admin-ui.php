@@ -874,19 +874,30 @@ class MonthlyBooking_Admin_UI {
                 <?php endif; ?>
                 
                 <div class="calendar-legend">
-                    <h3><?php _e('Legend', 'monthly-booking'); ?></h3>
                     <div class="legend-items">
                         <div class="legend-item">
-                            <span class="legend-symbol available">〇</span>
-                            <span><?php _e('予約可', 'monthly-booking'); ?></span>
+                            <span class="legend-symbol vac-camp">◎</span>
+                            <span><?php echo esc_html(mb_t('calendar.legend.vacant_with_campaign')); ?></span>
                         </div>
                         <div class="legend-item">
-                            <span class="legend-symbol unavailable">×</span>
-                            <span><?php _e('予約不可', 'monthly-booking'); ?></span>
+                            <span class="legend-symbol vac_camp">◎</span>
+                            <span><?php echo esc_html(mb_t('calendar.legend.vacant_with_campaign')); ?></span>
                         </div>
                         <div class="legend-item">
-                            <span class="legend-symbol campaign">△</span>
-                            <span><?php _e('キャンペーン適用あり', 'monthly-booking'); ?></span>
+                            <span class="legend-symbol vac">○</span>
+                            <span><?php echo esc_html(mb_t('calendar.legend.vacant')); ?></span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-symbol clean">△</span>
+                            <span><?php echo esc_html(mb_t('calendar.legend.cleaning')); ?></span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-symbol occ">◆</span>
+                            <span><?php echo esc_html(mb_t('calendar.legend.occupied')); ?></span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-symbol unavail">×</span>
+                            <span><?php echo esc_html(mb_t('calendar.legend.closed')); ?></span>
                         </div>
                     </div>
                 </div>
