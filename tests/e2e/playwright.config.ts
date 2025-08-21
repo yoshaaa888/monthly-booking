@@ -8,7 +8,7 @@ export default defineConfig({
   fullyParallel: false,
   workers: process.env.CI ? 1 : undefined,
   use: {
-    baseURL: process.env.MB_BASE_URL || 'http://127.0.0.1:8888',
+    baseURL: process.env.MB_BASE_URL || 'http://127.0.0.1:8080',
     headless: true,
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
