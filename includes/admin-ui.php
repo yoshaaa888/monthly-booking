@@ -1893,7 +1893,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
         }
         
         wp_enqueue_script('monthly-booking-admin-form', plugin_dir_url(__FILE__) . '../assets/admin-form.js', array('jquery'), '1.7.0', true);
-        wp_localize_script('monthly-booking-admin', 'monthlyBookingAdmin', array(
+        wp_localize_script('monthly-booking-admin-form', 'monthlyBookingAdmin', array(
             'ajaxurl' => admin_url('admin-ajax.php'),
             'reservationsNonce' => wp_create_nonce('mbp_reservations_nonce'),
             'strings' => array(
@@ -1901,6 +1901,10 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                 'saveSuccess' => __('予約が保存されました。', 'monthly-booking'),
                 'saveError' => __('保存に失敗しました。', 'monthly-booking')
             )
+        ));
+        wp_localize_script('monthly-booking-admin-form', 'monthlyBookingAjax', array(
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('monthly_booking_nonce')
         ));
         
         ?>
@@ -2007,6 +2011,11 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                         </td>
                     </tr>
                 </table>
+                
+                <div style="margin-top:20px; padding-top:10px; border-top:1px solid #ddd;">
+                    <button type="button" id="recalculate_estimate" class="button"><?php _e('料金再計算', 'monthly-booking'); ?></button>
+                    <div id="estimate-result-admin" style="margin-top:12px; display:none;"></div>
+                </div>
                 
                 <p class="submit">
                     <input type="submit" name="submit" class="button button-primary" 

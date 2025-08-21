@@ -540,12 +540,23 @@ class MonthlyBooking_Booking_Logic {
             $applicable_campaigns = $campaign_manager->get_applicable_campaigns($move_in_date, $stay_days);
         }
         
+        $room_campaign_applied = false;
+        $room_campaign_meta = null;
         if ($applicable_campaigns && !empty($applicable_campaigns)) {
             $campaign = $applicable_campaigns[0];
             if ($campaign['discount_type'] === 'percentage') {
                 $original_daily_rent = $daily_rent;
                 $daily_rent = $daily_rent * (1 - ($campaign['discount_value'] / 100));
                 $debug_info[] = "Daily rent discount applied: {$campaign['name']} ({$campaign['discount_value']}%) - reduced from ¥$original_daily_rent to ¥$daily_rent";
+                $room_campaign_applied = true;
+                $room_campaign_meta = array(
+                    'name' => isset($campaign['name']) ? $campaign['name'] : '',
+                    'description' => isset($campaign['description']) ? $campaign['description'] : '',
+                    'discount_type' => $campaign['discount_type'],
+                    'discount_value' => $campaign['discount_value'],
+                    'discount_amount' => 0,
+                    'badge' => isset($campaign['badge']) ? $campaign['badge'] : null
+                );
             }
         }
         
@@ -609,7 +620,19 @@ class MonthlyBooking_Booking_Logic {
         $subtotal = $non_taxable_subtotal + $taxable_subtotal;
         
         // 6. Campaign discounts (早割・即入居割) - apply to entire subtotal
-        $campaign_data = $this->calculate_step3_campaign_discount($move_in_date, $move_out_date, $subtotal);
+        if ($room_campaign_applied) {
+            $campaign_data = array(
+                'discount_amount' => 0,
+                'campaigns' => $room_campaign_meta ? array($room_campaign_meta) : array(),
+                'campaign_badge' => $room_campaign_meta && isset($room_campaign_meta['badge']) ? $room_campaign_meta['badge'] : null,
+                'campaign_type' => $room_campaign_meta && isset($room_campaign_meta['discount_type']) ? $room_campaign_meta['discount_type'] : null
+            );
+        } else {
+            if ($room_id) {
+                $this->current_room_id = $room_id;
+            }
+            $campaign_data = $this->calculate_step3_campaign_discount($move_in_date, $move_out_date, $subtotal);
+        }
         
         $final_total = $subtotal - $campaign_data['discount_amount'];
         
