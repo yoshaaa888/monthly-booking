@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+#!/usr/bin/env bash
 set -euo pipefail
 
 cd "$(dirname "$0")/../../.."
@@ -56,8 +58,9 @@ if [ -f dist/sample-data.sql ]; then
   docker compose -f dev/docker-compose.yml run --rm wpcli bash /scripts/import_sample_sql.sh
 fi
 
-docker compose -f dev/docker-compose.yml run --rm wpcli wp user get admin || \
-  docker compose -f dev/docker-compose.yml run --rm wpcli wp user create admin admin@example.com --role=administrator --user_pass=password
+docker compose -f dev/docker-compose.yml run --rm wpcli wp user get "${MB_ADMIN_USER:-admin}" >/dev/null 2>&1 || \
+  docker compose -f dev/docker-compose.yml run --rm wpcli wp user create "${MB_ADMIN_USER:-admin}" "${MB_ADMIN_EMAIL:-admin@example.com}" --role=administrator --user_pass="${MB_ADMIN_PASS:-password}"
+docker compose -f dev/docker-compose.yml run --rm wpcli wp user update "${MB_ADMIN_USER:-admin}" --user_pass="${MB_ADMIN_PASS:-password}"
 
 echo "Waiting for WordPress to be reachable (http)..."
 HTTP_READY=""
