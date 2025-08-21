@@ -2028,6 +2028,10 @@ class MonthlyBooking_Admin_UI {
                                    data-is-active="<?php echo esc_attr($campaign->is_active); ?>">
                                    <?php echo esc_html(mb_t('campaigns.actions.duplicate')); ?>
                                 </a>
+                                <a href="#" class="button button-small campaign-assign"
+                                   data-campaign-id="<?php echo esc_attr($campaign->id); ?>">
+                                   <?php echo esc_html(mb_t('campaigns.actions.assign_to_rooms')); ?>
+                                </a>
                                 <a href="#" class="button button-small toggle-campaign-status"
                                    data-campaign-id="<?php echo esc_attr($campaign->id); ?>"
                                    data-is-active="<?php echo esc_attr($campaign->is_active); ?>">
@@ -2088,6 +2092,10 @@ class MonthlyBooking_Admin_UI {
                                     <td><?php echo esc_html($c->start_date . ' — ' . $c->end_date); ?></td>
                                     <td><?php echo $c->is_active ? esc_html(mb_t('status.active')) : esc_html(mb_t('status.inactive')); ?></td>
                                     <td>
+                                        <a href="#" class="button campaign-assign"
+                                           data-campaign-id="<?php echo esc_attr($c->id); ?>">
+                                           <?php echo esc_html(mb_t('campaigns.actions.assign_to_rooms')); ?>
+                                        </a>
                                         <a href="#" class="button toggle-campaign-status"
                                            data-campaign-id="<?php echo esc_attr($c->id); ?>"
                                            data-is-active="<?php echo esc_attr($c->is_active); ?>">

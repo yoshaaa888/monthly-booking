@@ -93,6 +93,7 @@
   "campaigns.actions.disable": { "ja": "無効化" },
   "campaigns.actions.enable": { "ja": "有効化" },
   "campaigns.actions.delete": { "ja": "削除" },
+  "campaigns.actions.assign_to_rooms": { "ja": "部屋へ紐づけ" },
   "campaigns.confirm.delete": { "ja": "このキャンペーンを削除しますか？この操作は取り消せません。" },
 
   "campaigns.rules.title": { "ja": "キャンペーンルール:" },

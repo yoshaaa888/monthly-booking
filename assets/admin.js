@@ -84,6 +84,13 @@ document.addEventListener('DOMContentLoaded', function () {
       console.log('delete campaign', id);
     });
   });
+  document.querySelectorAll('.campaign-assign').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      var id = this.getAttribute('data-campaign-id');
+      alert(t('campaigns.actions.assign_to_rooms') + ' #' + id);
+    });
+  });
 });
 jQuery(document).ready(function($) {
     function showCampaignMessage(type, text) {
