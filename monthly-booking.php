@@ -243,6 +243,9 @@ class MonthlyBooking {
         add_action('wp_ajax_nopriv_get_calendar_bookings', array($this, 'ajax_get_calendar_bookings'));
         add_action('wp_ajax_mbp_get_calendar_bookings', array($this, 'ajax_get_calendar_bookings'));
         add_action('wp_ajax_nopriv_mbp_get_calendar_bookings', array($this, 'ajax_get_calendar_bookings'));
+        add_action('admin_init', array($this, 'maybe_run_db_migrations'));
+        add_action('admin_notices', array($this, 'maybe_show_migration_error_notice'));
+
         add_action('wp_ajax_mbp_load_calendar_matrix', array($this, 'ajax_load_calendar_matrix'));
         add_action('wp_ajax_nopriv_mbp_load_calendar_matrix', array($this, 'ajax_load_calendar_matrix'));
         
@@ -258,11 +261,33 @@ class MonthlyBooking {
         $this->create_tables();
         $this->insert_default_options();
         $this->insert_sample_properties();
-        
         add_option('monthly_booking_version', MONTHLY_BOOKING_VERSION);
-        
         flush_rewrite_rules();
     }
+
+    public function maybe_run_db_migrations() {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+        $schema_ver = get_option('monthly_booking_db_schema');
+        $target = '2025.08.21-1';
+        if ($schema_ver === $target) {
+            return;
+        }
+        require_once plugin_dir_path(__FILE__) . 'includes/migrations/runner.php';
+        MB_Migrations_Runner::runUpAll(false);
+        update_option('monthly_booking_db_schema', $target);
+    }
+    public function maybe_show_migration_error_notice() {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+        $err = get_option('monthly_booking_last_migration_error');
+        if ($err) {
+            echo '<div class="notice notice-error"><p>Monthly Booking DB migration error: ' . esc_html($err) . '</p></div>';
+        }
+    }
+
     
     private function insert_default_options() {
         global $wpdb;
@@ -618,6 +643,8 @@ class MonthlyBooking {
             type varchar(20) DEFAULT NULL,
             discount_type varchar(20) NOT NULL,
             discount_value decimal(10,2) NOT NULL,
+            discount_percent decimal(5,2) NULL,
+
             min_stay_days int(3) DEFAULT 1,
             earlybird_days int(3) DEFAULT NULL,
             max_discount_amount decimal(10,2),
@@ -633,7 +660,7 @@ class MonthlyBooking {
             usage_limit int(5),
             usage_count int(5) DEFAULT 0,
             is_active tinyint(1) DEFAULT 1,
-            period_type varchar(32) DEFAULT NULL,
+            period_type varchar(32) DEFAULT 'fixed',
             relative_days int(3) DEFAULT NULL,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -645,6 +672,17 @@ class MonthlyBooking {
             KEY is_active (is_active)
         ) $charset_collate;";
         dbDelta($sql);
+        $table_name = $wpdb->prefix . 'monthly_booking_campaign_contract_types';
+        $sql = "CREATE TABLE $table_name (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            campaign_id BIGINT UNSIGNED NOT NULL,
+            contract_type VARCHAR(4) NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_campaign_contract_type (campaign_id, contract_type),
+            KEY idx_campaign (campaign_id)
+        ) $charset_collate;";
+        dbDelta($sql);
+
         
         $table_name = $wpdb->prefix . 'monthly_customers';
         $sql = "CREATE TABLE $table_name (
@@ -714,6 +752,9 @@ class MonthlyBooking {
             campaign_id mediumint(9) NOT NULL,
             start_date date NOT NULL,
             end_date date NOT NULL,
+            priority int DEFAULT 1,
+            custom_start_date date NULL,
+            custom_end_date date NULL,
             is_active tinyint(1) DEFAULT 1,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -727,6 +768,20 @@ class MonthlyBooking {
         ) $charset_collate;";
         dbDelta($sql);
         
+        $table_name = $wpdb->prefix . 'monthly_booking_audit_logs';
+        $sql = "CREATE TABLE $table_name (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            actor_id BIGINT UNSIGNED NOT NULL,
+            action VARCHAR(32) NOT NULL,
+            room_id BIGINT UNSIGNED NOT NULL,
+            campaign_id BIGINT UNSIGNED NULL,
+            meta LONGTEXT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_room_created (room_id, created_at),
+            KEY idx_actor_created (actor_id, created_at)
+        ) $charset_collate;";
+        dbDelta($sql);
+
         $table_name = $wpdb->prefix . 'monthly_fee_settings';
         $sql = "CREATE TABLE $table_name (
             id mediumint(9) NOT NULL AUTO_INCREMENT,

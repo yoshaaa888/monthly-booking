@@ -11,6 +11,8 @@ Support Channels
 
 Triage Workflow
 1) Intake
+- Database migrations: see docs/DB_MIGRATIONS.md for running and rollback procedures.
+
    - Verify plugin version (Plugins → Monthly Room Booking shows 1.0.0).
    - Capture environment (WordPress version, PHP version, DB version).
    - Identify operation context (Calendar, Rooms, Campaigns, Booking).

@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS __PREFIX__monthly_booking_audit_logs;
