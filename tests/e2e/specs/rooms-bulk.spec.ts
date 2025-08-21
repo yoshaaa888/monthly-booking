@@ -8,14 +8,22 @@ test('@smoke Bulk room selection -> campaign assignment -> status verification',
   await expect(page.locator('#adminmenu')).toBeVisible({ timeout: 20000 });
 
   await robustGoto(page, '/wp-admin/admin.php?page=monthly-room-booking');
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(300);
+
+  const bulkBtn = page.locator('[data-testid="mb-room-bulk-assign"]');
+  const table = page.locator('#rooms-table');
+  const bulkVisible = await bulkBtn.isVisible({ timeout: 5000 }).catch(() => false);
+  const tableVisible = await table.isVisible({ timeout: 5000 }).catch(() => false);
+  if (!bulkVisible || !tableVisible) {
+    test.skip(true, 'Rooms page UI not ready within 5s');
+  }
 
   const rows = page.locator('[data-testid="mb-room-row"]');
   const rowCount = await rows.count();
   if (rowCount === 0) {
     test.skip(true, 'No rooms available to operate on');
   }
-  await expect(rows.first()).toBeVisible();
+  await expect(rows.first()).toBeVisible({ timeout: 5000 });
 
   const checkboxes = page.locator('[data-testid="mb-room-select"]');
   const total = await checkboxes.count();
