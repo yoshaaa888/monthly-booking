@@ -6,7 +6,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   retries: 1,
   fullyParallel: false,
-  workers: 1,
+  workers: process.env.CI ? 1 : undefined,
   use: {
     baseURL: process.env.MB_BASE_URL || 'http://127.0.0.1:8080',
     headless: true,
@@ -22,6 +22,7 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report', open: 'never' }]
   ],
   projects: [
+    { name: 'firefox', use: { browserName: 'firefox' } },
     { name: 'chromium', use: { browserName: 'chromium' } }
   ]
 });

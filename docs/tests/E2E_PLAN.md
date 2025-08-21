@@ -997,6 +997,7 @@ Selectors
 Phases
 - A: Scaffold (Playwright + Docker scripts + CI)
 - B: Campaign flow (create → assign rooms → verify calendar + DB)
+Updates: CI runs Firefox as the primary browser inside the official Playwright container; Chromium remains configured with hardened flags for limited usage. Artifacts (playwright-report and test-results with traces/videos) are always uploaded. For local instability with Chromium on some VMs, prefer running via CI.
 - C: Rooms bulk flow (bulk select → assign → UI + DB)
 - D: Calendar operations (render, room switch)
 - E: Emergency quick discount (skip if not present)
