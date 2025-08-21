@@ -1007,6 +1007,89 @@ $(document).ready(function() {
         $('.calendar-controls').after('<div class="notice notice-warning"><p>' + __('部屋データが見つかりません。管理者にお問い合わせください。', 'monthly-booking') + '</p></div>');
     }
     
+    (function(){
+        var $form = $('#campaign-form');
+        if (!$form.length) return;
+
+        function t(k){ return (window.mb_t && typeof window.mb_t === 'function') ? window.mb_t(k) : k; }
+
+        function getMode(){
+            var v = $('#discount_type').val();
+            return v === 'fixed' ? 'fixed' : 'percent';
+        }
+
+        function validate(){
+            var ok = true;
+            var msgs = [];
+
+            var name = $('#name').val().trim();
+            if (!name) { ok = false; msgs.push(t('campaigns.validation.name_required')); }
+
+            var mode = getMode();
+            var val = parseFloat($('#discount_value').val() || '0');
+            if (isNaN(val)) val = 0;
+
+            if (mode === 'percent') {
+                if (!(val > 0 && val < 50)) { ok = false; msgs.push(t('campaigns.validation.discount_percent_range')); }
+            } else {
+                if (val < 0) { ok = false; msgs.push(t('campaigns.validation.discount_fixed_range')); }
+            }
+
+            var pt = $('input[name="period_type"]:checked').val() || 'fixed';
+            if (pt === 'checkin_relative') {
+                var rd = parseInt($('#relative_days').val() || '0', 10);
+                if (!(rd >= 1 && rd <= 30)) { ok = false; msgs.push(t('campaigns.validation.relative_days_range')); }
+            } else if (pt === 'fixed') {
+                var sd = $('#start_date').val(), ed = $('#end_date').val();
+                if (!sd || !ed) { ok = false; msgs.push(t('campaigns.validation.fixed_dates_required')); }
+                if (sd && ed && sd >= ed) { ok = false; msgs.push(t('campaigns.validation.date_order')); }
+            }
+
+            if ($('input[name="contract_types[]"]:checked').length === 0) {
+                ok = false; msgs.push(t('campaigns.validation.contract_types_required'));
+            }
+
+            var $msg = $('#campaign-form-message');
+            if ($msg.length) {
+                $msg.removeClass('notice-error notice-success')
+                    .addClass(ok ? 'notice notice-success' : 'notice notice-error')
+                    .text(msgs.join(' / '))
+                    .show();
+            }
+
+            return ok;
+        }
+
+        $('input[name="period_type"]').on('change', function(){
+            var v = $('input[name="period_type"]:checked').val();
+            if (v === 'checkin_relative') {
+                $('.fixed-period-row').hide();
+                $('#relative-days-row').show();
+                $('#unlimited-warning').hide();
+            } else if (v === 'fixed') {
+                $('.fixed-period-row').show();
+                $('#relative-days-row').hide();
+                $('#unlimited-warning').hide();
+            } else if (v === 'first_month_30d') {
+                $('.fixed-period-row').hide();
+                $('#relative-days-row').hide();
+                $('#unlimited-warning').hide();
+            } else if (v === 'unlimited') {
+                $('.fixed-period-row').hide();
+                $('#relative-days-row').hide();
+                $('#unlimited-warning').show();
+            }
+        }).trigger('change');
+
+        $form.on('submit', function(e){
+            if (!validate()) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        });
+    })();
+
     $('#room_select').on('change', function() {
         try {
             const roomId = $(this).val();

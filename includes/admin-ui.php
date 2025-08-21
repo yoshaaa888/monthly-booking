@@ -2156,7 +2156,131 @@ class MonthlyBooking_Admin_UI {
                                     <span id="discount-unit" class="description"></span>
                                 </td>
                             </tr>
+                            <tr>
+                                <th><label for="discount_scope"><?php echo esc_html(mb_t('campaigns.form.fields.scope')); ?></label></th>
+                                <td>
+                                    <label style="margin-right:12px;">
+                                        <input type="radio" name="discount_scope" id="discount_scope_first" value="first_month" checked>
+                                        <?php echo esc_html(mb_t('scope.first_month')); ?>
+                                    </label>
+                                    <label>
+                                        <input type="radio" name="discount_scope" id="discount_scope_entire" value="entire_period">
+                                        <?php echo esc_html(mb_t('scope.entire_period')); ?>
+                                    </label>
+                                </td>
+                            </tr>
+
                         </table>
+                    </div>
+                    
+                    <!-- 期間タイプセクション -->
+                    <div class="campaign-section">
+                        <h4 class="section-title"><?php echo esc_html(mb_t('campaigns.form.sections.period')); ?></h4>
+                        <table class="form-table">
+                            <tr>
+                                <th><label><?php echo esc_html(mb_t('campaigns.form.fields.period_type')); ?></label></th>
+                                <td>
+                                    <label style="margin-right:12px;">
+                                        <input type="radio" name="period_type" value="fixed" checked>
+                                        <?php echo esc_html(mb_t('period.type.fixed')); ?>
+                                    </label>
+                                    <label style="margin-right:12px;">
+                                        <input type="radio" name="period_type" value="checkin_relative">
+                                        <?php echo esc_html(mb_t('period.type.movein')); ?>
+                                    </label>
+                                    <label style="margin-right:12px;">
+                                        <input type="radio" name="period_type" value="first_month_30d">
+                                        <?php echo esc_html(mb_t('period.type.first_month_30d')); ?>
+                                    </label>
+                                    <label>
+                                        <input type="radio" name="period_type" value="unlimited">
+                                        <?php echo esc_html(mb_t('period.type.unlimited')); ?>
+                                    </label>
+                                    <p class="description" id="unlimited-warning" style="display:none;color:#d63638;"><?php echo esc_html(mb_t('campaigns.validation.unlimited_warning')); ?></p>
+                                </td>
+                            </tr>
+                            <tr id="relative-days-row" style="display:none;">
+                                <th><label for="relative_days"><?php echo esc_html(mb_t('campaigns.form.fields.relative_days')); ?></label></th>
+                                <td>
+                                    <input type="number" name="relative_days" id="relative_days" class="small-text" min="1" max="30" value="30">
+                                    <span class="description"><?php echo esc_html(mb_t('campaigns.form.help.relative_days')); ?></span>
+                                </td>
+                            </tr>
+                            <tr class="fixed-period-row">
+                                <th><label for="start_date"><?php echo esc_html(mb_t('campaigns.form.fields.start_date')); ?></label></th>
+                                <td>
+                                    <input type="date" name="start_date" id="start_date" class="regular-text" required min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
+                                </td>
+                            </tr>
+                            <tr class="fixed-period-row">
+                                <th><label for="end_date"><?php echo esc_html(mb_t('campaigns.form.fields.end_date')); ?></label></th>
+                                <td>
+                                    <input type="date" name="end_date" id="end_date" class="regular-text" required max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- 対象契約タイプ -->
+                    <div class="campaign-section">
+                        <h4 class="section-title"><?php echo esc_html(mb_t('campaigns.form.sections.contract_types')); ?></h4>
+                        <table class="form-table">
+                            <tr>
+                                <th><label><?php echo esc_html(mb_t('campaigns.form.fields.contract_types')); ?></label></th>
+                                <td>
+                                    <label style="margin-right:12px;"><input type="checkbox" name="contract_types[]" value="SS"> SS</label>
+                                    <label style="margin-right:12px;"><input type="checkbox" name="contract_types[]" value="S" checked> S</label>
+                                    <label style="margin-right:12px;"><input type="checkbox" name="contract_types[]" value="M"> M</label>
+                                    <label><input type="checkbox" name="contract_types[]" value="L"> L</label>
+                                    <p class="description"><?php echo esc_html(mb_t('campaigns.form.help.contract_types')); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- プレビュー -->
+                    <div class="campaign-section">
+                        <h4 class="section-title"><?php echo esc_html(mb_t('campaigns.preview.title')); ?></h4>
+                        <table class="form-table">
+                            <tr>
+                                <th><label for="preview_rent"><?php echo esc_html(mb_t('campaigns.preview.rent_sample')); ?></label></th>
+                                <td>
+                                    <input type="number" id="preview_rent" class="regular-text" min="0" placeholder="100000">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label for="preview_contract"><?php echo esc_html(mb_t('campaigns.preview.contract_type')); ?></label></th>
+                                <td>
+                                    <select id="preview_contract">
+                                        <option value="S">S</option>
+                                        <option value="SS">SS</option>
+                                        <option value="M">M</option>
+                                        <option value="L">L</option>
+                                    </select>
+                                    <button type="button" id="btn-preview" class="button" style="margin-left:8px;"><?php echo esc_html(mb_t('campaigns.preview.open')); ?></button>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
+</open_file>
+<insert path="/home/ubuntu/repos/monthly-booking/includes/admin-ui.php" insert_line="2319">
+        </style>
+        
+        <!-- プレビューモーダル -->
+        <div id="campaign-preview-modal" style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); z-index:10000;">
+            <div style="position:absolute; top:50%; left:50%; transform: translate(-50%, -50%); background:#fff; padding:24px; width:520px; max-width:90%; border-radius:6px;">
+                <h3 style="margin-top:0;"><?php echo esc_html(mb_t('campaigns.preview.title')); ?></h3>
+                <div id="preview-result" style="font-size:18px; font-weight:600; margin:12px 0;"></div>
+                <p id="preview-note" class="description" style="margin:8px 0 16px;"></p>
+                <div style="text-align:right;">
+                    <button type="button" class="button" id="preview-close"><?php echo esc_html(mb_t('campaigns.preview.close')); ?></button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+
                     </div>
                     
                     <!-- 適用条件セクション -->
@@ -2322,6 +2446,144 @@ class MonthlyBooking_Admin_UI {
             }
         }
         
+        (function(){
+            function $(id){ return document.getElementById(id); }
+            function qs(sel){ return document.querySelector(sel); }
+            function qsa(sel){ return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+
+            function getDiscountMode(){
+                var v = document.getElementById('discount_type') ? document.getElementById('discount_type').value : 'percentage';
+                return v === 'fixed' ? 'fixed' : 'percent';
+            }
+
+            function recomputeVisibility(){
+                var pt = (qsa('input[name="period_type"]:checked')[0] || {}).value || 'fixed';
+                var fixedRows = document.querySelectorAll('.fixed-period-row');
+                var relRow = $('relative-days-row');
+                var unlimWarn = $('unlimited-warning');
+
+                if (pt === 'fixed') {
+                    fixedRows.forEach(function(el){ el.style.display = ''; });
+                    if (relRow) relRow.style.display = 'none';
+                    if (unlimWarn) unlimWarn.style.display = 'none';
+                } else if (pt === 'checkin_relative') {
+                    fixedRows.forEach(function(el){ el.style.display = 'none'; });
+                    if (relRow) relRow.style.display = '';
+                    if (unlimWarn) unlimWarn.style.display = 'none';
+                } else if (pt === 'first_month_30d') {
+                    fixedRows.forEach(function(el){ el.style.display = 'none'; });
+                    if (relRow) relRow.style.display = 'none';
+                    if (unlimWarn) unlimWarn.style.display = 'none';
+                } else if (pt === 'unlimited') {
+                    fixedRows.forEach(function(el){ el.style.display = 'none'; });
+                    if (relRow) relRow.style.display = 'none';
+                    if (unlimWarn) unlimWarn.style.display = '';
+                }
+            }
+
+            qsa('input[name="period_type"]').forEach(function(r){
+                r.addEventListener('change', recomputeVisibility);
+            });
+            recomputeVisibility();
+
+            function showFormMessage(type, text){
+                var box = document.getElementById('campaign-form-message');
+                if (!box) return;
+                box.className = 'notice ' + (type === 'error' ? 'notice-error' : 'notice-success');
+                box.textContent = text || '';
+                box.style.display = text ? '' : 'none';
+            }
+
+            function validateCampaignForm(){
+                var ok = true;
+                var msgs = [];
+
+                var name = (document.getElementById('name') || {}).value || '';
+                if (!name.trim()) { ok = false; msgs.push('<?php echo esc_js(mb_t('campaigns.validation.name_required')); ?>'); }
+
+                var mode = getDiscountMode();
+                var valStr = (document.getElementById('discount_value') || {}).value || '';
+                var val = parseFloat(valStr);
+                if (isNaN(val)) val = 0;
+
+                if (mode === 'percent') {
+                    if (!(val > 0 && val < 50)) { ok = false; msgs.push('<?php echo esc_js(mb_t('campaigns.validation.discount_percent_range')); ?>'); }
+                } else {
+                    if (val < 0) { ok = false; msgs.push('<?php echo esc_js(mb_t('campaigns.validation.discount_fixed_range')); ?>'); }
+                    if (val >= 0) { msgs.push('<?php echo esc_js(mb_t('campaigns.validation.profit_warning')); ?>'); }
+                }
+
+                var pt = (qsa('input[name="period_type"]:checked')[0] || {}).value || 'fixed';
+                if (pt === 'checkin_relative') {
+                    var rd = parseInt((document.getElementById('relative_days') || {}).value || '0', 10);
+                    if (!(rd >= 1 && rd <= 30)) { ok = false; msgs.push('<?php echo esc_js(mb_t('campaigns.validation.relative_days_range')); ?>'); }
+                } else if (pt === 'fixed') {
+                    var sd = (document.getElementById('start_date') || {}).value;
+                    var ed = (document.getElementById('end_date') || {}).value;
+                    if (!sd || !ed) { ok = false; msgs.push('<?php echo esc_js(mb_t('campaigns.validation.fixed_dates_required')); ?>'); }
+                    if (sd && ed && sd >= ed) { ok = false; msgs.push('<?php echo esc_js(mb_t('campaigns.validation.date_order')); ?>'); }
+                }
+
+                var anyContract = qsa('input[name="contract_types[]"]:checked').length > 0;
+                if (!anyContract) { ok = false; msgs.push('<?php echo esc_js(mb_t('campaigns.validation.contract_types_required')); ?>'); }
+
+                showFormMessage(ok ? 'success' : 'error', msgs.join(' / '));
+                return ok;
+            }
+
+            var form = document.getElementById('campaign-form');
+            if (form) {
+                form.addEventListener('submit', function(e){
+                    if (!validateCampaignForm()) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+                });
+            }
+
+            function computePreview(rent, mode, value, scope){
+                var discounted = rent;
+                if (mode === 'percent') {
+                    discounted = Math.round(rent * (1 - value / 100));
+                } else {
+                    discounted = Math.max(0, rent - value);
+                }
+                return discounted;
+            }
+
+            var btnPrev = document.getElementById('btn-preview');
+            if (btnPrev) {
+                btnPrev.addEventListener('click', function(){
+                    var rent = parseInt((document.getElementById('preview_rent') || {}).value || '0', 10);
+                    if (!(rent >= 0)) rent = 0;
+                    var mode = getDiscountMode();
+                    var val = parseFloat((document.getElementById('discount_value') || {}).value || '0');
+                    if (isNaN(val)) val = 0;
+                    var scope = (document.getElementById('discount_scope_entire') || {}).checked ? 'entire_period' : 'first_month';
+                    var result = computePreview(rent, mode, val, scope);
+
+                    var resultBox = document.getElementById('preview-result');
+                    var note = document.getElementById('preview-note');
+                    if (resultBox) resultBox.textContent = '<?php echo esc_js(mb_t('campaigns.preview.result')); ?>: ¥' + result.toLocaleString();
+                    if (note) {
+                        note.textContent = scope === 'first_month'
+                          ? '<?php echo esc_js(mb_t('campaigns.preview.note.first_month')); ?>'
+                          : '';
+                    }
+                    var modal = document.getElementById('campaign-preview-modal');
+                    if (modal) modal.style.display = 'block';
+                });
+            }
+            var btnClose = document.getElementById('preview-close');
+            if (btnClose) {
+                btnClose.addEventListener('click', function(){
+                    var modal = document.getElementById('campaign-preview-modal');
+                    if (modal) modal.style.display = 'none';
+                });
+            }
+        })();
+
         document.getElementById('discount_type').addEventListener('change', updateDiscountUnit);
         
         document.getElementById('campaign-modal').addEventListener('click', function(e) {
