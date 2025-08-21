@@ -33,6 +33,8 @@ until docker compose -f dev/docker-compose.yml run --rm wpcli wp core is-install
 done
 docker compose -f dev/docker-compose.yml run --rm wpcli wp option update home "${MB_BASE_URL%/}"
 docker compose -f dev/docker-compose.yml run --rm wpcli wp option update siteurl "${MB_BASE_URL%/}"
+docker compose -f dev/docker-compose.yml run --rm wpcli wp config set WP_HOME "${MB_BASE_URL%/}" --type=constant --raw
+docker compose -f dev/docker-compose.yml run --rm wpcli wp config set WP_SITEURL "${MB_BASE_URL%/}" --type=constant --raw
 
 docker compose -f dev/docker-compose.yml run --rm wpcli wp plugin activate monthly-booking || true
 if [ -f dist/sample-data.sql ]; then
@@ -48,7 +50,7 @@ HTTP_READY=""
 for j in $(seq 1 "$ATTEMPTS"); do
   for ep in "" "/wp-json/" "/wp-admin/" "/wp-login.php"; do
     url="${MB_BASE_URL%/}$ep"
-    code="$(curl -L -sS -o /dev/null -w "%{http_code}" "$url" || true)"
+    code="$(curl -sS -o /dev/null -I -w "%{http_code}" "$url" || true)"
     if [[ "$code" =~ ^[23][0-9][0-9]$ ]]; then
       HTTP_READY=1
       break
@@ -72,7 +74,7 @@ REST_INT=3
 REST_ATTEMPTS=$(( REST_TOTAL / REST_INT ))
 REST_READY=""
 for k in $(seq 1 "$REST_ATTEMPTS"); do
-  code="$(curl -L -sS -o /dev/null -w "%{http_code}" "${MB_BASE_URL%/}/wp-json/" || true)"
+  code="$(curl -sS -o /dev/null -I -w "%{http_code}" "${MB_BASE_URL%/}/wp-json/" || true)"
   if [[ "$code" =~ ^[23][0-9][0-9]$ ]]; then
     REST_READY=1
     break
@@ -81,7 +83,7 @@ for k in $(seq 1 "$REST_ATTEMPTS"); do
 done
 
 for ep in "/wp-admin/" "/wp-admin/admin.php?page=monthly-room-booking" "/wp-admin/admin.php?page=monthly-room-booking-calendar" "/wp-admin/admin.php?page=monthly-room-booking-campaigns"; do
-  curl -L -sS -o /dev/null -w "%{http_code}" "${MB_BASE_URL%/}$ep" || true
+  curl -sS -o /dev/null -I -w "%{http_code}" "${MB_BASE_URL%/}$ep" || true
 done
 
 sleep 3
