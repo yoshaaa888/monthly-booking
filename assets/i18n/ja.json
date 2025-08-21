@@ -113,6 +113,8 @@
 
   "common.id": { "ja": "ID" },
   "common.name": { "ja": "名称" },
+  "common.create": { "ja": "新規作成" },
+  "error.generic": { "ja": "エラーが発生しました" },
   "common.type": { "ja": "タイプ" },
   "common.discount": { "ja": "割引" },
   "common.period": { "ja": "期間" },

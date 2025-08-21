@@ -2018,7 +2018,14 @@ class MonthlyBooking_Admin_UI {
                                    <?php echo esc_html(mb_t('campaigns.actions.edit')); ?>
                                 </a>
                                 <a href="#" class="button button-small campaign-duplicate"
-                                   data-campaign-id="<?php echo esc_attr($campaign->id); ?>">
+                                   data-campaign-id="<?php echo esc_attr($campaign->id); ?>"
+                                   data-campaign-name="<?php echo esc_attr($campaign->campaign_name); ?>"
+                                   data-discount-type="<?php echo esc_attr($campaign->discount_type); ?>"
+                                   data-discount-value="<?php echo esc_attr($campaign->discount_value); ?>"
+                                   data-start-date="<?php echo esc_attr($campaign->start_date); ?>"
+                                   data-end-date="<?php echo esc_attr($campaign->end_date); ?>"
+                                   data-target-plan="<?php echo isset($campaign->target_plan) ? esc_attr($campaign->target_plan) : ''; ?>"
+                                   data-is-active="<?php echo esc_attr($campaign->is_active); ?>">
                                    <?php echo esc_html(mb_t('campaigns.actions.duplicate')); ?>
                                 </a>
                                 <a href="#" class="button button-small toggle-campaign-status"

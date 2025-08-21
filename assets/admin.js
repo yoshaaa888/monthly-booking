@@ -4,8 +4,56 @@ document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('.campaign-duplicate').forEach(function (btn) {
     btn.addEventListener('click', function (e) {
       e.preventDefault();
-      var id = this.getAttribute('data-campaign-id');
-      alert(t('campaigns.actions.duplicate') + ' #' + id);
+      var id = this.getAttribute('data-campaign-id') || '';
+      var name = this.getAttribute('data-campaign-name') || '';
+      var dtype = this.getAttribute('data-discount-type') || 'percentage';
+      var dval = this.getAttribute('data-discount-value') || '';
+      var sdate = this.getAttribute('data-start-date') || '';
+      var edate = this.getAttribute('data-end-date') || '';
+      var targetPlan = this.getAttribute('data-target-plan') || '';
+
+      try {
+        if (typeof showCampaignModal === 'function') {
+          showCampaignModal();
+        } else {
+          var m = document.getElementById('campaign-modal');
+          if (m) m.style.display = 'block';
+        }
+
+        var $title = document.getElementById('modal-title');
+        if ($title) $title.textContent = (window.mb_t ? mb_t('campaigns.actions.duplicate') : '複製') + ' → ' + (window.mb_t ? mb_t('common.create') : '新規作成');
+
+        var $action = document.getElementById('form-action');
+        if ($action) $action.value = 'create_campaign';
+        var $cid = document.getElementById('campaign-id');
+        if ($cid) $cid.value = '';
+
+        var $name = document.getElementById('name');
+        if ($name) $name.value = (name || '') + ' (複製)';
+
+        var $dtype = document.getElementById('discount_type');
+        if ($dtype) { $dtype.value = dtype; if (typeof updateDiscountUnit === 'function') updateDiscountUnit(); }
+
+        var $dval = document.getElementById('discount_value');
+        if ($dval) $dval.value = dval;
+
+        var $sd = document.getElementById('start_date');
+        if ($sd && sdate) $sd.value = sdate;
+        var $ed = document.getElementById('end_date');
+        if ($ed && edate) $ed.value = edate;
+
+        if (targetPlan) {
+          var plans = String(targetPlan).split(',');
+          ['SS','S','M','L'].forEach(function(code){
+            var qs = 'input[name="contract_types[]"][value="'+code+'"]';
+            var el = document.querySelector(qs);
+            if (el) el.checked = plans.indexOf(code) !== -1 || targetPlan === 'ALL';
+          });
+        }
+      } catch (err) {
+        console.error('duplicate preset failed', err);
+        alert((window.mb_t ? mb_t('error.generic') : 'エラーが発生しました'));
+      }
     });
   });
 
