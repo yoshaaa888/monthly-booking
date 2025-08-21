@@ -418,6 +418,7 @@ jQuery(document).ready(function($) {
         $('.date-picker').datepicker({
             dateFormat: 'yy-mm-dd',
             changeMonth: true,
+
             changeYear: true
         });
     }
@@ -1416,6 +1417,79 @@ $(document).ready(function() {
             }
         });
     })();
+$(document).on('click', '.calendar-matrix .matrix-cell.day', function(){
+    var $cell = $(this);
+    var $row = $cell.closest('.matrix-row');
+    $('.calendar-matrix .matrix-cell.day[aria-selected="true"]').attr('aria-selected','false').removeClass('is-selected');
+    $cell.attr('aria-selected','true').addClass('is-selected');
+    var date = $cell.data('date');
+    var code = $cell.data('code');
+    var roomId = $row.data('room-id');
+    var $panel = $('#mb-cal-sidepanel');
+    if ($panel.length) {
+        $panel.find('[data-field="room"]').text($row.find('.room-name').text());
+        $panel.find('[data-field="date"]').text(date);
+        var t = window.mb_t || function(k){return k;};
+        var statusText = '';
+        switch (code) {
+            case 'occ': statusText = t('calendar.status.occupied'); break;
+            case 'clean': statusText = t('calendar.status.cleaning'); break;
+            case 'vac_camp': statusText = t('calendar.status.vacant_with_campaign'); break;
+            case 'vac': statusText = t('calendar.status.vacant'); break;
+            default: statusText = '';
+        }
+        $panel.find('[data-field="status"]').text(statusText);
+        $panel.data('room-id', roomId);
+        $panel.data('date', date);
+    }
+});
+
+$(document).on('click', '#mb-cal-sidepanel [data-action="assign"]', function(){
+    var $panel = $('#mb-cal-sidepanel');
+    var roomId = $panel.data('room-id');
+    if (!roomId) return;
+    $(document).trigger('mb:open-assign-modal', { room_id: roomId });
+});
+
+$(document).on('click', '#mb-cal-sidepanel [data-action="cleaning"]', function(){
+    var $panel = $('#mb-cal-sidepanel');
+    var roomId = $panel.data('room-id');
+    if (!roomId || !window.monthlyBookingAdmin) return;
+    var payload = {
+        action: 'toggle_cleaning_status',
+        nonce: monthlyBookingAdmin.nonce,
+        room_id: roomId
+    };
+    jQuery.post(monthlyBookingAdmin.ajaxurl, payload).done(function(resp){
+        if (resp && resp.success) {
+            var $sel = jQuery('.calendar-matrix .matrix-cell.day.is-selected');
+            if ($sel.length) {
+                var code = $sel.data('code');
+                if (code === 'clean') {
+                    $sel.attr('data-code','vac').data('code','vac').find('.mb-cal-symbol').text('○').attr('class','mb-cal-symbol mb-cal-vac');
+                }
+            }
+        }
+    });
+});
+
+$(document).on('click', '.calendar-matrix .matrix-row .row-actions [data-action="assign"]', function(){
+    var roomId = jQuery(this).closest('.matrix-row').data('room-id');
+    if (!roomId) return;
+    jQuery(document).trigger('mb:open-assign-modal', { room_id: roomId });
+});
+
+$(document).on('click', '.calendar-matrix .matrix-row .row-actions [data-action="cleaning"]', function(){
+    var roomId = jQuery(this).closest('.matrix-row').data('room-id');
+    if (!roomId || !window.monthlyBookingAdmin) return;
+    var payload = {
+        action: 'toggle_cleaning_status',
+        nonce: monthlyBookingAdmin.nonce,
+        room_id: roomId
+    };
+    jQuery.post(monthlyBookingAdmin.ajaxurl, payload);
+});
+
 
     $('#room_select').on('change', function() {
         try {

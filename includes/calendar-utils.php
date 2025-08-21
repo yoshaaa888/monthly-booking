@@ -87,16 +87,40 @@ class MonthlyBooking_Calendar_Utils {
         return array('class'=>'available','label'=>__('空室','monthly-booking'),'symbol'=>'〇');
     }
 
-    public static function get_day_status_for_room($date, $room_bookings) {
-        $isBooked = false;
+    public static function get_day_status_for_room($date, $room_bookings, $room_assignments = array(), $room_active = true) {
+        if (!$room_active) {
+            return array('class'=>'unavailable','label'=>__('利用不可','monthly-booking'),'symbol'=>'×','code'=>'unavail');
+        }
+        $isOccupied = false;
+        $isCleaning = false;
         foreach ($room_bookings as $b) {
             $ci = $b['checkin'];
             $co = $b['checkout'];
-            if ($date >= $ci && $date < $co) { $isBooked = true; break; }
+            if ($date >= $ci && $date < $co) { $isOccupied = true; break; }
+            if ($date >= $co && $date < date('Y-m-d', strtotime($co . ' +5 days'))) { $isCleaning = true; }
         }
-        if ($isBooked) {
-            return array('class'=>'booked','label'=>__('予約済み','monthly-booking'),'symbol'=>'×');
+        if ($isOccupied) {
+            return array('class'=>'occupied','label'=>__('予約中','monthly-booking'),'symbol'=>'◆','code'=>'occ');
         }
-        return array('class'=>'available','label'=>__('空室','monthly-booking'),'symbol'=>'〇');
+        if ($isCleaning) {
+            return array('class'=>'cleaning','label'=>__('清掃期間','monthly-booking'),'symbol'=>'△','code'=>'clean');
+        }
+        $hasActiveCampaign = false;
+        if (is_array($room_assignments)) {
+            foreach ($room_assignments as $a) {
+                $sd = isset($a['start_date']) ? $a['start_date'] : null;
+                $ed = isset($a['end_date']) ? $a['end_date'] : null;
+                $active = isset($a['is_active']) ? intval($a['is_active']) === 1 : true;
+                if (!$active) continue;
+                if ($sd && $date < $sd) continue;
+                if ($ed && $date >= $ed) continue;
+                $hasActiveCampaign = true;
+                break;
+            }
+        }
+        if ($hasActiveCampaign) {
+            return array('class'=>'vacant-campaign','label'=>__('空室＋キャンペーン','monthly-booking'),'symbol'=>'◎','code'=>'vac_camp');
+        }
+        return array('class'=>'available','label'=>__('空室','monthly-booking'),'symbol'=>'〇','code'=>'vac');
     }
 }}
