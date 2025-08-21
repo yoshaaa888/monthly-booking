@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-
-#!/usr/bin/env bash
 set -euo pipefail
 
 cd "$(dirname "$0")/../../.."
@@ -10,6 +8,7 @@ MB_READY_TOTAL_SEC="${MB_READY_TOTAL_SEC:-240}"
 MB_READY_INTERVAL_SEC="${MB_READY_INTERVAL_SEC:-3}"
 ATTEMPTS=$(( MB_READY_TOTAL_SEC / MB_READY_INTERVAL_SEC ))
 
+docker compose -f dev/docker-compose.yml down -v || true
 docker compose -f dev/docker-compose.yml up -d
 
 echo "Ensuring WordPress core is installed..."
@@ -52,8 +51,11 @@ docker compose -f dev/docker-compose.yml exec -T wordpress bash -lc "mkdir -p /v
 'add_filter(\"rest_url\", function(\$url){ global \$__mb_base; \$p = parse_url(\$url, PHP_URL_PATH); return rtrim(\$__mb_base, \"/\") . \$p; }, 10, 1);' \
 > /var/www/html/wp-content/mu-plugins/mb-test-url.php && chown www-data:www-data /var/www/html/wp-content/mu-plugins/mb-test-url.php && chmod 644 /var/www/html/wp-content/mu-plugins/mb-test-url.php"
 
+docker compose -f dev/docker-compose.yml run --rm wpcli wp option update monthly_booking_db_schema "2025.08.21-1" || true
+docker compose -f dev/docker-compose.yml run --rm wpcli wp option delete monthly_booking_last_migration_error || true
+
 docker compose -f dev/docker-compose.yml run --rm wpcli wp plugin activate monthly-booking || true
-if [ -f dist/sample-data.sql ]; then
+if [ "${MB_IMPORT_SAMPLE:-0}" = "1" ] && [ -f dist/sample-data.sql ]; then
   echo "Importing sample data..."
   docker compose -f dev/docker-compose.yml run --rm wpcli bash /scripts/import_sample_sql.sh
 fi
