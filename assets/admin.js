@@ -649,6 +649,97 @@ jQuery(document).ready(function($) {
         toggleAssignmentStatus(assignmentId, isActive);
     });
     
+function getSelectedRoomIds() {
+  var ids = [];
+  document.querySelectorAll('#rooms-table .room-select:checked').forEach(function(el){
+    var v = el.value;
+    if (v) ids.push(v);
+  });
+  return ids;
+}
+document.addEventListener('click', function(e){
+  if (e.target && e.target.id === 'rooms-bulk-assign') {
+    e.preventDefault();
+    var ids = getSelectedRoomIds();
+    if (!ids.length) { alert((window.mb_t?mb_t('rooms.bulk.select_warning'):'部屋を選択してください')); return; }
+    if (typeof openAssignmentModal === 'function') {
+      openAssignmentModal({});
+    } else {
+      var modal = document.getElementById('assignment-modal');
+      if (!modal) { alert('Modal not found'); return; }
+      modal.style.display = 'block';
+    }
+    var btnSave = document.getElementById('assignment-save');
+    if (btnSave) {
+      btnSave.onclick = function(){
+        var campaign = document.getElementById('assignment_campaign').value;
+        var sd = document.getElementById('assignment_start').value;
+        var ed = document.getElementById('assignment_end').value;
+        var active = document.getElementById('assignment_active').checked ? 1 : 0;
+        if (!campaign || !sd || !ed) { alert((window.mb_t?mb_t('campaigns.validation.fixed_dates_required'):'必須項目が未入力です')); return; }
+        var ajaxurl = (window.monthlyBookingAdmin ? monthlyBookingAdmin.ajaxurl : ajaxurl);
+        var nonce = (window.monthlyBookingAdmin ? monthlyBookingAdmin.nonce : '');
+        var ok = 0, ng = 0;
+        var promises = ids.map(function(roomId){
+          return jQuery.post(ajaxurl, {
+            action: 'mb_save_room_assignment',
+            nonce: nonce,
+            room_id: roomId,
+            campaign_id: campaign,
+            start_date: sd,
+            end_date: ed,
+            is_active: active
+          }).then(function(resp){
+            if (resp && resp.success) ok++; else ng++;
+          }).catch(function(){ ng++; });
+        });
+        Promise.all(promises).then(function(){
+          alert((window.mb_t?mb_t('rooms.bulk.result'):'完了') + ' OK='+ok+' NG='+ng);
+          window.location.reload();
+        });
+      };
+    }
+    var cancelBtn = document.getElementById('assignment-cancel');
+    if (cancelBtn) cancelBtn.onclick = function(){ document.getElementById('assignment-modal').style.display='none'; };
+  }
+  if (e.target && e.target.id === 'rooms-bulk-unassign') {
+    e.preventDefault();
+    var ids = getSelectedRoomIds();
+    if (!ids.length) { alert((window.mb_t?mb_t('rooms.bulk.select_warning'):'部屋を選択してください')); return; }
+    var campaign = prompt((window.mb_t?mb_t('rooms.bulk.unassign_prompt'):'解除するキャンペーンIDを入力（空で全て）'), '');
+    var ajaxurl = (window.monthlyBookingAdmin ? monthlyBookingAdmin.ajaxurl : ajaxurl);
+    var nonce = (window.monthlyBookingAdmin ? monthlyBookingAdmin.nonce : '');
+    jQuery.post(ajaxurl, {
+      action: 'mb_bulk_unassign_campaigns',
+      nonce: nonce,
+      room_ids: ids,
+      campaign_id: campaign ? campaign : ''
+    }).done(function(resp){
+      if (resp && resp.success) {
+        alert((window.mb_t?mb_t('rooms.bulk.unassign_done'):'解除しました'));
+        window.location.reload();
+      } else {
+        alert((resp && (resp.data||resp.message)) || 'エラー');
+      }
+    }).fail(function(){ alert('Network error'); });
+  }
+  if (e.target && e.target.id === 'rooms-select-all') {
+    var checked = e.target.checked;
+    document.querySelectorAll('#rooms-table .room-select').forEach(function(el){ el.checked = checked; });
+  }
+});
+jQuery(document).on('change', '.cleaning-toggle', function(){
+  var roomId = jQuery(this).data('room-id');
+  var val = jQuery(this).is(':checked') ? 1 : 0;
+  jQuery.post((window.monthlyBookingAdmin?monthlyBookingAdmin.ajaxurl:ajaxurl), {
+    action: 'mb_toggle_cleaning',
+    nonce: (window.monthlyBookingAdmin?monthlyBookingAdmin.nonce:''),
+    room_id: roomId,
+    is_cleaned: val
+  }).done(function(resp){
+  });
+});
+
     function showCampaignModal() {
         $('#campaign-assignment-modal').show();
     }

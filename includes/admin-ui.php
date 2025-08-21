@@ -191,21 +191,138 @@ class MonthlyBooking_Admin_UI {
         <div class="wrap">
             <h1><?php echo esc_html(mb_t('rooms.title')); ?></h1>
             
-            <div class="tablenav top">
-                <div class="alignleft actions">
-                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=add'); ?>" class="button button-primary"><?php echo esc_html(mb_t('rooms.add_new')); ?></a>
+            <form method="get" action="">
+                <input type="hidden" name="page" value="monthly-room-booking">
+                <div class="tablenav top">
+                    <div class="alignleft actions">
+                        <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=add'); ?>" class="button button-primary"><?php echo esc_html(mb_t('rooms.add_new')); ?></a>
+                    </div>
+                    <div class="alignleft actions">
+                        <label style="margin-right:8px;">
+                            <?php echo esc_html(mb_t('rooms.filters.status')); ?>:
+                            <select name="filter_status">
+                                <?php
+                                $fs = isset($_GET['filter_status']) ? sanitize_text_field($_GET['filter_status']) : '';
+                                $opts = array(
+                                    '' => mb_t('rooms.filters.any'),
+                                    'active' => mb_t('status.active'),
+                                    'inactive' => mb_t('status.inactive')
+                                );
+                                foreach ($opts as $val => $label) {
+                                    echo '<option value="' . esc_attr($val) . '"' . selected($fs, $val, false) . '>' . esc_html($label) . '</option>';
+                                }
+                                ?>
+                            </select>
+                        </label>
+                        <label style="margin-right:8px;">
+                            <?php echo esc_html(mb_t('rooms.filters.campaign')); ?>:
+                            <select name="filter_campaign">
+                                <?php
+                                $fc = isset($_GET['filter_campaign']) ? sanitize_text_field($_GET['filter_campaign']) : '';
+                                $opts2 = array(
+                                    '' => mb_t('rooms.filters.any'),
+                                    'has' => mb_t('rooms.filters.campaign_has'),
+                                    'none' => mb_t('rooms.filters.campaign_none')
+                                );
+                                foreach ($opts2 as $val => $label) {
+                                    echo '<option value="' . esc_attr($val) . '"' . selected($fc, $val, false) . '>' . esc_html($label) . '</option>';
+                                }
+                                ?>
+                            </select>
+                        </label>
+                        <button class="button" type="submit"><?php echo esc_html(mb_t('rooms.filters.apply')); ?></button>
+                        <a class="button" href="<?php echo admin_url('admin.php?page=monthly-room-booking'); ?>"><?php echo esc_html(mb_t('rooms.filters.reset')); ?></a>
+                    </div>
+                </div>
+            </form>
+
+            <?php
+            $fs = isset($_GET['filter_status']) ? sanitize_text_field($_GET['filter_status']) : '';
+            $fc = isset($_GET['filter_campaign']) ? sanitize_text_field($_GET['filter_campaign']) : '';
+            $table_rooms = $wpdb->prefix . 'monthly_rooms';
+            $where = array();
+            if ($fs === 'active') $where[] = "is_active=1";
+            if ($fs === 'inactive') $where[] = "is_active=0";
+            $sql = "SELECT * FROM $table_rooms";
+            if ($where) $sql .= " WHERE " . implode(' AND ', $where);
+            $sql .= " ORDER BY property_id, room_name";
+            $properties = $wpdb->get_results($sql);
+
+            $roomCampaignBadges = array();
+            $hasCampaignRoomIds = array();
+            if (!empty($properties)) {
+                $room_ids = array_map(function($p){ return (int)$p->room_id; }, $properties);
+                $in = implode(',', array_fill(0, count($room_ids), '%d'));
+                $today = current_time('Y-m-d');
+                $ta = $wpdb->prefix . 'monthly_room_campaigns';
+                $tc = $wpdb->prefix . 'monthly_campaigns';
+                $rows = $wpdb->get_results($wpdb->prepare("
+                    SELECT a.room_id, c.discount_type, c.discount_value, c.campaign_name
+                    FROM {$ta} a
+                    JOIN {$tc} c ON a.campaign_id=c.id
+                    WHERE a.room_id IN ($in)
+                      AND a.is_active=1
+                      AND a.start_date <= %s
+                      AND a.end_date > %s
+                ", array_merge($room_ids, array($today, $today))));
+                if ($rows) {
+                    foreach ($rows as $r) {
+                        $icon = ($r->discount_type === 'percentage') ? '％' : '¥';
+                        $val = ($r->discount_type === 'percentage')
+                            ? number_format_i18n((float)$r->discount_value, 0) . '%'
+                            : '¥' . number_format_i18n((float)$r->discount_value, 0);
+                        $label = $icon . ' ' . $val;
+                        $roomCampaignBadges[(int)$r->room_id][] = $label;
+                        $hasCampaignRoomIds[(int)$r->room_id] = true;
+                    }
+                }
+            }
+            if ($fc === 'has' || $fc === 'none') {
+                $properties = array_values(array_filter($properties, function($p) use ($fc, $hasCampaignRoomIds){
+                    $has = !empty($hasCampaignRoomIds[(int)$p->room_id]);
+                    return ($fc === 'has') ? $has : !$has;
+                }));
+            }
+
+            $occupiedToday = array();
+            if (!empty($properties)) {
+                $room_ids = array_map(function($p){ return (int)$p->room_id; }, $properties);
+                $in = implode(',', array_fill(0, count($room_ids), '%d'));
+                $today = current_time('Y-m-d');
+                $tb = $wpdb->prefix . 'monthly_bookings';
+                $sqlOcc = $wpdb->prepare("
+                    SELECT room_id FROM {$tb}
+                    WHERE room_id IN ($in)
+                      AND %s >= start_date
+                      AND %s < DATE_ADD(end_date, INTERVAL 5 DAY)
+                      AND status <> 'cancelled'
+                    GROUP BY room_id
+                ", array_merge($room_ids, array($today, $today)));
+                $occRows = $wpdb->get_results($sqlOcc);
+                if ($occRows) {
+                    foreach ($occRows as $o) $occupiedToday[(int)$o->room_id] = true;
+                }
+            }
+            ?>
+            <div class="tablenav top" style="margin:10px 0;">
+                <div class="alignleft actions bulkactions">
+                    <button type="button" class="button" id="rooms-bulk-assign"><?php echo esc_html(mb_t('rooms.bulk.assign')); ?></button>
+                    <button type="button" class="button" id="rooms-bulk-unassign"><?php echo esc_html(mb_t('rooms.bulk.unassign')); ?></button>
                 </div>
             </div>
-            
-            <table class="wp-list-table widefat fixed striped">
+            <table class="wp-list-table widefat fixed striped" id="rooms-table">
                 <thead>
                     <tr>
+                        <th style="width:28px;"><input type="checkbox" id="rooms-select-all"></th>
                         <th><?php echo esc_html(mb_t('rooms.table.header.property_id')); ?></th>
                         <th><?php echo esc_html(mb_t('rooms.table.header.room_id')); ?></th>
                         <th><?php echo esc_html(mb_t('rooms.table.header.display_name')); ?></th>
                         <th><?php echo esc_html(mb_t('rooms.table.header.room')); ?></th>
                         <th><?php echo esc_html(mb_t('rooms.table.header.daily_rent')); ?></th>
                         <th><?php echo esc_html(mb_t('rooms.table.header.max_occupants')); ?></th>
+                        <th><?php echo esc_html(mb_t('rooms.table.header.campaigns')); ?></th>
+                        <th><?php echo esc_html(mb_t('rooms.table.header.vacancy')); ?></th>
+                        <th><?php echo esc_html(mb_t('rooms.table.header.cleaning')); ?></th>
                         <th><?php echo esc_html(mb_t('rooms.table.header.station_access')); ?></th>
                         <th><?php echo esc_html(mb_t('rooms.form.campaign.table.header.status')); ?></th>
                         <th><?php echo esc_html(mb_t('rooms.form.campaign.table.header.actions')); ?></th>
@@ -214,33 +331,60 @@ class MonthlyBooking_Admin_UI {
                 <tbody>
                     <?php if (empty($properties)): ?>
                         <tr>
-                            <td colspan="9"><?php echo esc_html(mb_t('rooms.empty')); ?></td>
+                            <td colspan="13"><?php echo esc_html(mb_t('rooms.empty')); ?></td>
                         </tr>
                     <?php else: ?>
-                        <?php foreach ($properties as $property): ?>
-                            <tr>
-                                <td><?php echo esc_html($property->property_id); ?></td>
-                                <td><?php echo esc_html($property->room_id); ?></td>
-                                <td><?php echo esc_html($property->display_name); ?></td>
-                                <td><?php echo esc_html($property->room_name); ?></td>
-                                <td>¥<?php echo number_format($property->daily_rent); ?></td>
-                                <td><?php echo esc_html($property->max_occupants); ?></td>
-                                <td>
-                                    <?php if ($property->station1): ?>
-                                        <?php echo esc_html($property->line1 . ' ' . $property->station1 . ' ' . $property->access1_type . $property->access1_time . '分'); ?>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <span class="status-<?php echo $property->is_active ? 'active' : 'inactive'; ?>">
-                                        <?php echo $property->is_active ? esc_html(mb_t('status.active')) : esc_html(mb_t('status.inactive')); ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=edit&id=' . $property->room_id); ?>" class="button button-small"><?php echo esc_html(mb_t('rooms.action.edit')); ?></a>
-                                    <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=delete&id=' . $property->room_id); ?>" class="button button-small button-link-delete" onclick="return confirm('<?php echo esc_js(mb_t('rooms.confirm.delete')); ?>')"><?php echo esc_html(mb_t('rooms.action.delete')); ?></a>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
+                    <?php foreach ($properties as $property): ?>
+                        <?php
+                        $badges = isset($roomCampaignBadges[(int)$property->room_id]) ? $roomCampaignBadges[(int)$property->room_id] : array();
+                        $vacant = empty($occupiedToday[(int)$property->room_id]);
+                        $clean_opt_key = 'mb_room_cleaned_' . (int)$property->room_id;
+                        $is_cleaned = get_option($clean_opt_key, '1') === '1';
+                        ?>
+                        <tr>
+                            <td><input type="checkbox" class="room-select" value="<?php echo esc_attr($property->room_id); ?>"></td>
+                            <td><?php echo esc_html($property->property_id); ?></td>
+                            <td><?php echo esc_html($property->room_id); ?></td>
+                            <td><?php echo esc_html($property->display_name); ?></td>
+                            <td><?php echo esc_html($property->room_name); ?></td>
+                            <td>¥<?php echo number_format($property->daily_rent); ?></td>
+                            <td><?php echo esc_html($property->max_occupants); ?></td>
+                            <td>
+                                <?php if ($badges): ?>
+                                    <?php foreach ($badges as $b): ?>
+                                        <span class="badge" style="display:inline-block;background:#fff3cd;border:1px solid #ffc107;border-radius:3px;padding:2px 6px;margin-right:4px;"><?php echo esc_html($b); ?></span>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    —
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span class="<?php echo $vacant ? 'vacant-yes' : 'vacant-no'; ?>" style="font-weight:bold;<?php echo $vacant ? 'color:#4caf50' : 'color:#f44336'; ?>">
+                                    <?php echo $vacant ? '〇' : '×'; ?>
+                                </span>
+                            </td>
+                            <td>
+                                <label>
+                                    <input type="checkbox" class="cleaning-toggle" data-room-id="<?php echo esc_attr($property->room_id); ?>" <?php checked($is_cleaned, true); ?>>
+                                    <span><?php echo esc_html($is_cleaned ? mb_t('rooms.cleaning.cleaned') : mb_t('rooms.cleaning.not_cleaned')); ?></span>
+                                </label>
+                            </td>
+                            <td>
+                                <?php if ($property->station1): ?>
+                                    <?php echo esc_html($property->line1 . ' ' . $property->station1 . ' ' . $property->access1_type . $property->access1_time . '分'); ?>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span class="status-<?php echo $property->is_active ? 'active' : 'inactive'; ?>">
+                                    <?php echo $property->is_active ? esc_html(mb_t('status.active')) : esc_html(mb_t('status.inactive')); ?>
+                                </span>
+                            </td>
+                            <td>
+                                <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=edit&id=' . $property->room_id); ?>" class="button button-small"><?php echo esc_html(mb_t('rooms.action.edit')); ?></a>
+                                <a href="<?php echo admin_url('admin.php?page=monthly-room-booking&action=delete&id=' . $property->room_id); ?>" class="button button-small button-link-delete" onclick="return confirm('<?php echo esc_js(mb_t('rooms.confirm.delete')); ?>')"><?php echo esc_html(mb_t('rooms.action.delete')); ?></a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -1023,7 +1167,11 @@ add_action('wp_ajax_update_campaign', function () {
         'start_date' => $start_date,
         'end_date' => $end_date,
         'is_active' => $is_active,
+
+
         'target_plan' => $target_plan,
+
+
         'period_type' => $period_type,
         'relative_days' => $relative_days,
         'updated_at' => current_time('mysql'),
@@ -3126,6 +3274,35 @@ add_action('wp_ajax_mb_get_room_assignments', function () {
     $c_table = $wpdb->prefix . 'monthly_campaigns';
     $ids = array_map(function($r){ return (int)$r['campaign_id']; }, $rows);
     $names = [];
+add_action('wp_ajax_mb_toggle_cleaning', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    $room_id = isset($_POST['room_id']) ? absint($_POST['room_id']) : 0;
+    $is_cleaned = isset($_POST['is_cleaned']) ? (int)$_POST['is_cleaned'] : 0;
+    if (!$room_id) wp_send_json_error('invalid', 400);
+    $key = 'mb_room_cleaned_' . $room_id;
+    update_option($key, $is_cleaned ? '1' : '0');
+    wp_send_json_success(true);
+});
+add_action('wp_ajax_mb_bulk_unassign_campaigns', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $room_ids = isset($_POST['room_ids']) ? (array) $_POST['room_ids'] : array();
+    $room_ids = array_values(array_filter(array_map('absint', $room_ids)));
+    $campaign_id = isset($_POST['campaign_id']) && $_POST['campaign_id'] !== '' ? absint($_POST['campaign_id']) : 0;
+    if (!$room_ids) wp_send_json_error('invalid', 400);
+    $table = $wpdb->prefix . 'monthly_room_campaigns';
+    $in = implode(',', array_fill(0, count($room_ids), '%d'));
+    if ($campaign_id > 0) {
+        $sql = $wpdb->prepare("DELETE FROM {$table} WHERE room_id IN ($in) AND campaign_id=%d", array_merge($room_ids, array($campaign_id)));
+    } else {
+        $sql = $wpdb->prepare("DELETE FROM {$table} WHERE room_id IN ($in)", $room_ids);
+    }
+    $ok = $wpdb->query($sql);
+    if ($ok === false) wp_send_json_error($wpdb->last_error ?: 'db error', 500);
+    wp_send_json_success(array('removed' => (int)$ok));
+});
     if ($ids) {
         $placeholders = implode(',', array_fill(0, count($ids), '%d'));
         $sql = "SELECT id, name FROM {$c_table} WHERE id IN ($placeholders)";
@@ -3263,6 +3440,70 @@ add_action('init', function () {
         'public' => false,
         'show_ui' => false,
         'show_in_menu' => false,
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         'supports' => ['title']
     ]);
 });
