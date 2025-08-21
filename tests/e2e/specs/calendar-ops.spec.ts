@@ -1,20 +1,5 @@
-import { test, expect, Page } from '@playwright/test';
-
-async function robustGoto(page: Page, url: string) {
-  for (let i = 0; i < 5; i++) {
-    try {
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-      return;
-    } catch {
-      await page.waitForTimeout(1500);
-      try {
-        await page.goto('/wp-admin/', { waitUntil: 'domcontentloaded', timeout: 45000 });
-      } catch {}
-      await page.waitForTimeout(1000);
-    }
-  }
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-}
+import { test, expect } from '@playwright/test';
+import { robustGoto } from './_helpers';
 
 test('@smoke Calendar displays and room selector works', async ({ page }) => {
   await page.goto('/wp-login.php');

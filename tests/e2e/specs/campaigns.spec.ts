@@ -1,27 +1,12 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { wpScalar } from '../fixtures/wp';
+import { robustGoto } from './_helpers';
 
 function fmtDate(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
-}
-
-async function robustGoto(page: Page, url: string) {
-  for (let i = 0; i < 5; i++) {
-    try {
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-      return;
-    } catch {
-      await page.waitForTimeout(1500);
-      try {
-        await page.goto('/wp-admin/', { waitUntil: 'domcontentloaded', timeout: 45000 });
-      } catch {}
-      await page.waitForTimeout(1000);
-    }
-  }
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
 }
 
 test.describe('@smoke Campaign Management Flow', () => {
