@@ -1,8 +1,13 @@
 {
+  "common.search": { "ja": "検索" },
+
   "menu.monthly_room_booking": { "ja": "月間宿泊予約" },
   "campaigns.assign.modal.title": { "ja": "部屋へ紐づけ" },
   "campaigns.assign.fields.room": { "ja": "部屋" },
   "campaigns.assign.fields.campaign": { "ja": "キャンペーン" },
+  "action.cancel": { "ja": "キャンセル" },
+  "rooms.form.campaign.toggle.active": { "ja": "有効にする" },
+
   "campaigns.assign.fields.start_date": { "ja": "開始日" },
   "campaigns.assign.fields.end_date": { "ja": "終了日" },
   "campaigns.assign.fields.status": { "ja": "ステータス" },
