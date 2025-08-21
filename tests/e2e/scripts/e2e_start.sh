@@ -40,8 +40,14 @@ docker compose -f dev/docker-compose.yml run --rm wpcli wp cache flush || true
 
 docker compose -f dev/docker-compose.yml exec -T wordpress bash -lc "mkdir -p /var/www/html/wp-content/mu-plugins && printf '%s\n' \
 '<?php' \
-'add_filter(\"option_home\", function(\$v){ return \"${MB_BASE_URL%/}\";});' \
-'add_filter(\"option_siteurl\", function(\$v){ return \"${MB_BASE_URL%/}\";});' \
+'\$__mb_base = \"${MB_BASE_URL%/}\";' \
+'add_filter(\"pre_option_home\", function(){ global $__mb_base; return \$__mb_base; });' \
+'add_filter(\"pre_option_siteurl\", function(){ global $__mb_base; return \$__mb_base; });' \
+'add_filter(\"option_home\", function(\$v){ global \$__mb_base; return \$__mb_base;});' \
+'add_filter(\"option_siteurl\", function(\$v){ global \$__mb_base; return \$__mb_base;});' \
+'add_filter(\"home_url\", function(\$url){ global \$__mb_base; return \$__mb_base . parse_url(\$url, PHP_URL_PATH); }, 10, 1);' \
+'add_filter(\"site_url\", function(\$url){ global \$__mb_base; return \$__mb_base . parse_url(\$url, PHP_URL_PATH); }, 10, 1);' \
+'add_filter(\"rest_url\", function(\$url){ global \$__mb_base; \$p = parse_url(\$url, PHP_URL_PATH); return rtrim(\$__mb_base, \"/\") . \$p; }, 10, 1);' \
 > /var/www/html/wp-content/mu-plugins/mb-test-url.php && chown www-data:www-data /var/www/html/wp-content/mu-plugins/mb-test-url.php && chmod 644 /var/www/html/wp-content/mu-plugins/mb-test-url.php"
 
 docker compose -f dev/docker-compose.yml run --rm wpcli wp plugin activate monthly-booking || true
