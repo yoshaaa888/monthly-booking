@@ -33,6 +33,11 @@ $table_prefix = 'wp_';
 define( 'WP_DEBUG', false );
 PHP
 fi
+if [ ! -f "${WP_NOW_DIR}/wp-load.php" ]; then
+  rm -rf "${WP_NOW_DIR}" || true
+  mkdir -p "${WP_NOW_DIR}"
+fi
+
 
 if [ -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" ]; then
   mkdir -p ~/.wp-now/mu-plugins ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins
