@@ -98,7 +98,7 @@
 
   "period.type.fixed": { "ja": "固定" },
   "period.type.movein": { "ja": "入居日連動" },
-  "period.type.first_month_30d": { "ja": "初月30日" },
+  "period.type.first_month_30d": { "ja": "入居月30日間" },
   "period.type.unlimited": { "ja": "無期限" },
 
   "campaigns.actions.edit": { "ja": "編集" },
@@ -118,7 +118,7 @@
   "campaigns.validation.fixed_dates_required": { "ja": "固定期間の場合は開始日・終了日を入力してください" },
   "campaigns.validation.date_order": { "ja": "終了日は開始日より後に設定してください" },
   "campaigns.validation.profit_warning": { "ja": "収益性の観点から割引上限（50%）に注意してください" },
-  "campaigns.validation.unlimited_warning": { "ja": "無期限は緊急時のみ。承認の上で使用してください。" },
+  "campaigns.validation.unlimited_warning": { "ja": "⚠️ 無期限設定は収益に大きく影響します。慎重に設定してください。" },
 
   "campaigns.rules.flatrate": { "ja": "コミコミ10万円: 7-10日滞在で全込み10万円" },
   "campaigns.rules.only_one": { "ja": "最大1つのキャンペーンのみ適用されます" },
