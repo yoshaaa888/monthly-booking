@@ -633,6 +633,8 @@ class MonthlyBooking {
             usage_limit int(5),
             usage_count int(5) DEFAULT 0,
             is_active tinyint(1) DEFAULT 1,
+            period_type varchar(32) DEFAULT NULL,
+            relative_days int(3) DEFAULT NULL,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),

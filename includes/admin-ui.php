@@ -897,7 +897,6 @@ class MonthlyBooking_Admin_UI {
         .legend-symbol.campaign {
             color: #ff9800;
             background: #fff3e0;
-<?php
 add_action('wp_ajax_mb_get_rooms', function () {
     if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
     check_ajax_referer('monthly_booking_admin', 'nonce');
@@ -919,12 +918,158 @@ add_action('wp_ajax_mb_get_campaigns', function () {
     check_ajax_referer('monthly_booking_admin', 'nonce');
     global $wpdb;
     $table = $wpdb->prefix . 'monthly_campaigns';
-    $rows = $wpdb->get_results("SELECT id, name FROM {$table} WHERE is_active=1 ORDER BY id DESC LIMIT 100", ARRAY_A);
+    $rows = $wpdb->get_results("SELECT id, campaign_name AS name FROM {$table} WHERE is_active=1 ORDER BY id DESC LIMIT 100", ARRAY_A);
     if (!$rows) $rows = [];
     wp_send_json_success($rows);
-});
-?>
+add_action('wp_ajax_create_campaign', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $table = $wpdb->prefix . 'monthly_campaigns';
+    $name = isset($_POST['name']) ? sanitize_text_field($_POST['name']) : '';
+    $discount_type = isset($_POST['discount_type']) ? sanitize_text_field($_POST['discount_type']) : '';
+    $discount_value = isset($_POST['discount_value']) ? floatval($_POST['discount_value']) : 0;
+    $period_type = isset($_POST['period_type']) ? sanitize_text_field($_POST['period_type']) : 'fixed';
+    $relative_days = null;
+    if ($period_type === 'first_month_30d') { $period_type = 'checkin_relative'; $relative_days = 30; }
+    elseif ($period_type === 'checkin_relative') {
+        $rd = isset($_POST['relative_days']) ? intval($_POST['relative_days']) : 0;
+        if ($rd >= 1 && $rd <= 30) $relative_days = $rd;
+    }
+    $start_date = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : null;
+    $end_date = isset($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : null;
+    $contracts = isset($_POST['contract_types']) ? (array) $_POST['contract_types'] : (isset($_POST['contract_types']) ? (array) $_POST['contract_types'] : array());
+    if (empty($contracts) && isset($_POST['contract_types'])) $contracts = (array) $_POST['contract_types'];
+    if (empty($contracts) && isset($_POST['contract_types'])) $contracts = array_map('sanitize_text_field', (array)$_POST['contract_types']);
+    $contracts = isset($_POST['contract_types']) ? array_map('sanitize_text_field', (array)$_POST['contract_types']) : array();
+    $allowed_contracts = array('SS','S','M','L','ALL');
+    $contracts = array_values(array_intersect(array_map('strtoupper', $contracts), $allowed_contracts));
+    $target_plan = empty($contracts) ? 'ALL' : implode(',', $contracts);
+    $is_active = isset($_POST['is_active']) ? 1 : 1;
 
+    if ($name === '' || !in_array($discount_type, array('percentage','fixed','flatrate'), true)) {
+        wp_send_json_error('invalid parameters', 400);
+    }
+    if ($period_type === 'fixed') {
+        if (empty($start_date) || empty($end_date) || $start_date >= $end_date) {
+            wp_send_json_error('invalid fixed period', 400);
+        }
+    }
+    if ($period_type !== 'fixed') {
+        $start_date = $start_date ?: current_time('Y-m-d');
+        $end_date = $end_date ?: '2099-12-31';
+    }
+    $data = array(
+        'campaign_name' => $name,
+        'discount_type' => $discount_type,
+        'discount_value' => $discount_value,
+        'start_date' => $start_date,
+        'end_date' => $end_date,
+        'is_active' => $is_active,
+        'target_plan' => $target_plan,
+        'period_type' => $period_type,
+        'relative_days' => $relative_days,
+        'created_at' => current_time('mysql'),
+        'updated_at' => current_time('mysql'),
+    );
+    $formats = array('%s','%s','%f','%s','%s','%d','%s','%s','%d','%s','%s');
+    $ok = $wpdb->insert($table, $data);
+    if (!$ok) wp_send_json_error($wpdb->last_error ?: 'db error', 500);
+    wp_send_json_success(array('id' => $wpdb->insert_id, 'message' => 'キャンペーンを作成しました'));
+});
+
+add_action('wp_ajax_update_campaign', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $table = $wpdb->prefix . 'monthly_campaigns';
+    $cid = isset($_POST['campaign_id']) ? intval($_POST['campaign_id']) : 0;
+    if ($cid <= 0) wp_send_json_error('invalid id', 400);
+
+    $name = isset($_POST['name']) ? sanitize_text_field($_POST['name']) : '';
+    $discount_type = isset($_POST['discount_type']) ? sanitize_text_field($_POST['discount_type']) : '';
+    $discount_value = isset($_POST['discount_value']) ? floatval($_POST['discount_value']) : 0;
+    $period_type = isset($_POST['period_type']) ? sanitize_text_field($_POST['period_type']) : 'fixed';
+    $relative_days = null;
+    if ($period_type === 'first_month_30d') { $period_type = 'checkin_relative'; $relative_days = 30; }
+    elseif ($period_type === 'checkin_relative') {
+        $rd = isset($_POST['relative_days']) ? intval($_POST['relative_days']) : 0;
+        if ($rd >= 1 && $rd <= 30) $relative_days = $rd;
+    }
+    $start_date = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : null;
+    $end_date = isset($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : null;
+    $contracts = isset($_POST['contract_types']) ? array_map('sanitize_text_field', (array)$_POST['contract_types']) : array();
+    $allowed_contracts = array('SS','S','M','L','ALL');
+    $contracts = array_values(array_intersect(array_map('strtoupper', $contracts), $allowed_contracts));
+    $target_plan = empty($contracts) ? 'ALL' : implode(',', $contracts);
+    $is_active = isset($_POST['is_active']) ? 1 : 1;
+
+    if ($name === '' || !in_array($discount_type, array('percentage','fixed','flatrate'), true)) {
+        wp_send_json_error('invalid parameters', 400);
+    }
+    if ($period_type === 'fixed') {
+        if (empty($start_date) || empty($end_date) || $start_date >= $end_date) {
+            wp_send_json_error('invalid fixed period', 400);
+        }
+    }
+    if ($period_type !== 'fixed') {
+        $start_date = $start_date ?: current_time('Y-m-d');
+        $end_date = $end_date ?: '2099-12-31';
+    }
+    $data = array(
+        'campaign_name' => $name,
+        'discount_type' => $discount_type,
+        'discount_value' => $discount_value,
+        'start_date' => $start_date,
+        'end_date' => $end_date,
+        'is_active' => $is_active,
+        'target_plan' => $target_plan,
+        'period_type' => $period_type,
+        'relative_days' => $relative_days,
+        'updated_at' => current_time('mysql'),
+    );
+    $ok = $wpdb->update($table, $data, array('id' => $cid), null, array('%d'));
+    if ($ok === false) wp_send_json_error($wpdb->last_error ?: 'db error', 500);
+    wp_send_json_success(array('id' => $cid, 'message' => 'キャンペーンを更新しました'));
+});
+
+add_action('wp_ajax_delete_campaign', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $table = $wpdb->prefix . 'monthly_campaigns';
+    $cid = isset($_POST['campaign_id']) ? intval($_POST['campaign_id']) : 0;
+    if ($cid <= 0) wp_send_json_error('invalid id', 400);
+    $ok = $wpdb->delete($table, array('id' => $cid), array('%d'));
+    if ($ok === false) wp_send_json_error($wpdb->last_error ?: 'db error', 500);
+    wp_send_json_success(array('id' => $cid, 'message' => 'キャンペーンを削除しました'));
+});
+
+add_action('wp_ajax_toggle_campaign_status', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $table = $wpdb->prefix . 'monthly_campaigns';
+    $cid = isset($_POST['campaign_id']) ? intval($_POST['campaign_id']) : 0;
+    $is_active = isset($_POST['is_active']) ? intval($_POST['is_active']) : 0;
+    if ($cid <= 0) wp_send_json_error('invalid id', 400);
+    $ok = $wpdb->update($table, array('is_active' => $is_active ? 0 : 1, 'updated_at' => current_time('mysql')), array('id' => $cid));
+    if ($ok === false) wp_send_json_error($wpdb->last_error ?: 'db error', 500);
+    wp_send_json_success(array('id' => $cid, 'message' => 'ステータスを更新しました', 'is_active' => $is_active ? 0 : 1));
+});add_action('wp_ajax_toggle_campaign', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $table = $wpdb->prefix . 'monthly_campaigns';
+    $cid = isset($_POST['campaign_id']) ? intval($_POST['campaign_id']) : 0;
+    $is_active = isset($_POST['is_active']) ? intval($_POST['is_active']) : 0;
+    if ($cid <= 0) wp_send_json_error('invalid id', 400);
+    $ok = $wpdb->update($table, array('is_active' => $is_active ? 1 : 0, 'updated_at' => current_time('mysql')), array('id' => $cid));
+    if ($ok === false) wp_send_json_error($wpdb->last_error ?: 'db error', 500);
+    wp_send_json_success(array('id' => $cid, 'message' => 'ステータスを更新しました', 'is_active' => $is_active ? 1 : 0));
+});
+
+});
         }
         </style>
         <?php
@@ -1943,11 +2088,15 @@ add_action('wp_ajax_mb_get_campaigns', function () {
                     $counts = array();
                     $table_room_campaigns = $wpdb->prefix . 'monthly_room_campaigns';
                     if ($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table_room_campaigns))) {
-                        $count_rows = $wpdb->get_results("
+                        $today = current_time('Y-m-d');
+                        $count_rows = $wpdb->get_results($wpdb->prepare("
                             SELECT campaign_id, COUNT(*) AS cnt
                             FROM {$table_room_campaigns}
+                            WHERE is_active = 1
+                              AND start_date <= %s
+                              AND end_date > %s
                             GROUP BY campaign_id
-                        ");
+                        ", $today, $today));
                         if ($count_rows) {
                             foreach ($count_rows as $r) {
                                 $counts[intval($r->campaign_id)] = intval($r->cnt);
@@ -2008,8 +2157,15 @@ add_action('wp_ajax_mb_get_campaigns', function () {
                             </td>
                             <td>
                                 <?php
-                                    echo esc_html(mb_t('period.type.fixed')) . ' ';
-                                    echo esc_html($campaign->start_date) . ' — ' . esc_html($campaign->end_date);
+                                    $pt = isset($campaign->period_type) ? $campaign->period_type : null;
+                                    if ($pt === 'checkin_relative') {
+                                        $days = isset($campaign->relative_days) ? intval($campaign->relative_days) : 0;
+                                        echo esc_html($days > 0 ? ('入居日から' . $days . '日間') : mb_t('period.type.movein'));
+                                    } elseif ($pt === 'unlimited') {
+                                        echo esc_html(mb_t('period.type.unlimited'));
+                                    } else {
+                                        echo esc_html(mb_t('period.type.fixed')) . ' ' . esc_html($campaign->start_date) . ' — ' . esc_html($campaign->end_date);
+                                    }
                                 ?>
                             </td>
                             <td>
@@ -2090,7 +2246,7 @@ add_action('wp_ajax_mb_get_campaigns', function () {
                 <?php
                 global $wpdb;
                 $table_campaigns = $wpdb->prefix . 'monthly_campaigns';
-                $campaigns = $wpdb->get_results("SELECT id, name, discount_type, discount_value, start_date, end_date, is_active FROM $table_campaigns ORDER BY created_at DESC");
+                $campaigns = $wpdb->get_results("SELECT id, campaign_name AS name, discount_type, discount_value, start_date, end_date, is_active FROM $table_campaigns ORDER BY created_at DESC");
                 ?>
 
                 <table class="monthly-booking-table">
@@ -3152,4 +3308,3 @@ add_action('admin_footer', function () {
 </div>
 <?php
 });
-?>
