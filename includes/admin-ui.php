@@ -2262,43 +2262,6 @@ add_action('wp_ajax_mb_get_campaigns', function () {
                                 <th><label for="start_date"><?php echo esc_html(mb_t('campaigns.form.fields.start_date')); ?></label></th>
                                 <td>
                                     <input type="date" name="start_date" id="start_date" class="regular-text" required min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
-<div id="assignment-modal" style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); z-index:10000;">
-    <div role="dialog" aria-modal="true" aria-labelledby="assignment-modal-title" style="position:absolute; top:50%; left:50%; transform: translate(-50%, -50%); background:#fff; padding:24px; width:560px; max-width:90%; border-radius:6px;">
-        <h3 id="assignment-modal-title" style="margin-top:0;"><?php echo esc_html(mb_t('campaigns.assign.modal.title')); ?></h3>
-        <div id="assignment-message" class="notice" role="status" aria-live="polite" style="display:none;"></div>
-        <table class="form-table">
-            <tr>
-                <th><label for="assignment_room"><?php echo esc_html(mb_t('campaigns.assign.fields.room')); ?></label></th>
-                <td>
-                    <input type="text" id="assignment_room_search" class="regular-text" style="margin-bottom:8px; width:100%" placeholder="<?php echo esc_attr(mb_t('common.search')); ?>" />
-                    <select id="assignment_room"></select>
-                </td>
-            </tr>
-            <tr>
-                <th><label for="assignment_campaign"><?php echo esc_html(mb_t('campaigns.assign.fields.campaign')); ?></label></th>
-                <td>
-                    <select id="assignment_campaign"></select>
-                </td>
-            </tr>
-            <tr>
-                <th><label for="assignment_start"><?php echo esc_html(mb_t('campaigns.assign.fields.start_date')); ?></label></th>
-                <td><input type="date" id="assignment_start"></td>
-            </tr>
-            <tr>
-                <th><label for="assignment_end"><?php echo esc_html(mb_t('campaigns.assign.fields.end_date')); ?></label></th>
-                <td><input type="date" id="assignment_end"></td>
-            </tr>
-            <tr>
-                <th><label for="assignment_active"><?php echo esc_html(mb_t('campaigns.assign.fields.status')); ?></label></th>
-                <td><label><input type="checkbox" id="assignment_active" checked> <?php echo esc_html(mb_t('rooms.form.campaign.toggle.active')); ?></label></td>
-            </tr>
-        </table>
-        <div style="text-align:right;">
-            <button type="button" class="button" id="assignment-cancel"><?php echo esc_html(mb_t('action.cancel')); ?></button>
-            <button type="button" class="button button-primary" id="assignment-save"><?php echo esc_html(mb_t('campaigns.assign.actions.assign')); ?></button>
-        </div>
-    </div>
-</div>
 
                                 </td>
                             </tr>
@@ -3147,3 +3110,46 @@ add_action('init', function () {
         'supports' => ['title']
     ]);
 });
+add_action('admin_footer', function () {
+    if (!current_user_can('manage_options')) return;
+    ?>
+<div id="assignment-modal" style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); z-index:10000;">
+    <div role="dialog" aria-modal="true" aria-labelledby="assignment-modal-title" style="position:absolute; top:50%; left:50%; transform: translate(-50%, -50%); background:#fff; padding:24px; width:560px; max-width:90%; border-radius:6px;">
+        <h3 id="assignment-modal-title" style="margin-top:0;"><?php echo esc_html(mb_t('campaigns.assign.modal.title')); ?></h3>
+        <div id="assignment-message" class="notice" role="status" aria-live="polite" style="display:none;"></div>
+        <table class="form-table">
+            <tr>
+                <th><label for="assignment_room"><?php echo esc_html(mb_t('campaigns.assign.fields.room')); ?></label></th>
+                <td>
+                    <input type="text" id="assignment_room_search" class="regular-text" style="margin-bottom:8px; width:100%" placeholder="<?php echo esc_attr(mb_t('common.search')); ?>" />
+                    <select id="assignment_room"></select>
+                </td>
+            </tr>
+            <tr>
+                <th><label for="assignment_campaign"><?php echo esc_html(mb_t('campaigns.assign.fields.campaign')); ?></label></th>
+                <td>
+                    <select id="assignment_campaign"></select>
+                </td>
+            </tr>
+            <tr>
+                <th><label for="assignment_start"><?php echo esc_html(mb_t('campaigns.assign.fields.start_date')); ?></label></th>
+                <td><input type="date" id="assignment_start"></td>
+            </tr>
+            <tr>
+                <th><label for="assignment_end"><?php echo esc_html(mb_t('campaigns.assign.fields.end_date')); ?></label></th>
+                <td><input type="date" id="assignment_end"></td>
+            </tr>
+            <tr>
+                <th><label for="assignment_active"><?php echo esc_html(mb_t('campaigns.assign.fields.status')); ?></label></th>
+                <td><label><input type="checkbox" id="assignment_active" checked> <?php echo esc_html(mb_t('rooms.form.campaign.toggle.active')); ?></label></td>
+            </tr>
+        </table>
+        <div style="text-align:right;">
+            <button type="button" class="button" id="assignment-cancel"><?php echo esc_html(mb_t('action.cancel')); ?></button>
+            <button type="button" class="button button-primary" id="assignment-save"><?php echo esc_html(mb_t('campaigns.assign.actions.assign')); ?></button>
+        </div>
+    </div>
+</div>
+<?php
+});
+?>
