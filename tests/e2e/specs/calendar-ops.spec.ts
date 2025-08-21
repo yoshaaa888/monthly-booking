@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('Calendar displays and room selector works', async ({ page }) => {
+test('@smoke Calendar displays and room selector works', async ({ page }) => {
   await page.goto('/wp-login.php');
   await page.fill('#user_login', process.env.MB_ADMIN_USER || 'admin');
   await page.fill('#user_pass', process.env.MB_ADMIN_PASS || 'password');

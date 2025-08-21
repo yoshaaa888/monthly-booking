@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { wpScalar } from '../fixtures/wp';
 
-test('Bulk room selection -> campaign assignment -> status verification', async ({ page }) => {
+test('@smoke Bulk room selection -> campaign assignment -> status verification', async ({ page }) => {
   await page.goto('/wp-login.php');
   await page.fill('#user_login', process.env.MB_ADMIN_USER || 'admin');
   await page.fill('#user_pass', process.env.MB_ADMIN_PASS || 'password');

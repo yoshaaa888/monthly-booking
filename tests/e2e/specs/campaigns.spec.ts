@@ -8,8 +8,8 @@ function fmtDate(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
-test.describe('Campaign Management Flow', () => {
-  test('create campaign -> assign to rooms -> verify calendar display + DB', async ({ page }) => {
+test.describe('@smoke Campaign Management Flow', () => {
+  test('@smoke create campaign -> assign to rooms -> verify calendar display + DB', async ({ page }) => {
     await page.goto('/wp-login.php');
     await page.fill('#user_login', process.env.MB_ADMIN_USER || 'admin');
     await page.fill('#user_pass', process.env.MB_ADMIN_PASS || 'password');
@@ -20,7 +20,7 @@ test.describe('Campaign Management Flow', () => {
     await page.locator('[data-testid="mb-campaign-create"]').click();
     const form = page.locator('[data-testid="mb-campaign-form"]');
     await form.locator('[data-testid="mb-campaign-name"]').fill('E2E Test 20%');
-    await form.locator('[data-testid="mb-campaign-discount-type"]').selectOption('percentage');
+    await form.locator('[data-testid="mb-campaign-type"]').selectOption('percentage');
     await form.locator('[data-testid="mb-campaign-discount-value"]').fill('20');
     await form.locator('[data-testid="mb-campaign-period-fixed"]').check();
 

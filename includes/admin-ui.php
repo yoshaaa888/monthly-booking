@@ -2272,7 +2272,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                         }
                     }
                 ?>
-                <table class="monthly-booking-table widefat">
+                <table class="monthly-booking-table widefat" data-testid="mb-campaign-list">
                     <thead>
                         <tr>
                             <th><?php echo esc_html(mb_t('campaigns.list.headers.name')); ?></th>
@@ -2298,7 +2298,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                         </tr>
                         <?php else: ?>
                         <?php foreach ($campaigns as $campaign): ?>
-                        <tr>
+                        <tr data-testid="mb-campaign-row" data-id="<?php echo esc_attr($campaign->id); ?>">
                             <td><strong><?php echo esc_html($campaign->campaign_name); ?></strong></td>
                             <td>
                                 <?php
@@ -2417,7 +2417,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                 $campaigns = $wpdb->get_results("SELECT id, campaign_name AS name, discount_type, discount_value, start_date, end_date, is_active FROM $table_campaigns ORDER BY created_at DESC");
                 ?>
 
-                <table class="monthly-booking-table">
+                <table class="monthly-booking-table" data-testid="mb-campaign-list-legacy">
                     <thead>
                         <tr>
                             <th><?php echo esc_html(mb_t('common.name')); ?></th>
@@ -2430,7 +2430,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                     <tbody>
                         <?php if (!empty($campaigns)): ?>
                             <?php foreach ($campaigns as $c): ?>
-                                <tr>
+                                <tr data-testid="mb-campaign-row" data-id="<?php echo esc_attr($c->id); ?>">
                                     <td><?php echo esc_html($c->name); ?></td>
                                     <td>
                                         <?php
@@ -2485,7 +2485,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                     <input type="hidden" name="action" value="create_campaign" id="form-action">
                     <input type="hidden" name="campaign_id" value="" id="campaign-id">
                     <input type="hidden" name="nonce" value="<?php echo esc_attr( wp_create_nonce('monthly_booking_admin') ); ?>">
-                    <div id="campaign-form-message" class="notice" style="display:none"></div>
+                    <div id="campaign-form-message" class="notice" style="display:none" data-testid="mb-campaign-form-message"></div>
                     
                     <!-- 基本情報セクション -->
                     <div class="campaign-section">
@@ -3020,7 +3020,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                 <h2><?php _e('オプション管理', 'monthly-booking'); ?></h2>
                 <p><?php _e('月額予約のオプションセットを管理します。', 'monthly-booking'); ?></p>
                 
-                <table class="monthly-booking-table">
+                <table class="monthly-booking-table" data-testid="mb-campaign-list-legacy">
                     <thead>
                         <tr>
                             <th><?php _e('表示順', 'monthly-booking'); ?></th>

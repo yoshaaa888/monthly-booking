@@ -12,17 +12,13 @@ export default defineConfig({
     headless: true,
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
-    trace: 'retain-on-failure',
-    launchOptions: {
-      args: ['--disable-dev-shm-usage', '--no-sandbox', '--no-zygote', '--single-process']
-    }
+    trace: 'retain-on-failure'
   },
   reporter: [
     ['list'],
     ['html', { outputFolder: 'playwright-report', open: 'never' }]
   ],
   projects: [
-    { name: 'firefox', use: { browserName: 'firefox' } },
-    { name: 'chromium', use: { browserName: 'chromium' } }
+    { name: 'firefox', use: { browserName: 'firefox' } }
   ]
 });

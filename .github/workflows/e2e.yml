@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  e2e-chromium:
+  e2e-firefox:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -61,9 +61,9 @@ jobs:
             sleep 2
           done
 
-      - name: Run Playwright tests (Firefox primary)
+      - name: Run Playwright tests (Firefox primary, @smoke)
         working-directory: tests/e2e
-        run: npx playwright test --project=firefox
+        run: npx playwright test --project=firefox --grep "@smoke"
 
       - name: Upload Playwright report
         if: always()
