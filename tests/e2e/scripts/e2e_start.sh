@@ -38,7 +38,7 @@ docker compose -f dev/docker-compose.yml run --rm wpcli wp config set WP_SITEURL
 docker compose -f dev/docker-compose.yml run --rm wpcli wp db query "UPDATE \`wp_options\` SET option_value='${MB_BASE_URL%/}' WHERE option_name IN ('home','siteurl');" || true
 docker compose -f dev/docker-compose.yml run --rm wpcli wp cache flush || true
 
-docker compose -f dev/docker-compose.yml run --rm wpcli bash -lc "mkdir -p wp-content/mu-plugins && printf '%s\n' \
+docker compose -f dev/docker-compose.yml exec -T wordpress bash -lc "mkdir -p wp-content/mu-plugins && printf '%s\n' \
 '<?php' \
 'add_filter(\"option_home\", function(\$v){ return \"${MB_BASE_URL%/}\";});' \
 'add_filter(\"option_siteurl\", function(\$v){ return \"${MB_BASE_URL%/}\";});' \
