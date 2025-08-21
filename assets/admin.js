@@ -398,6 +398,9 @@ jQuery(document).ready(function($) {
                 $(this).addClass('error');
                 isValid = false;
             } else {
+
+
+
                 $(this).removeClass('error');
             }
         });
