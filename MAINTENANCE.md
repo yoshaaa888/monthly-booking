@@ -62,12 +62,14 @@ Known Limitations (v1.0.0)
 - Sample data: Uses CURDATE()—intended for quick demonstrations near the current date.
 
 Hotfix Procedure
+- See also: docs/DEV_ENV.md for Docker-based local setup and Emergency Hotfix Flow
 - Branch: devin/{epoch}-hotfix-brief-slug
 - Changes:
   - Keep scope minimal and risk-contained.
   - Update version in monthly-booking.php (e.g., 1.0.1).
   - Update CHANGELOG (if present) and release notes draft.
 - Testing:
+  - Prefer Docker dev stack: follow docs/DEV_ENV.md (make up, make reset-db, make activate-plugin, make import-sample).
   - PHP lint for changed PHP files.
   - Smoke scripts (scripts/smoke_local.sh) if feasible.
   - Manual verification for the impacted flows.
