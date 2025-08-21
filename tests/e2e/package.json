@@ -1,0 +1,16 @@
+{
+  "name": "monthly-booking-e2e",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "pretest:e2e": "bash ./scripts/e2e_start.sh",
+    "test:e2e": "playwright test --reporter=line",
+    "posttest:e2e": "bash ./scripts/e2e_stop.sh || true",
+    "pw:install": "npx playwright install --with-deps"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.2"
+  }
+}
