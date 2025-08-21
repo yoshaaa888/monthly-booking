@@ -37,6 +37,25 @@ Log Collection
 - Screenshot or screen recording of the calendar/operation flow showing the issue.
 - SQL snapshot for target rows (rooms, reservations, campaigns, assignments) where applicable.
 
+Common Issues & Solutions
+- Symbols not matching expectations
+  - Check reservation intervals [checkin, checkout) and cleaning buffer [checkout, +5d]
+  - Verify room is_active and campaign assignment is_active for target date
+  - Confirm timezone in WordPress General settings
+- Right panel not updating
+  - Reload the month view; ensure admin session is valid
+  - Inspect console network requests for 4xx/5xx or nonce errors
+- Campaign assignment conflicts
+  - Validate period overlaps and contract types; ensure the room is active
+  - Review server responses for validation messages
+- Price anomalies on booking recalculation
+  - Ensure only one discount applies; re-run “Recalculate”
+  - Capture and attach the response payload in the issue
+- Activation or upgrade issues
+  - Verify PHP 7.4+ (8.x compatible), WP 6.x
+  - Re-activate the plugin; check wp-content/debug.log if enabled
+
+
 Known Limitations (v1.0.0)
 - Accessibility: Keyboard navigation and announcements can be expanded.
 - Performance: At 450-room scale, further virtualization/pagination and query/index tuning may be needed.
