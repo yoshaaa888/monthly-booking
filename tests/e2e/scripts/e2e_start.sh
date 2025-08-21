@@ -31,6 +31,8 @@ until docker compose -f dev/docker-compose.yml run --rm wpcli wp core is-install
   fi
   sleep "$MB_READY_INTERVAL_SEC"
 done
+docker compose -f dev/docker-compose.yml run --rm wpcli wp option update home "${MB_BASE_URL%/}"
+docker compose -f dev/docker-compose.yml run --rm wpcli wp option update siteurl "${MB_BASE_URL%/}"
 
 docker compose -f dev/docker-compose.yml run --rm wpcli wp plugin activate monthly-booking || true
 if [ -f dist/sample-data.sql ]; then
