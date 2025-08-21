@@ -829,7 +829,11 @@ class MonthlyBooking {
     }
     
     public function ajax_load_calendar() {
-        check_ajax_referer('mbp_calendar_nonce', 'nonce');
+        require_once plugin_dir_path(__FILE__) . 'includes/security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_nonce', 'field' => 'nonce'],
+            ['action' => 'mbp_calendar_nonce', 'field' => 'nonce'],
+        ]);
         
         $room_id = intval($_POST['room_id']);
         $month = intval($_POST['month']);
@@ -870,7 +874,11 @@ class MonthlyBooking {
     }
     
     public function ajax_reservation_create() {
-        check_ajax_referer('mbp_reservations_nonce', '_ajax_nonce');
+        require_once plugin_dir_path(__FILE__) . 'includes/security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_admin', 'field' => 'nonce'],
+            ['action' => 'mbp_reservations_nonce', 'field' => '_ajax_nonce'],
+        ]);
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('権限がありません。', 'monthly-booking'));
@@ -906,7 +914,11 @@ class MonthlyBooking {
     }
     
     public function ajax_reservation_update() {
-        check_ajax_referer('mbp_reservations_nonce', '_ajax_nonce');
+        require_once plugin_dir_path(__FILE__) . 'includes/security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_admin', 'field' => 'nonce'],
+            ['action' => 'mbp_reservations_nonce', 'field' => '_ajax_nonce'],
+        ]);
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('権限がありません。', 'monthly-booking'));
@@ -942,7 +954,11 @@ class MonthlyBooking {
     }
     
     public function ajax_reservation_delete() {
-        check_ajax_referer('mbp_reservations_nonce', '_ajax_nonce');
+        require_once plugin_dir_path(__FILE__) . 'includes/security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_admin', 'field' => 'nonce'],
+            ['action' => 'mbp_reservations_nonce', 'field' => '_ajax_nonce'],
+        ]);
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('権限がありません。', 'monthly-booking'));
@@ -969,7 +985,11 @@ class MonthlyBooking {
     }
     
     public function ajax_reservation_list() {
-        check_ajax_referer('mbp_reservations_nonce', '_ajax_nonce');
+        require_once plugin_dir_path(__FILE__) . 'includes/security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_admin', 'field' => 'nonce'],
+            ['action' => 'mbp_reservations_nonce', 'field' => '_ajax_nonce'],
+        ]);
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('権限がありません。', 'monthly-booking'));
@@ -990,13 +1010,11 @@ class MonthlyBooking {
         wp_send_json_success($result);
     }
     public function ajax_get_calendar_bookings() {
-        if (!isset($_POST['nonce'])) {
-            wp_send_json_error(array('message' => 'Missing nonce'), 400);
-        }
-        $nonce = $_POST['nonce'];
-        if (!wp_verify_nonce($nonce, 'mbp_calendar_nonce') && !wp_verify_nonce($nonce, 'monthly_booking_nonce')) {
-            wp_send_json_error(array('message' => 'Invalid nonce'), 403);
-        }
+        require_once plugin_dir_path(__FILE__) . 'includes/security.php';
+        mb_check_ajax_nonce_any([
+            ['action' => 'monthly_booking_nonce', 'field' => 'nonce'],
+            ['action' => 'mbp_calendar_nonce', 'field' => 'nonce'],
+        ]);
 
         $month = isset($_POST['month']) ? intval($_POST['month']) : 0;
         $year = isset($_POST['year']) ? intval($_POST['year']) : 0;
