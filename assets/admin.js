@@ -1,4 +1,6 @@
 /* noop change to trigger CI */ 
+void 0;
+
 
 document.addEventListener('DOMContentLoaded', function () {
   var t = window.mb_t || function (k) { return k; };
