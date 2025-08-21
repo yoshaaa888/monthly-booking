@@ -18,6 +18,8 @@ jobs:
       MB_BASE_URL: http://127.0.0.1:8080
       MB_ADMIN_USER: admin
       MB_ADMIN_PASS: password
+      MB_ADMIN_EMAIL: admin@example.com
+      MB_SITE_TITLE: Monthly Booking CI
       npm_config_legacy_peer_deps: "true"
       NPX_YES: "1"
     steps:

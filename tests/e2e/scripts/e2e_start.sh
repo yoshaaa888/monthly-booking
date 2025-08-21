@@ -10,9 +10,18 @@ ATTEMPTS=$(( MB_READY_TOTAL_SEC / MB_READY_INTERVAL_SEC ))
 
 docker compose -f dev/docker-compose.yml up -d
 
-echo "Waiting for WordPress to be ready (core)..."
+echo "Ensuring WordPress core is installed..."
 i=$ATTEMPTS
+MB_ADMIN_EMAIL="${MB_ADMIN_EMAIL:-admin@example.com}"
+MB_SITE_TITLE="${MB_SITE_TITLE:-Monthly Booking CI}"
 until docker compose -f dev/docker-compose.yml run --rm wpcli wp core is-installed >/dev/null 2>&1; do
+  docker compose -f dev/docker-compose.yml run --rm wpcli wp core install \
+    --url="${MB_BASE_URL%/}" \
+    --title="${MB_SITE_TITLE}" \
+    --admin_user="${MB_ADMIN_USER:-admin}" \
+    --admin_password="${MB_ADMIN_PASS:-password}" \
+    --admin_email="${MB_ADMIN_EMAIL}" \
+    --skip-email >/dev/null 2>&1 || true
   i=$((i-1))
   if [ "$i" -le 0 ]; then
     echo "WordPress did not become ready in time (core)"
