@@ -6,8 +6,15 @@ test('@smoke Bulk room selection -> campaign assignment -> status verification',
   await page.fill('#user_login', process.env.MB_ADMIN_USER || 'admin');
   await page.fill('#user_pass', process.env.MB_ADMIN_PASS || 'password');
   await page.click('#wp-submit');
+  await page.waitForLoadState('domcontentloaded');
+  await page.waitForLoadState('networkidle').catch(() => {});
 
-  await page.goto('/wp-admin/admin.php?page=monthly-room-booking');
+  const target = '/wp-admin/admin.php?page=monthly-room-booking';
+  await page.goto(target, { waitUntil: 'domcontentloaded' }).catch(async () => {
+    await page.waitForTimeout(1000);
+    await page.goto(target, { waitUntil: 'domcontentloaded' });
+  });
+
   const rows = page.locator('[data-testid="mb-room-row"]');
   await expect(rows.first()).toBeVisible();
 

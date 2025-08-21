@@ -14,8 +14,14 @@ test.describe('@smoke Campaign Management Flow', () => {
     await page.fill('#user_login', process.env.MB_ADMIN_USER || 'admin');
     await page.fill('#user_pass', process.env.MB_ADMIN_PASS || 'password');
     await page.click('#wp-submit');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle').catch(() => {});
 
-    await page.goto('/wp-admin/admin.php?page=monthly-room-booking-campaigns');
+    const campaignsTarget = '/wp-admin/admin.php?page=monthly-room-booking-campaigns';
+    await page.goto(campaignsTarget, { waitUntil: 'domcontentloaded' }).catch(async () => {
+      await page.waitForTimeout(1000);
+      await page.goto(campaignsTarget, { waitUntil: 'domcontentloaded' });
+    });
 
     await page.locator('[data-testid="mb-campaign-create"]').click();
     const form = page.locator('[data-testid="mb-campaign-form"]');
@@ -37,7 +43,12 @@ test.describe('@smoke Campaign Management Flow', () => {
     const count = wpScalar(`SELECT COUNT(*) FROM wp_monthly_campaigns WHERE campaign_name='E2E Test 20%';`);
     expect(count).toBeGreaterThan(0);
 
-    await page.goto('/wp-admin/admin.php?page=monthly-room-booking');
+    const roomsTarget = '/wp-admin/admin.php?page=monthly-room-booking';
+    await page.goto(roomsTarget, { waitUntil: 'domcontentloaded' }).catch(async () => {
+      await page.waitForTimeout(1000);
+      await page.goto(roomsTarget, { waitUntil: 'domcontentloaded' });
+    });
+
     await page.locator('[data-testid="mb-room-select"]').nth(0).check();
     await page.locator('[data-testid="mb-room-select"]').nth(1).check();
     await page.locator('[data-testid="mb-room-bulk-assign"]').click();
@@ -47,7 +58,12 @@ test.describe('@smoke Campaign Management Flow', () => {
     const assignCount = wpScalar(`SELECT COUNT(*) FROM wp_monthly_room_campaigns WHERE campaign_id=(SELECT id FROM wp_monthly_campaigns WHERE campaign_name='E2E Test 20%' ORDER BY id DESC LIMIT 1);`);
     expect(assignCount).toBeGreaterThanOrEqual(2);
 
-    await page.goto('/wp-admin/admin.php?page=monthly-room-booking-calendar');
+    const calTarget = '/wp-admin/admin.php?page=monthly-room-booking-calendar';
+    await page.goto(calTarget, { waitUntil: 'domcontentloaded' }).catch(async () => {
+      await page.waitForTimeout(1000);
+      await page.goto(calTarget, { waitUntil: 'domcontentloaded' });
+    });
+
     await expect(page.locator('[data-testid="mb-calendar-content"]')).toBeVisible();
     const anyBadge = page.locator('[data-testid="mb-calendar-cell"] .mb-cal-cmp, [data-testid="mb-calendar-cell"] .mb-cal-symbol');
     await expect(anyBadge.first()).toBeVisible();

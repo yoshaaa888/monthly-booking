@@ -78,4 +78,10 @@ for k in $(seq 1 "$REST_ATTEMPTS"); do
   sleep "$REST_INT"
 done
 
+for ep in "/wp-admin/" "/wp-admin/admin.php?page=monthly-room-booking" "/wp-admin/admin.php?page=monthly-room-booking-calendar" "/wp-admin/admin.php?page=monthly-room-booking-campaigns"; do
+  curl -L -sS -o /dev/null -w "%{http_code}" "${MB_BASE_URL%/}$ep" || true
+done
+
+sleep 3
+
 echo "Base URL: ${MB_BASE_URL}"
