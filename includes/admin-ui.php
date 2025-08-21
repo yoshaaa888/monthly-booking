@@ -2129,7 +2129,7 @@ class MonthlyBooking_Admin_UI {
         <!-- Campaign Modal -->
         <div id="campaign-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
             <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; width: 600px; max-width: 90%; max-height: 90%; overflow-y: auto;">
-                <h3 id="modal-title" style="margin-top: 0; border-bottom: 2px solid #0073aa; padding-bottom: 10px; color: #0073aa;"><?php _e('新規キャンペーン作成', 'monthly-booking'); ?></h3>
+                <h3 id="modal-title" style="margin-top: 0; border-bottom: 2px solid #0073aa; padding-bottom: 10px; color: #0073aa;"><?php echo esc_html(mb_t('campaigns.form.title.add')); ?></h3>
                 
                 <form method="post" id="campaign-form">
                     <input type="hidden" name="action" value="create_campaign" id="form-action">
@@ -2139,11 +2139,11 @@ class MonthlyBooking_Admin_UI {
                     
                     <!-- 基本情報セクション -->
                     <div class="campaign-section">
-                        <h4 class="section-title"><?php _e('基本情報', 'monthly-booking'); ?></h4>
+                        <h4 class="section-title"><?php echo esc_html(mb_t('campaigns.form.sections.basic')); ?></h4>
                         <table class="form-table">
                             <tr>
-                                <th><label for="name"><?php _e('キャンペーン名', 'monthly-booking'); ?></label></th>
-                                <td><input type="text" name="name" id="name" class="regular-text" required placeholder="<?php _e('例：新春特別キャンペーン', 'monthly-booking'); ?>"></td>
+                                <th><label for="name"><?php echo esc_html(mb_t('campaigns.form.fields.name')); ?></label></th>
+                                <td><input type="text" name="name" id="name" class="regular-text" required placeholder="<?php echo esc_attr(mb_t('campaigns.form.fields.name_placeholder')); ?>"></td>
                             </tr>
                             <tr>
                                 <th><label for="campaign_type"><?php _e('キャンペーンタイプ', 'monthly-booking'); ?></label></th>
@@ -2161,21 +2161,21 @@ class MonthlyBooking_Admin_UI {
                     
                     <!-- 割引設定セクション -->
                     <div class="campaign-section">
-                        <h4 class="section-title"><?php _e('割引設定', 'monthly-booking'); ?></h4>
+                        <h4 class="section-title"><?php echo esc_html(mb_t('campaigns.form.sections.discount')); ?></h4>
                         <table class="form-table">
                             <tr>
-                                <th><label for="discount_type"><?php _e('割引方式', 'monthly-booking'); ?></label></th>
+                                <th><label for="discount_type"><?php echo esc_html(mb_t('campaigns.form.fields.discount_mode')); ?></label></th>
                                 <td>
                                     <select name="discount_type" id="discount_type" required>
-                                        <option value=""><?php _e('選択してください', 'monthly-booking'); ?></option>
-                                        <option value="percentage"><?php _e('パーセンテージ割引（%）', 'monthly-booking'); ?></option>
-                                        <option value="fixed"><?php _e('固定金額割引（円）', 'monthly-booking'); ?></option>
-                                        <option value="flatrate"><?php _e('定額料金設定（円）', 'monthly-booking'); ?></option>
+                                        <option value=""><?php echo esc_html(mb_t('common.select_placeholder')); ?></option>
+                                        <option value="percentage"><?php echo esc_html(mb_t('discount.type.percentage')); ?></option>
+                                        <option value="fixed"><?php echo esc_html(mb_t('discount.type.fixed')); ?></option>
+                                        <option value="flatrate"><?php echo esc_html(mb_t('discount.type.flatrate')); ?></option>
                                     </select>
                                 </td>
                             </tr>
                             <tr>
-                                <th><label for="discount_value"><?php _e('割引値', 'monthly-booking'); ?></label></th>
+                                <th><label for="discount_value"><?php echo esc_html(mb_t('campaigns.form.fields.discount_value')); ?></label></th>
                                 <td>
                                     <input type="number" name="discount_value" id="discount_value" class="regular-text" min="0" step="0.01" required>
                                     <span id="discount-unit" class="description"></span>
