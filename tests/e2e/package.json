@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "scripts": {
     "pretest:e2e": "bash ./scripts/e2e_start.sh",
-    "test:e2e": "playwright test --reporter=line",
+    "test:e2e": "playwright test",
     "posttest:e2e": "bash ./scripts/e2e_stop.sh || true",
     "pw:install": "npx playwright install --with-deps"
   },
