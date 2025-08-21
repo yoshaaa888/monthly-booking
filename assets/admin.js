@@ -4,8 +4,56 @@ document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('.campaign-duplicate').forEach(function (btn) {
     btn.addEventListener('click', function (e) {
       e.preventDefault();
-      var id = this.getAttribute('data-campaign-id');
-      alert(t('campaigns.actions.duplicate') + ' #' + id);
+      var id = this.getAttribute('data-campaign-id') || '';
+      var name = this.getAttribute('data-campaign-name') || '';
+      var dtype = this.getAttribute('data-discount-type') || 'percentage';
+      var dval = this.getAttribute('data-discount-value') || '';
+      var sdate = this.getAttribute('data-start-date') || '';
+      var edate = this.getAttribute('data-end-date') || '';
+      var targetPlan = this.getAttribute('data-target-plan') || '';
+
+      try {
+        if (typeof showCampaignModal === 'function') {
+          showCampaignModal();
+        } else {
+          var m = document.getElementById('campaign-modal');
+          if (m) m.style.display = 'block';
+        }
+
+        var $title = document.getElementById('modal-title');
+        if ($title) $title.textContent = (window.mb_t ? mb_t('campaigns.actions.duplicate') : '複製') + ' → ' + (window.mb_t ? mb_t('common.create') : '新規作成');
+
+        var $action = document.getElementById('form-action');
+        if ($action) $action.value = 'create_campaign';
+        var $cid = document.getElementById('campaign-id');
+        if ($cid) $cid.value = '';
+
+        var $name = document.getElementById('name');
+        if ($name) $name.value = (name || '') + ' (複製)';
+
+        var $dtype = document.getElementById('discount_type');
+        if ($dtype) { $dtype.value = dtype; if (typeof updateDiscountUnit === 'function') updateDiscountUnit(); }
+
+        var $dval = document.getElementById('discount_value');
+        if ($dval) $dval.value = dval;
+
+        var $sd = document.getElementById('start_date');
+        if ($sd && sdate) $sd.value = sdate;
+        var $ed = document.getElementById('end_date');
+        if ($ed && edate) $ed.value = edate;
+
+        if (targetPlan) {
+          var plans = String(targetPlan).split(',');
+          ['SS','S','M','L'].forEach(function(code){
+            var qs = 'input[name="contract_types[]"][value="'+code+'"]';
+            var el = document.querySelector(qs);
+            if (el) el.checked = plans.indexOf(code) !== -1 || targetPlan === 'ALL';
+          });
+        }
+      } catch (err) {
+        console.error('duplicate preset failed', err);
+        alert((window.mb_t ? mb_t('error.generic') : 'エラーが発生しました'));
+      }
     });
   });
 
@@ -16,6 +64,16 @@ document.addEventListener('DOMContentLoaded', function () {
       var active = this.getAttribute('data-is-active') === '1' || this.getAttribute('data-is-active') === 'true';
       var label = active ? t('campaigns.actions.disable') : t('campaigns.actions.enable');
       if (!confirm(label + ' ?')) return;
+      var newActive = !active;
+      this.setAttribute('data-is-active', newActive ? '1' : '0');
+      this.textContent = newActive ? t('campaigns.actions.disable') : t('campaigns.actions.enable');
+      var tr = this.closest('tr');
+      if (tr) {
+        var statusCell = tr.querySelector('td:nth-child(5), td.status-cell');
+        if (statusCell) {
+          statusCell.textContent = newActive ? t('status.active') : t('status.inactive');
+        }
+      }
       alert(label + ' #' + id);
     });
   });
@@ -24,6 +82,13 @@ document.addEventListener('DOMContentLoaded', function () {
     btn.addEventListener('click', function (e) {
       var id = this.getAttribute('data-campaign-id');
       console.log('delete campaign', id);
+    });
+  });
+  document.querySelectorAll('.campaign-assign').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      var id = this.getAttribute('data-campaign-id');
+      alert(t('campaigns.actions.assign_to_rooms') + ' #' + id);
     });
   });
 });
@@ -856,6 +921,174 @@ jQuery(document).ready(function($) {
         
         return true;
     }
+
+function openAssignmentModal(opts){
+    var $m = jQuery('#assignment-modal');
+    if (!$m.length) return;
+    var $room = jQuery('#assignment_room');
+    var $camp = jQuery('#assignment_campaign');
+    var $sd = jQuery('#assignment_start');
+    var $ed = jQuery('#assignment_end');
+    var $act = jQuery('#assignment_active');
+    var $msg = jQuery('#assignment-message');
+    var $save = jQuery('#assignment-save');
+    $room.empty(); $camp.empty();
+    $msg.removeClass('notice-error notice-success').hide().text('');
+    $save.prop('disabled', false);
+
+    jQuery.post(monthlyBookingAdmin.ajaxurl, {
+        action: 'mb_get_rooms',
+        nonce: monthlyBookingAdmin.nonce
+    }, function(resp){
+        if (resp && resp.success && Array.isArray(resp.data)) {
+            resp.data.forEach(function(r){
+                var opt = document.createElement('option');
+                opt.value = r.id; opt.textContent = r.name || r.display_name || ('#'+r.id);
+                $room.append(opt);
+            });
+            if (opts && opts.room_id) $room.val(String(opts.room_id));
+        }
+    });
+
+    jQuery.post(monthlyBookingAdmin.ajaxurl, {
+        action: 'mb_get_campaigns',
+        nonce: monthlyBookingAdmin.nonce
+    }, function(resp){
+        if (resp && resp.success && Array.isArray(resp.data)) {
+            resp.data.forEach(function(c){
+                var opt = document.createElement('option');
+                opt.value = c.id; opt.textContent = c.name || ('#'+c.id);
+                $camp.append(opt);
+            });
+            if (opts && opts.campaign_id) $camp.val(String(opts.campaign_id));
+        }
+    });
+
+    if (opts && opts.start_date) $sd.val(opts.start_date); else $sd.val('');
+    if (opts && opts.end_date) $ed.val(opts.end_date); else $ed.val('');
+    $act.prop('checked', !(opts && opts.is_active === 0));
+
+    attachRoomSearch($room);
+    attachRealtimeOverlap($room, $sd, $ed, $msg, $save);
+
+    $m.show();
+}
+
+function attachRoomSearch($room){
+    var $search = jQuery('#assignment_room_search');
+    if (!$search.length) return;
+    var timer = null;
+    $search.off('input').on('input', function(){
+        clearTimeout(timer);
+        var q = this.value.trim();
+        timer = setTimeout(function(){
+            jQuery.post(monthlyBookingAdmin.ajaxurl, {
+                action: 'mb_get_rooms',
+                nonce: monthlyBookingAdmin.nonce,
+                q: q
+            }, function(resp){
+                if (resp && resp.success && Array.isArray(resp.data)) {
+                    var current = $room.val();
+                    $room.empty();
+                    resp.data.forEach(function(r){
+                        var opt = document.createElement('option');
+                        opt.value = r.id; opt.textContent = r.name || r.display_name || ('#'+r.id);
+                        $room.append(opt);
+                    });
+                    if (current && $room.find('option[value="'+current+'"]').length) {
+                        $room.val(current);
+                    }
+                }
+            });
+        }, 250);
+    });
+}
+
+function attachRealtimeOverlap($room, $sd, $ed, $msg, $save){
+    function run(){
+        var room_id = parseInt($room.val()||'0', 10);
+        var sd = $sd.val();
+        var ed = $ed.val();
+        if (!room_id || !sd || !ed) { $save.prop('disabled', false); $msg.hide(); return; }
+        $save.prop('disabled', true);
+        jQuery.post(monthlyBookingAdmin.ajaxurl, {
+            action: 'mb_check_overlap',
+            nonce: monthlyBookingAdmin.nonce,
+            room_id: room_id,
+            start_date: sd,
+            end_date: ed
+        }, function(r){
+            var t = window.mb_t || function(k){return k;};
+            if (r && r.success && r.data && r.data.overlap) {
+                $msg.removeClass('notice-success').addClass('notice notice-error').text(t('campaigns.validation.overlap_detected')).show();
+                $save.prop('disabled', true);
+            } else {
+                $msg.removeClass('notice-error').addClass('notice notice-success').text('').hide();
+                $save.prop('disabled', false);
+            }
+        });
+    }
+    var timer = null;
+    $sd.add($ed).off('input change').on('input change', function(){
+        clearTimeout(timer);
+        timer = setTimeout(run, 300);
+    });
+    run();
+}
+
+jQuery(document).on('click', '#assignment-cancel', function(){ jQuery('#assignment-modal').hide(); });
+
+jQuery(document).on('click', '#assignment-save', function(){
+    var t = window.mb_t || function(k){return k;};
+    var $msg = jQuery('#assignment-message');
+    var $save = jQuery('#assignment-save');
+    var room_id = parseInt(jQuery('#assignment_room').val()||'0',10);
+    var campaign_id = parseInt(jQuery('#assignment_campaign').val()||'0',10);
+    var sd = jQuery('#assignment_start').val();
+    var ed = jQuery('#assignment_end').val();
+    var is_active = jQuery('#assignment_active').is(':checked') ? 1 : 0;
+
+    if (!room_id || !campaign_id || !sd || !ed) {
+        $msg.removeClass('notice-success').addClass('notice notice-error').text(t('campaigns.validation.fixed_dates_required')).show();
+        return;
+    }
+
+    $save.prop('disabled', true);
+
+    jQuery.post(monthlyBookingAdmin.ajaxurl, {
+        action: 'mb_check_overlap', nonce: monthlyBookingAdmin.nonce,
+        room_id: room_id, start_date: sd, end_date: ed
+    }, function(r){
+        if (r && r.success && r.data && r.data.overlap) {
+            $msg.removeClass('notice-success').addClass('notice notice-error').text(t('campaigns.validation.overlap_detected')).show();
+            $save.prop('disabled', false);
+            return;
+        }
+        jQuery.post(monthlyBookingAdmin.ajaxurl, {
+            action: 'mb_save_room_assignment', nonce: monthlyBookingAdmin.nonce,
+            room_id: room_id, campaign_id: campaign_id, start_date: sd, end_date: ed, is_active: is_active
+        }, function(resp){
+            if (resp && resp.success) {
+                $msg.removeClass('notice-error').addClass('notice notice-success').text(t('notices.saved')).show();
+                setTimeout(function(){
+                    jQuery('#assignment-modal').hide();
+                    if (typeof loadCampaignAssignments === 'function') {
+                        loadCampaignAssignments(room_id);
+                    }
+                }, 800);
+            } else {
+                $msg.removeClass('notice-success').addClass('notice notice-error').text(t('error.generic')).show();
+                $save.prop('disabled', false);
+            }
+        });
+    });
+});
+
+jQuery(document).on('click', '.campaign-assign', function(e){
+    e.preventDefault();
+    var cid = jQuery(this).data('campaign-id');
+    openAssignmentModal({ campaign_id: cid });
+});
     
     function checkPeriodOverlap() {
         const startDate = $('#start-date').val();

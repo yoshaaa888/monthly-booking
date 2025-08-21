@@ -1,55 +1,103 @@
 #!/usr/bin/env bash
-set -e
-pkill -f '@wp-now/wp-now' 2>/dev/null || true
-nohup npx -y @wp-now/wp-now start --port 8888 >/tmp/wp-now.log 2>&1 &
-disown
-for i in $(seq 1 40); do
-  code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8888/ || echo 000)
-  echo "health=$code"
-  [[ "$code" == 200 || "$code" == 301 ]] && exit 0
-  sleep 1
-done
-echo "Server did not become healthy in time"; exit 1
+set -euo pipefail
+set -x
 
-# --- auto-install test MU plugins (stable) ---
+WP_NOW_VER="6.8.2"
+WP_NOW_DIR="${HOME}/.wp-now/wordpress-versions/${WP_NOW_VER}"
+WP_NOW_PKG_VERSION="${WP_NOW_PKG_VERSION:-latest}"
+
+mkdir -p "${WP_NOW_DIR}"
+
+if [ ! -f "${WP_NOW_DIR}/wp-config-sample.php" ]; then
+  tmpfile="$(mktemp)"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL https://raw.githubusercontent.com/WordPress/WordPress/master/wp-config-sample.php -o "${tmpfile}" || true
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO "${tmpfile}" https://raw.githubusercontent.com/WordPress/WordPress/master/wp-config-sample.php || true
+  fi
+  if [ -s "${tmpfile}" ]; then
+    install -m 0644 "${tmpfile}" "${WP_NOW_DIR}/wp-config-sample.php"
+  fi
+  rm -f "${tmpfile}"
+fi
+
+if [ ! -f "${WP_NOW_DIR}/wp-config-sample.php" ]; then
+  cat > "${WP_NOW_DIR}/wp-config-sample.php" <<'PHP'
+<?php
+define( 'DB_NAME', 'database_name_here' );
+define( 'DB_USER', 'username_here' );
+define( 'DB_PASSWORD', 'password_here' );
+define( 'DB_HOST', 'localhost' );
+define( 'DB_CHARSET', 'utf8' );
+define( 'DB_COLLATE', '' );
+$table_prefix = 'wp_';
+define( 'WP_DEBUG', false );
+PHP
+fi
+if [ ! -f "${WP_NOW_DIR}/wp-load.php" ]; then
+  rm -rf "${WP_NOW_DIR}" || true
+  mkdir -p "${WP_NOW_DIR}"
+fi
+
 if [ -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" ]; then
   mkdir -p ~/.wp-now/mu-plugins ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins
-  cp -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" ~/.wp-now/mu-plugins/mb-test-rest.php
-  cp -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins/mb-test-rest.php
+  install -m 0644 "$PWD/test-environment/mu-plugins/mb-test-rest.php" ~/.wp-now/mu-plugins/mb-test-rest.php
+  install -m 0644 "$PWD/test-environment/mu-plugins/mb-test-rest.php" ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins/mb-test-rest.php
 fi
 
-## install mb-test-rest
-if [ -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" ]; then
-  mkdir -p ~/.wp-now/mu-plugins \
-          ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins
-  cp -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" \
-        ~/.wp-now/mu-plugins/mb-test-rest.php
-  cp -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" \
-        ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins/mb-test-rest.php
-fi
-
-## install mb-qa
-if [ -f "$PWD/test-environment/mu-plugins/mb-qa.php" ]; then
-  mkdir -p ~/.wp-now/mu-plugins \
-          ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins
-  cp -f "$PWD/test-environment/mu-plugins/mb-qa.php" \
-        ~/.wp-now/mu-plugins/mb-qa.php
-  cp -f "$PWD/test-environment/mu-plugins/mb-qa.php" \
-        ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins/mb-qa.php
-fi
-
-## install mb-qa (stable)
-if [ -f "$PWD/test-environment/mu-plugins/mb-qa.php" ]; then
-  mkdir -p ~/.wp-now/mu-plugins ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins
-  install -m 0644 "$PWD/test-environment/mu-plugins/mb-qa.php" \
-    ~/.wp-now/mu-plugins/mb-qa.php
-  install -m 0644 "$PWD/test-environment/mu-plugins/mb-qa.php" \
-    ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins/mb-qa.php
-fi
-
-## install mb-qa (stable) v2
 if [ -f "$PWD/test-environment/mu-plugins/mb-qa.php" ]; then
   mkdir -p ~/.wp-now/mu-plugins ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins
   install -m 0644 "$PWD/test-environment/mu-plugins/mb-qa.php" ~/.wp-now/mu-plugins/mb-qa.php
   install -m 0644 "$PWD/test-environment/mu-plugins/mb-qa.php" ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins/mb-qa.php
+npx -y @wp-now/wp-now php -r '
+@mkdir("/var/www/html", 0777, true);
+$cfg = "<?php\n".
+"define( \x27DB_NAME\x27, \x27database_name_here\x27 );\n".
+"define( \x27DB_USER\x27, \x27username_here\x27 );\n".
+"define( \x27DB_PASSWORD\x27, \x27password_here\x27 );\n".
+"define( \x27DB_HOST\x27, \x27localhost\x27 );\n".
+"define( \x27DB_CHARSET\x27, \x27utf8\x27 );\n".
+"define( \x27DB_COLLATE\x27, \x27\x27 );\n".
+"$table_prefix = \x27wp_\x27;\n".
+"define( \x27WP_DEBUG\x27, false );\n";
+file_put_contents("/var/www/html/wp-config-sample.php", $cfg);
+' || true
+
 fi
+
+pkill -f '@wp-now/wp-now' 2>/dev/null || true
+: > /tmp/wp-now.log || true
+nohup npx -y @wp-now/wp-now@${WP_NOW_PKG_VERSION} start --port 8888 >/tmp/wp-now.log 2>&1 &
+disown
+
+for i in $(seq 1 40); do
+  code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8888/ || echo 000)
+  echo "health=$code"
+  if [[ "$code" == "200" || "$code" == "301" ]]; then
+    exit 0
+  fi
+  sleep 1
+done
+
+echo "Server did not become healthy in time"
+tail -n 200 /tmp/wp-now.log || true
+curl -sS http://127.0.0.1:8888/ || true
+
+pkill -f '@wp-now/wp-now' 2>/dev/null || true
+: > /tmp/wp-now.log || true
+nohup npx -y @wp-now/wp-now@0.10.0 start --port 8888 >/tmp/wp-now.log 2>&1 &
+disown
+
+for i in $(seq 1 40); do
+  code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8888/ || echo 000)
+  echo "health=$code"
+  if [[ "$code" == "200" || "$code" == "301" ]]; then
+    exit 0
+  fi
+  sleep 1
+done
+
+echo "Server did not become healthy in time (after fallback)"
+tail -n 200 /tmp/wp-now.log || true
+curl -sS http://127.0.0.1:8888/ || true
+exit 1

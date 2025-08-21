@@ -897,6 +897,34 @@ class MonthlyBooking_Admin_UI {
         .legend-symbol.campaign {
             color: #ff9800;
             background: #fff3e0;
+<?php
+add_action('wp_ajax_mb_get_rooms', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $q = isset($_POST['q']) ? sanitize_text_field($_POST['q']) : '';
+    $table = $wpdb->prefix . 'monthly_rooms';
+    if ($q) {
+        $like = '%' . $wpdb->esc_like($q) . '%';
+        $rows = $wpdb->get_results($wpdb->prepare("SELECT id, display_name AS name FROM {$table} WHERE display_name LIKE %s OR room_id LIKE %s LIMIT 50", $like, $like), ARRAY_A);
+    } else {
+        $rows = $wpdb->get_results("SELECT id, display_name AS name FROM {$table} ORDER BY id DESC LIMIT 50", ARRAY_A);
+    }
+    if (!$rows) $rows = [];
+    wp_send_json_success($rows);
+});
+
+add_action('wp_ajax_mb_get_campaigns', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $table = $wpdb->prefix . 'monthly_campaigns';
+    $rows = $wpdb->get_results("SELECT id, name FROM {$table} WHERE is_active=1 ORDER BY id DESC LIMIT 100", ARRAY_A);
+    if (!$rows) $rows = [];
+    wp_send_json_success($rows);
+});
+?>
+
         }
         </style>
         <?php
@@ -2018,8 +2046,19 @@ class MonthlyBooking_Admin_UI {
                                    <?php echo esc_html(mb_t('campaigns.actions.edit')); ?>
                                 </a>
                                 <a href="#" class="button button-small campaign-duplicate"
-                                   data-campaign-id="<?php echo esc_attr($campaign->id); ?>">
+                                   data-campaign-id="<?php echo esc_attr($campaign->id); ?>"
+                                   data-campaign-name="<?php echo esc_attr($campaign->campaign_name); ?>"
+                                   data-discount-type="<?php echo esc_attr($campaign->discount_type); ?>"
+                                   data-discount-value="<?php echo esc_attr($campaign->discount_value); ?>"
+                                   data-start-date="<?php echo esc_attr($campaign->start_date); ?>"
+                                   data-end-date="<?php echo esc_attr($campaign->end_date); ?>"
+                                   data-target-plan="<?php echo isset($campaign->target_plan) ? esc_attr($campaign->target_plan) : ''; ?>"
+                                   data-is-active="<?php echo esc_attr($campaign->is_active); ?>">
                                    <?php echo esc_html(mb_t('campaigns.actions.duplicate')); ?>
+                                </a>
+                                <a href="#" class="button button-small campaign-assign"
+                                   data-campaign-id="<?php echo esc_attr($campaign->id); ?>">
+                                   <?php echo esc_html(mb_t('campaigns.actions.assign_to_rooms')); ?>
                                 </a>
                                 <a href="#" class="button button-small toggle-campaign-status"
                                    data-campaign-id="<?php echo esc_attr($campaign->id); ?>"
@@ -2081,10 +2120,22 @@ class MonthlyBooking_Admin_UI {
                                     <td><?php echo esc_html($c->start_date . ' — ' . $c->end_date); ?></td>
                                     <td><?php echo $c->is_active ? esc_html(mb_t('status.active')) : esc_html(mb_t('status.inactive')); ?></td>
                                     <td>
-                                        <a href="#" class="button toggle-campaign-status"
-                                           data-campaign-id="<?php echo esc_attr($c->id); ?>"
-                                           data-is-active="<?php echo esc_attr($c->is_active); ?>">
+                                        <a href="#" class="button campaign-assign"
+                                           data-campaign-id="<?php echo esc_attr($c->id); ?>">
+                                           <?php echo esc_html(mb_t('campaigns.actions.assign_to_rooms')); ?>
+                                        </a>
+                                        <a href="#" class="button toggle-campaign-status" data-campaign-id="<?php echo esc_attr($c->id); ?>" data-is-active="<?php echo esc_attr($c->is_active); ?>">
                                            <?php echo $c->is_active ? esc_html(mb_t('action.disable')) : esc_html(mb_t('action.enable')); ?>
+                                        </a>
+                                        <a href="#" class="button button-small campaign-duplicate"
+                                           data-campaign-id="<?php echo esc_attr($c->id); ?>"
+                                           data-campaign-name="<?php echo esc_attr($c->name); ?>"
+                                           data-discount-type="<?php echo esc_attr($c->discount_type); ?>"
+                                           data-discount-value="<?php echo esc_attr($c->discount_value); ?>"
+                                           data-start-date="<?php echo esc_attr($c->start_date); ?>"
+                                           data-end-date="<?php echo esc_attr($c->end_date); ?>"
+                                           data-target-plan="">
+                                           <?php echo esc_html(mb_t('campaigns.actions.duplicate')); ?>
                                         </a>
                                         <button type="button" class="button button-small button-link-delete campaign-delete"
                                             data-campaign-id="<?php echo esc_attr($c->id); ?>">
@@ -2104,7 +2155,7 @@ class MonthlyBooking_Admin_UI {
         <!-- Campaign Modal -->
         <div id="campaign-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
             <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; width: 600px; max-width: 90%; max-height: 90%; overflow-y: auto;">
-                <h3 id="modal-title" style="margin-top: 0; border-bottom: 2px solid #0073aa; padding-bottom: 10px; color: #0073aa;"><?php _e('新規キャンペーン作成', 'monthly-booking'); ?></h3>
+                <h3 id="modal-title" style="margin-top: 0; border-bottom: 2px solid #0073aa; padding-bottom: 10px; color: #0073aa;"><?php echo esc_html(mb_t('campaigns.form.title.add')); ?></h3>
                 
                 <form method="post" id="campaign-form">
                     <input type="hidden" name="action" value="create_campaign" id="form-action">
@@ -2114,11 +2165,11 @@ class MonthlyBooking_Admin_UI {
                     
                     <!-- 基本情報セクション -->
                     <div class="campaign-section">
-                        <h4 class="section-title"><?php _e('基本情報', 'monthly-booking'); ?></h4>
+                        <h4 class="section-title"><?php echo esc_html(mb_t('campaigns.form.sections.basic')); ?></h4>
                         <table class="form-table">
                             <tr>
-                                <th><label for="name"><?php _e('キャンペーン名', 'monthly-booking'); ?></label></th>
-                                <td><input type="text" name="name" id="name" class="regular-text" required placeholder="<?php _e('例：新春特別キャンペーン', 'monthly-booking'); ?>"></td>
+                                <th><label for="name"><?php echo esc_html(mb_t('campaigns.form.fields.name')); ?></label></th>
+                                <td><input type="text" name="name" id="name" class="regular-text" required placeholder="<?php echo esc_attr(mb_t('campaigns.form.fields.name_placeholder')); ?>"></td>
                             </tr>
                             <tr>
                                 <th><label for="campaign_type"><?php _e('キャンペーンタイプ', 'monthly-booking'); ?></label></th>
@@ -2136,21 +2187,22 @@ class MonthlyBooking_Admin_UI {
                     
                     <!-- 割引設定セクション -->
                     <div class="campaign-section">
-                        <h4 class="section-title"><?php _e('割引設定', 'monthly-booking'); ?></h4>
+                        <h4 class="section-title"><?php echo esc_html(mb_t('campaigns.form.sections.discount')); ?></h4>
                         <table class="form-table">
+
                             <tr>
-                                <th><label for="discount_type"><?php _e('割引方式', 'monthly-booking'); ?></label></th>
+                                <th><label for="discount_type"><?php echo esc_html(mb_t('campaigns.form.fields.discount_mode')); ?></label></th>
                                 <td>
                                     <select name="discount_type" id="discount_type" required>
-                                        <option value=""><?php _e('選択してください', 'monthly-booking'); ?></option>
-                                        <option value="percentage"><?php _e('パーセンテージ割引（%）', 'monthly-booking'); ?></option>
-                                        <option value="fixed"><?php _e('固定金額割引（円）', 'monthly-booking'); ?></option>
-                                        <option value="flatrate"><?php _e('定額料金設定（円）', 'monthly-booking'); ?></option>
+                                        <option value=""><?php echo esc_html(mb_t('common.select_placeholder')); ?></option>
+                                        <option value="percentage"><?php echo esc_html(mb_t('discount.type.percentage')); ?></option>
+                                        <option value="fixed"><?php echo esc_html(mb_t('discount.type.fixed')); ?></option>
+                                        <option value="flatrate"><?php echo esc_html(mb_t('discount.type.flatrate')); ?></option>
                                     </select>
                                 </td>
                             </tr>
                             <tr>
-                                <th><label for="discount_value"><?php _e('割引値', 'monthly-booking'); ?></label></th>
+                                <th><label for="discount_value"><?php echo esc_html(mb_t('campaigns.form.fields.discount_value')); ?></label></th>
                                 <td>
                                     <input type="number" name="discount_value" id="discount_value" class="regular-text" min="0" step="0.01" required>
                                     <span id="discount-unit" class="description"></span>
@@ -2210,6 +2262,7 @@ class MonthlyBooking_Admin_UI {
                                 <th><label for="start_date"><?php echo esc_html(mb_t('campaigns.form.fields.start_date')); ?></label></th>
                                 <td>
                                     <input type="date" name="start_date" id="start_date" class="regular-text" required min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
+
                                 </td>
                             </tr>
                             <tr class="fixed-period-row">
@@ -2905,3 +2958,198 @@ class MonthlyBooking_Admin_UI {
         <?php
     }
 }
+add_action('wp_ajax_mb_get_room_assignments', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $room_id = isset($_POST['room_id']) ? absint($_POST['room_id']) : 0;
+    if (!$room_id) wp_send_json_error('invalid_room');
+    $table = $wpdb->prefix . 'monthly_room_campaigns';
+    $rows = $wpdb->get_results($wpdb->prepare("SELECT id, room_id, campaign_id, start_date, end_date, is_active FROM {$table} WHERE room_id=%d ORDER BY start_date ASC", $room_id), ARRAY_A);
+    if (!$rows) $rows = [];
+    $c_table = $wpdb->prefix . 'monthly_campaigns';
+    $ids = array_map(function($r){ return (int)$r['campaign_id']; }, $rows);
+    $names = [];
+    if ($ids) {
+        $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+        $sql = "SELECT id, name FROM {$c_table} WHERE id IN ($placeholders)";
+        $prepared = $wpdb->prepare($sql, $ids);
+        $res = $wpdb->get_results($prepared, ARRAY_A);
+        foreach ($res as $r) $names[$r['id']] = $r['name'];
+    }
+    foreach ($rows as &$r) {
+        $cid = (int)$r['campaign_id'];
+        $r['campaign_name'] = isset($names[$cid]) ? $names[$cid] : '';
+    }
+    wp_send_json_success($rows);
+});
+
+add_action('wp_ajax_mb_check_overlap', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $room_id = isset($_POST['room_id']) ? absint($_POST['room_id']) : 0;
+    $assignment_id = isset($_POST['assignment_id']) ? absint($_POST['assignment_id']) : 0;
+    $sd = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '';
+    $ed = isset($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : '';
+    if (!$room_id || !$sd || !$ed) wp_send_json_error('invalid');
+    $table = $wpdb->prefix . 'monthly_room_campaigns';
+    $query = "SELECT id, start_date, end_date FROM {$table} WHERE room_id=%d AND is_active=1";
+    $params = [$room_id];
+    if ($assignment_id) {
+        $query .= " AND id<>%d";
+        $params[] = $assignment_id;
+    }
+    $rows = $wpdb->get_results($wpdb->prepare($query, $params), ARRAY_A);
+    $overlap = false;
+    $conflict = null;
+    $sd1 = $sd;
+    $ed1 = $ed;
+    foreach ($rows as $row) {
+        $sd2 = $row['start_date'];
+        $ed2 = $row['end_date'];
+        if ($sd1 < $ed2 && $sd2 < $ed1) {
+            $overlap = true;
+            $conflict = $row;
+            break;
+        }
+    }
+    if ($overlap) wp_send_json_success(['overlap' => true, 'conflict' => $conflict]);
+    wp_send_json_success(['overlap' => false]);
+});
+
+add_action('wp_ajax_mb_save_room_assignment', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb, $current_user;
+    $room_id = isset($_POST['room_id']) ? absint($_POST['room_id']) : 0;
+    $campaign_id = isset($_POST['campaign_id']) ? absint($_POST['campaign_id']) : 0;
+    $assignment_id = isset($_POST['assignment_id']) ? absint($_POST['assignment_id']) : 0;
+    $sd = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '';
+    $ed = isset($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : '';
+    $is_active = isset($_POST['is_active']) ? (int)($_POST['is_active'] ? 1 : 0) : 1;
+    if (!$room_id || !$campaign_id || !$sd || !$ed) wp_send_json_error('invalid');
+    $table = $wpdb->prefix . 'monthly_room_campaigns';
+    $check = $wpdb->get_results($wpdb->prepare("SELECT id, start_date, end_date FROM {$table} WHERE room_id=%d AND is_active=1" . ($assignment_id ? " AND id<>%d" : ""), $assignment_id ? [$room_id, $assignment_id] : [$room_id]), ARRAY_A);
+    foreach ($check as $row) {
+        if ($sd < $row['end_date'] && $row['start_date'] < $ed) {
+            wp_send_json_error(['code' => 'overlap', 'conflict' => $row]);
+        }
+    }
+    $data = [
+        'room_id' => $room_id,
+        'campaign_id' => $campaign_id,
+        'start_date' => $sd,
+        'end_date' => $ed,
+        'is_active' => $is_active,
+    ];
+    $fmt = ['%d','%d','%s','%s','%d'];
+    if ($assignment_id) {
+        $prev = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id=%d", $assignment_id), ARRAY_A);
+        $wpdb->update($table, $data, ['id' => $assignment_id], $fmt, ['%d']);
+        $id = $assignment_id;
+        $action = 'update';
+        $prev_values = $prev ? wp_json_encode($prev) : '';
+    } else {
+        $wpdb->insert($table, $data, $fmt);
+        $id = (int)$wpdb->insert_id;
+        $action = 'assign';
+        $prev_values = '';
+    }
+    $post_id = wp_insert_post([
+        'post_type' => 'mb_campaign_audit',
+        'post_status' => 'private',
+        'post_title' => 'Campaign Assignment Audit'
+    ]);
+    if ($post_id) {
+        add_post_meta($post_id, 'room_id', $room_id);
+        add_post_meta($post_id, 'campaign_id', $campaign_id);
+        add_post_meta($post_id, 'action', $action);
+        add_post_meta($post_id, 'user_id', get_current_user_id());
+        add_post_meta($post_id, 'start_date', $sd);
+        add_post_meta($post_id, 'end_date', $ed);
+        if ($prev_values) add_post_meta($post_id, 'prev_values', $prev_values);
+        add_post_meta($post_id, 'assignment_id', $id);
+    }
+    $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id=%d", $id), ARRAY_A);
+    wp_send_json_success($row);
+});
+
+add_action('wp_ajax_mb_delete_room_assignment', function () {
+    if (!current_user_can('manage_options')) wp_send_json_error('forbidden', 403);
+    check_ajax_referer('monthly_booking_admin', 'nonce');
+    global $wpdb;
+    $id = isset($_POST['assignment_id']) ? absint($_POST['assignment_id']) : 0;
+    if (!$id) wp_send_json_error('invalid');
+    $table = $wpdb->prefix . 'monthly_room_campaigns';
+    $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id=%d", $id), ARRAY_A);
+    $wpdb->delete($table, ['id' => $id], ['%d']);
+    $post_id = wp_insert_post([
+        'post_type' => 'mb_campaign_audit',
+        'post_status' => 'private',
+        'post_title' => 'Campaign Assignment Audit'
+    ]);
+    if ($post_id && $row) {
+        add_post_meta($post_id, 'room_id', $row['room_id']);
+        add_post_meta($post_id, 'campaign_id', $row['campaign_id']);
+        add_post_meta($post_id, 'action', 'unassign');
+        add_post_meta($post_id, 'user_id', get_current_user_id());
+        add_post_meta($post_id, 'start_date', $row['start_date']);
+        add_post_meta($post_id, 'end_date', $row['end_date']);
+        add_post_meta($post_id, 'assignment_id', $id);
+    }
+    wp_send_json_success(true);
+});
+
+add_action('init', function () {
+    register_post_type('mb_campaign_audit', [
+        'labels' => ['name' => 'Campaign Audit'],
+        'public' => false,
+        'show_ui' => false,
+        'show_in_menu' => false,
+        'supports' => ['title']
+    ]);
+});
+add_action('admin_footer', function () {
+    if (!current_user_can('manage_options')) return;
+    ?>
+<div id="assignment-modal" style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); z-index:10000;">
+    <div role="dialog" aria-modal="true" aria-labelledby="assignment-modal-title" style="position:absolute; top:50%; left:50%; transform: translate(-50%, -50%); background:#fff; padding:24px; width:560px; max-width:90%; border-radius:6px;">
+        <h3 id="assignment-modal-title" style="margin-top:0;"><?php echo esc_html(mb_t('campaigns.assign.modal.title')); ?></h3>
+        <div id="assignment-message" class="notice" role="status" aria-live="polite" style="display:none;"></div>
+        <table class="form-table">
+            <tr>
+                <th><label for="assignment_room"><?php echo esc_html(mb_t('campaigns.assign.fields.room')); ?></label></th>
+                <td>
+                    <input type="text" id="assignment_room_search" class="regular-text" style="margin-bottom:8px; width:100%" placeholder="<?php echo esc_attr(mb_t('common.search')); ?>" />
+                    <select id="assignment_room"></select>
+                </td>
+            </tr>
+            <tr>
+                <th><label for="assignment_campaign"><?php echo esc_html(mb_t('campaigns.assign.fields.campaign')); ?></label></th>
+                <td>
+                    <select id="assignment_campaign"></select>
+                </td>
+            </tr>
+            <tr>
+                <th><label for="assignment_start"><?php echo esc_html(mb_t('campaigns.assign.fields.start_date')); ?></label></th>
+                <td><input type="date" id="assignment_start"></td>
+            </tr>
+            <tr>
+                <th><label for="assignment_end"><?php echo esc_html(mb_t('campaigns.assign.fields.end_date')); ?></label></th>
+                <td><input type="date" id="assignment_end"></td>
+            </tr>
+            <tr>
+                <th><label for="assignment_active"><?php echo esc_html(mb_t('campaigns.assign.fields.status')); ?></label></th>
+                <td><label><input type="checkbox" id="assignment_active" checked> <?php echo esc_html(mb_t('rooms.form.campaign.toggle.active')); ?></label></td>
+            </tr>
+        </table>
+        <div style="text-align:right;">
+            <button type="button" class="button" id="assignment-cancel"><?php echo esc_html(mb_t('action.cancel')); ?></button>
+            <button type="button" class="button button-primary" id="assignment-save"><?php echo esc_html(mb_t('campaigns.assign.actions.assign')); ?></button>
+        </div>
+    </div>
+</div>
+<?php
+});
+?>
