@@ -93,4 +93,70 @@ jQuery(document).ready(function($) {
             showFieldError('end_date', 'チェックアウト日はチェックイン日より後の日付を選択してください。');
         }
     });
+    
+    $('#recalculate_estimate').on('click', function() {
+        const roomId = $('#room_id').val();
+        const moveIn = $('#checkin_date').val();
+        const moveOut = $('#checkout_date').val();
+        const guestName = $('#guest_name').val().trim();
+        const guestEmail = $('#guest_email').val().trim();
+        const $out = $('#estimate-result-admin');
+        
+        if (!roomId || !moveIn || !moveOut) {
+            showNotice('error', '部屋・入居日・退去日を入力してください。');
+            return;
+        }
+        if (!guestName || !guestEmail) {
+            showNotice('error', 'ゲスト名とメールアドレスを入力してください。');
+            return;
+        }
+        
+        const payload = {
+            action: 'calculate_estimate',
+            nonce: monthlyBookingAjax.nonce,
+            room_id: roomId,
+            move_in_date: moveIn,
+            move_out_date: moveOut,
+            num_adults: 1,
+            num_children: 0,
+            selected_options: {},
+            guest_name: guestName,
+            company_name: '',
+            guest_email: guestEmail,
+            guest_phone: '',
+            special_requests: ''
+        };
+        
+        $out.html('計算中...').show();
+        $.ajax({
+            url: monthlyBookingAjax.ajaxurl,
+            type: 'POST',
+            data: payload,
+            success: function(resp) {
+                if (!resp || !resp.success) {
+                    $out.html('<div class="notice notice-error"><p>' + (resp && resp.data ? resp.data : '計算に失敗しました') + '</p></div>');
+                    return;
+                }
+                const e = resp.data;
+                let html = '';
+                html += '<div class="notice notice-info"><p>見積結果（簡易プレビュー）</p></div>';
+                html += '<table class="widefat" style="max-width:600px">';
+                html += '<tr><th>プラン</th><td>' + (e.plan_name || '') + '</td></tr>';
+                html += '<tr><th>滞在日数</th><td>' + (e.stay_days || '') + '日</td></tr>';
+                html += '<tr><th>日割賃料</th><td>¥' + Math.round(e.total_rent || 0).toLocaleString('ja-JP') + '</td></tr>';
+                html += '<tr><th>共益費</th><td>¥' + Math.round(e.total_utilities || 0).toLocaleString('ja-JP') + '</td></tr>';
+                html += '<tr><th>初期費用</th><td>¥' + Math.round(e.initial_costs || 0).toLocaleString('ja-JP') + '</td></tr>';
+                if (e.campaign_discount && e.campaign_discount > 0) {
+                    html += '<tr><th>キャンペーン割引</th><td>-¥' + Math.round(e.campaign_discount).toLocaleString('ja-JP') + '</td></tr>';
+                }
+                html += '<tr><th>合計</th><td><strong>¥' + Math.round(e.final_total || 0).toLocaleString('ja-JP') + '</strong></td></tr>';
+                html += '</table>';
+                $out.html(html);
+            },
+            error: function() {
+                $out.html('<div class="notice notice-error"><p>通信エラーが発生しました。</p></div>');
+            }
+        });
+    });
+
 });
