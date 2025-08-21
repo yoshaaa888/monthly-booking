@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS __PREFIX__monthly_booking_campaign_contract_types;
