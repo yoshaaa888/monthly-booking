@@ -49,6 +49,20 @@ if [ -f "$PWD/test-environment/mu-plugins/mb-qa.php" ]; then
   mkdir -p ~/.wp-now/mu-plugins ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins
   install -m 0644 "$PWD/test-environment/mu-plugins/mb-qa.php" ~/.wp-now/mu-plugins/mb-qa.php
   install -m 0644 "$PWD/test-environment/mu-plugins/mb-qa.php" ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins/mb-qa.php
+npx -y @wp-now/wp-now php -r '
+@mkdir("/var/www/html", 0777, true);
+$cfg = "<?php\n".
+"define( \x27DB_NAME\x27, \x27database_name_here\x27 );\n".
+"define( \x27DB_USER\x27, \x27username_here\x27 );\n".
+"define( \x27DB_PASSWORD\x27, \x27password_here\x27 );\n".
+"define( \x27DB_HOST\x27, \x27localhost\x27 );\n".
+"define( \x27DB_CHARSET\x27, \x27utf8\x27 );\n".
+"define( \x27DB_COLLATE\x27, \x27\x27 );\n".
+"$table_prefix = \x27wp_\x27;\n".
+"define( \x27WP_DEBUG\x27, false );\n";
+file_put_contents("/var/www/html/wp-config-sample.php", $cfg);
+' || true
+
 fi
 
 pkill -f '@wp-now/wp-now' 2>/dev/null || true
