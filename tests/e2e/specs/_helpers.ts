@@ -21,15 +21,25 @@ export async function robustGoto(page: Page, target: string, attempts = 5) {
 }
 
 async function handleWpInterstitals(page: Page) {
-  const url = page.url();
+  let url = page.url();
 
   if (url.includes('/wp-admin/upgrade.php')) {
-    const btn = page.locator('input[type="submit"], button[type="submit"]');
-    if (await btn.count()) {
-      await btn.first().click().catch(() => {});
+    const submit = page.locator('input[type="submit"], button[type="submit"]');
+    if (await submit.count()) {
+      await submit.first().click().catch(() => {});
       await page.waitForLoadState('load').catch(() => {});
       await page.waitForTimeout(300);
+      const cont = page.locator('a:has-text("Continue"), a:has-text("継続"), a:has-text("続行")');
+      if (await cont.count()) {
+        await cont.first().click().catch(() => {});
+        await page.waitForLoadState('domcontentloaded').catch(() => {});
+        await page.waitForTimeout(200);
+      }
     }
+    try {
+      await page.goto('/wp-admin/', { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await page.waitForLoadState('networkidle').catch(() => {});
+    } catch {}
     return;
   }
 

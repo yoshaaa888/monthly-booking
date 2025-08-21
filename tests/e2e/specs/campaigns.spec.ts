@@ -19,7 +19,7 @@ test.describe('@smoke Campaign Management Flow', () => {
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForTimeout(800);
     await robustGoto(page, '/wp-admin/');
-    await expect(page.locator('#wpadminbar')).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('#adminmenu')).toBeVisible({ timeout: 20000 });
 
     const campaignsTarget = '/wp-admin/admin.php?page=monthly-room-booking-campaigns';
     await robustGoto(page, campaignsTarget);
