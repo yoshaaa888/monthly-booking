@@ -20,6 +20,8 @@ jobs:
       MB_ADMIN_PASS: password
       MB_ADMIN_EMAIL: admin@example.com
       MB_SITE_TITLE: Monthly Booking CI
+      MB_READY_TOTAL_SEC: 240
+      MB_READY_INTERVAL_SEC: 3
       npm_config_legacy_peer_deps: "true"
       NPX_YES: "1"
     steps:
@@ -64,6 +66,22 @@ jobs:
             sleep 3
           done
 
+      - name: Warm-up endpoints (pre-test)
+        working-directory: tests/e2e
+        run: |
+          set -e
+          echo "Warming up $MB_BASE_URL endpoints..."
+          for i in {1..20}; do
+            ok=0
+            for ep in "" "/wp-json/" "/wp-admin/" "/wp-login.php"; do
+              url="${MB_BASE_URL%/}$ep"
+              code="$(curl -L -sS -o /dev/null -w "%{http_code}" "$url" || true)"
+              if [[ "$code" =~ ^[23][0-9][0-9]$ ]]; then ok=1; break; fi
+            done
+            if [ "$ok" -eq 1 ]; then echo "Warm-up OK"; break; fi
+            sleep 3
+          done
+
       - name: Run Playwright tests (Firefox primary, @smoke)
         working-directory: tests/e2e
         run: npx playwright test --project=firefox --grep "@smoke"
@@ -83,6 +101,25 @@ jobs:
           name: playwright-artifacts
           path: |
             tests/e2e/test-results
+          retention-days: 7
+
+      - name: Collect Docker logs
+        if: always()
+        working-directory: tests/e2e
+        run: |
+          mkdir -p docker-logs
+          docker compose -f ../dev/docker-compose.yml ps || true
+          docker compose -f ../dev/docker-compose.yml logs --tail=500 > docker-logs/compose-all.log || true
+          docker compose -f ../dev/docker-compose.yml logs --tail=500 wordpress > docker-logs/wp.log || true
+          docker compose -f ../dev/docker-compose.yml logs --tail=500 db > docker-logs/db.log || true
+          docker compose -f ../dev/docker-compose.yml logs --tail=500 adminer > docker-logs/adminer.log || true
+
+      - name: Upload Docker logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-logs
+          path: tests/e2e/docker-logs
           retention-days: 7
 
       - name: Teardown Docker WP stack
