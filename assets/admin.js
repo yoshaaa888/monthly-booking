@@ -1,3 +1,32 @@
+document.addEventListener('DOMContentLoaded', function () {
+  var t = window.mb_t || function (k) { return k; };
+
+  document.querySelectorAll('.campaign-duplicate').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      var id = this.getAttribute('data-campaign-id');
+      alert(t('campaigns.actions.duplicate') + ' #' + id);
+    });
+  });
+
+  document.querySelectorAll('.toggle-campaign-status').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      var id = this.getAttribute('data-campaign-id');
+      var active = this.getAttribute('data-is-active') === '1' || this.getAttribute('data-is-active') === 'true';
+      var label = active ? t('campaigns.actions.disable') : t('campaigns.actions.enable');
+      if (!confirm(label + ' ?')) return;
+      alert(label + ' #' + id);
+    });
+  });
+
+  document.querySelectorAll('.campaign-delete').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      var id = this.getAttribute('data-campaign-id');
+      console.log('delete campaign', id);
+    });
+  });
+});
 jQuery(document).ready(function($) {
     function showCampaignMessage(type, text) {
         var $m = jQuery('#campaign-form-message');

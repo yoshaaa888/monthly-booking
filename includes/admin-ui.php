@@ -1911,22 +1911,41 @@ class MonthlyBooking_Admin_UI {
                 </div>
                 
                 <!-- Campaign List Table -->
+                <?php
+                    $counts = array();
+                    $table_room_campaigns = $wpdb->prefix . 'monthly_room_campaigns';
+                    if ($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table_room_campaigns))) {
+                        $count_rows = $wpdb->get_results("
+                            SELECT campaign_id, COUNT(*) AS cnt
+                            FROM {$table_room_campaigns}
+                            GROUP BY campaign_id
+                        ");
+                        if ($count_rows) {
+                            foreach ($count_rows as $r) {
+                                $counts[intval($r->campaign_id)] = intval($r->cnt);
+                            }
+                        }
+                    }
+                ?>
                 <table class="monthly-booking-table widefat">
                     <thead>
                         <tr>
-                            <th><?php echo esc_html(mb_t('campaigns.table.header.name')); ?></th>
-                            <th><?php echo esc_html(mb_t('campaigns.table.header.type')); ?></th>
-                            <th><?php echo esc_html(mb_t('campaigns.table.header.discount_rate')); ?></th>
-                            <th><?php echo esc_html(mb_t('campaigns.table.header.period')); ?></th>
-                            <th><?php echo esc_html(mb_t('campaigns.table.header.target_plan')); ?></th>
-                            <th><?php echo esc_html(mb_t('campaigns.table.header.status')); ?></th>
-                            <th><?php echo esc_html(mb_t('campaigns.table.header.actions')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.list.headers.name')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.list.headers.type')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.list.headers.value')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.list.headers.period_type')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.list.headers.contract_types')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.list.headers.linked_count')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.list.headers.status')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.list.headers.created_by')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.list.headers.updated_at')); ?></th>
+                            <th><?php echo esc_html(mb_t('campaigns.list.headers.actions')); ?></th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($campaigns)): ?>
                         <tr>
-                            <td colspan="7" style="text-align: center; padding: 20px;">
+                            <td colspan="10" style="text-align: center; padding: 20px;">
                                 <?php echo esc_html(mb_t('campaigns.empty')); ?>
                                 <br>
                                 <small><?php echo esc_html(mb_t('campaigns.empty.hint')); ?></small>
@@ -1937,44 +1956,80 @@ class MonthlyBooking_Admin_UI {
                         <tr>
                             <td><strong><?php echo esc_html($campaign->campaign_name); ?></strong></td>
                             <td>
-                                <?php 
-                                $type_labels = array(
-                                    'immediate' => mb_t('campaign.type.immediate'),
-                                    'earlybird' => mb_t('campaign.type.earlybird'),
-                                    'flatrate' => mb_t('campaign.type.flatrate')
-                                );
-                                echo esc_html($type_labels[$campaign->type] ?? $campaign->type);
+                                <?php
+                                    $mode_label = '';
+                                    $mode_icon = '';
+                                    if ($campaign->discount_type === 'percentage') {
+                                        $mode_label = mb_t('discount.mode.rate');
+                                        $mode_icon = '％';
+                                    } else {
+                                        $mode_label = mb_t('discount.mode.fixed');
+                                        $mode_icon = '¥';
+                                    }
+                                    echo '<span class="type-icon" style="margin-right:6px;">' . esc_html($mode_icon) . '</span>' . esc_html($mode_label);
                                 ?>
                             </td>
                             <td>
-                                <?php if ($campaign->discount_type === 'percentage'): ?>
-                                    <?php echo esc_html($campaign->discount_value); ?>%
-                                <?php elseif ($campaign->discount_type === 'fixed'): ?>
-                                    ¥<?php echo esc_html(number_format($campaign->discount_value)); ?>
-                                <?php else: ?>
-                                    ¥<?php echo esc_html(number_format($campaign->discount_value)); ?>
-                                <?php endif; ?>
+                                <?php
+                                    if ($campaign->discount_type === 'percentage') {
+                                        echo esc_html(number_format_i18n((float)$campaign->discount_value, 0)) . '%';
+                                    } else {
+                                        echo '¥' . esc_html(number_format_i18n((float)$campaign->discount_value, 0));
+                                    }
+                                ?>
                             </td>
                             <td>
-                                <?php echo esc_html($campaign->start_date); ?> ～ <?php echo esc_html($campaign->end_date); ?>
+                                <?php
+                                    echo esc_html(mb_t('period.type.fixed')) . ' ';
+                                    echo esc_html($campaign->start_date) . ' — ' . esc_html($campaign->end_date);
+                                ?>
                             </td>
-                            <td><?php echo esc_html($campaign->target_plan); ?></td>
+                            <td>
+                                <?php
+                                    $codes = array();
+                                    if (!empty($campaign->target_plan)) {
+                                        $raw = explode(',', $campaign->target_plan);
+                                        foreach ($raw as $code) {
+                                            $code = strtoupper(trim($code));
+                                            if (in_array($code, array('SS','S','M','L','ALL'), true)) {
+                                                $codes[] = $code;
+                                            }
+                                        }
+                                    }
+                                    echo esc_html(implode('/', $codes));
+                                ?>
+                            </td>
+                            <td>
+                                <?php
+                                    $linked = isset($counts[intval($campaign->id)]) ? intval($counts[intval($campaign->id)]) : 0;
+                                    echo esc_html(number_format_i18n($linked, 0));
+                                ?>
+                            </td>
                             <td>
                                 <span class="campaign-status <?php echo $campaign->is_active ? 'active' : 'inactive'; ?>">
                                     <?php echo $campaign->is_active ? esc_html(mb_t('status.active')) : esc_html(mb_t('status.inactive')); ?>
                                 </span>
                             </td>
+                            <td>-</td>
+                            <td>-</td>
                             <td>
-                                <button type="button"
-                                        class="button button-small campaign-edit"
-                                        onclick="editCampaign(<?php echo esc_attr($campaign->id); ?>)"
-                                        data-campaign-id="<?php echo esc_attr($campaign->id); ?>"
-                                        data-name="<?php echo esc_attr($campaign->campaign_name); ?>"
-                                        data-discount-type="<?php echo esc_attr($campaign->discount_type); ?>"
-                                        data-discount-value="<?php echo esc_attr($campaign->discount_value); ?>"
-                                        data-start-date="<?php echo esc_attr($campaign->start_date); ?>"
-                                        data-end-date="<?php echo esc_attr($campaign->end_date); ?>">
-                                    <?php _e('編集', 'monthly-booking'); ?>
+                                <a href="#" class="button button-small campaign-edit"
+                                   onclick="editCampaign(<?php echo esc_attr($campaign->id); ?>);return false;">
+                                   <?php echo esc_html(mb_t('campaigns.actions.edit')); ?>
+                                </a>
+                                <a href="#" class="button button-small campaign-duplicate"
+                                   data-campaign-id="<?php echo esc_attr($campaign->id); ?>">
+                                   <?php echo esc_html(mb_t('campaigns.actions.duplicate')); ?>
+                                </a>
+                                <a href="#" class="button button-small toggle-campaign-status"
+                                   data-campaign-id="<?php echo esc_attr($campaign->id); ?>"
+                                   data-is-active="<?php echo esc_attr($campaign->is_active); ?>">
+                                   <?php echo $campaign->is_active ? esc_html(mb_t('campaigns.actions.disable')) : esc_html(mb_t('campaigns.actions.enable')); ?>
+                                </a>
+                                <button type="button" class="button button-small button-link-delete campaign-delete"
+                                    data-campaign-id="<?php echo esc_attr($campaign->id); ?>"
+                                    onclick="if(!confirm('<?php echo esc_js(mb_t('campaigns.confirm.delete')); ?>')){return false;}">
+                                    <?php echo esc_html(mb_t('campaigns.actions.delete')); ?>
                                 </button>
                             </td>
                         </tr>
