@@ -109,8 +109,11 @@ jQuery(document).ready(function($) {
             name: $form.find('[name="name"]').val() || '',
             discount_type: $form.find('[name="discount_type"]').val() || '',
             discount_value: $form.find('[name="discount_value"]').val() || '',
+            period_type: ($form.find('input[name="period_type"]:checked').val() || 'fixed'),
+            relative_days: $form.find('[name="relative_days"]').val() || '',
             start_date: $form.find('[name="start_date"]').val() || '',
-            end_date: $form.find('[name="end_date"]').val() || ''
+            end_date: $form.find('[name="end_date"]').val() || '',
+            'contract_types[]': $form.find('input[name="contract_types[]"]:checked').map(function(){return this.value;}).get()
         };
         var cid = $form.find('[name="campaign_id"]').val();
         if (cid) payload.campaign_id = cid;
