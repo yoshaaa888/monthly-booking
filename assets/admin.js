@@ -64,6 +64,16 @@ document.addEventListener('DOMContentLoaded', function () {
       var active = this.getAttribute('data-is-active') === '1' || this.getAttribute('data-is-active') === 'true';
       var label = active ? t('campaigns.actions.disable') : t('campaigns.actions.enable');
       if (!confirm(label + ' ?')) return;
+      var newActive = !active;
+      this.setAttribute('data-is-active', newActive ? '1' : '0');
+      this.textContent = newActive ? t('campaigns.actions.disable') : t('campaigns.actions.enable');
+      var tr = this.closest('tr');
+      if (tr) {
+        var statusCell = tr.querySelector('td:nth-child(5), td.status-cell');
+        if (statusCell) {
+          statusCell.textContent = newActive ? t('status.active') : t('status.inactive');
+        }
+      }
       alert(label + ' #' + id);
     });
   });
