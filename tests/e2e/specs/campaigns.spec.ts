@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { wpScalar } from '../fixtures/wp';
-import { robustGoto } from './_helpers';
+import { robustGoto, ensureLoggedIn } from './_helpers';
 
 function fmtDate(d: Date) {
   const y = d.getFullYear();
@@ -11,13 +11,7 @@ function fmtDate(d: Date) {
 
 test.describe('@smoke Campaign Management Flow', () => {
   test('@smoke create campaign -> assign to rooms -> verify calendar display + DB', async ({ page }) => {
-    await page.goto('/wp-login.php');
-    await page.fill('#user_login', process.env.MB_ADMIN_USER || 'admin');
-    await page.fill('#user_pass', process.env.MB_ADMIN_PASS || 'password');
-    await page.click('#wp-submit');
-    await page.waitForLoadState('domcontentloaded');
-    await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(800);
+    await ensureLoggedIn(page);
     await robustGoto(page, '/wp-admin/');
     await expect(page.locator('#adminmenu')).toBeVisible({ timeout: 20000 });
 
