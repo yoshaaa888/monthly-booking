@@ -850,7 +850,7 @@ class MonthlyBooking_Admin_UI {
         <div class="wrap">
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
             
-            <div class="monthly-booking-admin-content">
+            <div class="monthly-booking-admin-content" data-testid="mb-calendar-content">
                 <div class="calendar-controls">
                     <div class="room-selector">
                         <label for="room_select"><?php _e('部屋選択', 'monthly-booking'); ?>:</label>
@@ -1302,7 +1302,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                                 $cell_classes = array('availability-cell', $availability['status']);
                                 if ($is_today) $cell_classes[] = 'today';
                                 
-                                echo '<td class="' . implode(' ', $cell_classes) . '">';
+                                echo '<td class="' . implode(' ', $cell_classes) . '" data-testid="mb-calendar-cell">';
                                 if ($availability['status'] === 'campaign') {
                                     echo '<span class="campaign-symbol" title="' . esc_attr($availability['campaign_name']) . '">';
                                     echo esc_html($availability['symbol']) . ' ' . esc_html($availability['campaign_name']);
