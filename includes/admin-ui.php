@@ -2093,6 +2093,16 @@ class MonthlyBooking_Admin_UI {
                                            data-is-active="<?php echo esc_attr($c->is_active); ?>">
                                            <?php echo $c->is_active ? esc_html(mb_t('action.disable')) : esc_html(mb_t('action.enable')); ?>
                                         </a>
+                                        <a href="#" class="button button-small campaign-duplicate"
+                                           data-campaign-id="<?php echo esc_attr($c->id); ?>"
+                                           data-campaign-name="<?php echo esc_attr($c->name); ?>"
+                                           data-discount-type="<?php echo esc_attr($c->discount_type); ?>"
+                                           data-discount-value="<?php echo esc_attr($c->discount_value); ?>"
+                                           data-start-date="<?php echo esc_attr($c->start_date); ?>"
+                                           data-end-date="<?php echo esc_attr($c->end_date); ?>"
+                                           data-target-plan="">
+                                           <?php echo esc_html(mb_t('campaigns.actions.duplicate')); ?>
+                                        </a>
                                         <button type="button" class="button button-small button-link-delete campaign-delete"
                                             data-campaign-id="<?php echo esc_attr($c->id); ?>">
                                             <?php echo esc_html(mb_t('action.delete')); ?>
