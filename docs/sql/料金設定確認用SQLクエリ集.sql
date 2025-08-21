@@ -1,14 +1,23 @@
---
+-- 料金設定確認用SQLクエリ集.sql
+-- 対象: WordPress 月額宿泊システム
+-- 目的: 料金・オプション・キャンペーン設定の確認および整合性チェック
+-- 注意: すべてSELECTのみ。破壊的操作は含みません。
+-- プレフィックス可変化: 2通りを提供
+--   A) MySQLユーザー変数 + PREPARE/EXECUTE 方式 (@p にプレフィックスを設定)
+--   B) プレースホルダ方式 {{PREFIX}} を実行前に置換（例: wp_）
+-- 実行例（A: ユーザー変数方式）
 --   SET @p := 'wp_';
---   SET @sql := REPLACE('SELECT * FROM {{PREFIX}}monthly_rooms LIMIT 1', '{{PREFIX}}', @p);
---   PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
---
---
---
+--   SET @sql := REPLACE('SELECT * FROM {{PREFIX}}monthly_rooms LIMIT 1', '{{PREFIX}}', @p); (important-comment)
+--   PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt; (important-comment)
+-- 実行例（B: 置換方式）
+--   テキストエディタで {{PREFIX}} を wp_ などに置換して流してください。
+-- 想定テーブル（本リポ実装に基づく）
+--   {{PREFIX}}monthly_rooms            : 部屋マスタ（基本日割り単価 daily_rent 含む）
+--   {{PREFIX}}monthly_rates            : 料金テーブル（rate_type, base_price ほか）
+--   {{PREFIX}}monthly_options          : オプションマスタ（is_discount_target, display_order, is_active）
+--   {{PREFIX}}monthly_campaigns        : キャンペーン（applicable_rooms テキストで部屋IDのCSVを保持）
+--   参考: {{PREFIX}}monthly_room_campaigns が存在する環境では、下部の代替クエリを使用
 
---
---
---
 
 
 /******************************
