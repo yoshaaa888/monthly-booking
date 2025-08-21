@@ -94,6 +94,17 @@ class MonthlyBooking_Admin_UI {
             'monthly-room-booking-settings',
             array($this, 'admin_page_plugin_settings')
         );
+        
+
+        add_submenu_page(
+            'monthly-room-booking',
+            __('整合性ダッシュボード', 'monthly-booking'),
+            __('整合性ダッシュボード', 'monthly-booking'),
+            'manage_options',
+            'monthly-room-booking-consistency',
+            array($this, 'admin_page_consistency_dashboard')
+        );
+
     }
     
     /**
@@ -1254,6 +1265,105 @@ class MonthlyBooking_Admin_UI {
                         </form>
                     <?php endif; ?>
                 </div>
+            </div>
+        </div>
+        <?php
+    }
+
+    public function admin_page_consistency_dashboard() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
+        }
+        if (!class_exists('MB_Consistency_Checker')) {
+            $path = plugin_dir_path(__FILE__) . 'admin/class-mb-consistency-checker.php';
+            if (file_exists($path)) {
+                require_once $path;
+            }
+        }
+        $checker = new MB_Consistency_Checker();
+
+        $all_rows = array();
+        $results = array(
+            'campaign' => $checker->check_campaign_tables(),
+            'pricing'  => $checker->check_pricing_sources(),
+            'options'  => $checker->check_options_integrity(),
+            'rates'    => $checker->check_rate_completeness_and_overlaps(),
+        );
+
+        foreach ($results as $k => $rows) {
+            foreach ($rows as $r) {
+                $all_rows[] = $r;
+            }
+        }
+        $summary = $checker->summary_by_severity($all_rows);
+
+        if (isset($_GET['download']) && $_GET['download'] === 'csv' && isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'mb_consistency_csv')) {
+            $section = isset($_GET['section']) ? sanitize_text_field($_GET['section']) : '';
+            $export_rows = $all_rows;
+            if ($section && isset($results[$section])) {
+                $export_rows = $results[$section];
+            }
+            $csv = $checker->to_csv($export_rows);
+            header('Content-Type: text/csv; charset=UTF-8');
+            $filename = $section ? ('consistency-' . $section . '.csv') : 'consistency-report.csv';
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            echo $csv;
+            exit;
+        }
+
+        $csv_url_all = wp_nonce_url(admin_url('admin.php?page=monthly-room-booking-consistency&download=csv'), 'mb_consistency_csv');
+        $csv_url_campaign = wp_nonce_url(admin_url('admin.php?page=monthly-room-booking-consistency&download=csv&section=campaign'), 'mb_consistency_csv');
+        $csv_url_pricing  = wp_nonce_url(admin_url('admin.php?page=monthly-room-booking-consistency&download=csv&section=pricing'), 'mb_consistency_csv');
+        $csv_url_options  = wp_nonce_url(admin_url('admin.php?page=monthly-room-booking-consistency&download=csv&section=options'), 'mb_consistency_csv');
+        $csv_url_rates    = wp_nonce_url(admin_url('admin.php?page=monthly-room-booking-consistency&download=csv&section=rates'), 'mb_consistency_csv');
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+            <div class="monthly-booking-admin-content">
+                <h2><?php _e('整合性サマリー', 'monthly-booking'); ?></h2>
+                <p><?php _e('検出結果の概要', 'monthly-booking'); ?></p>
+                <ul>
+                    <li><?php echo esc_html(sprintf(__('高: %d 件', 'monthly-booking'), isset($summary['高']) ? $summary['高'] : 0)); ?></li>
+                    <li><?php echo esc_html(sprintf(__('中: %d 件', 'monthly-booking'), isset($summary['中']) ? $summary['中'] : 0)); ?></li>
+                    <li><?php echo esc_html(sprintf(__('低: %d 件', 'monthly-booking'), isset($summary['低']) ? $summary['低'] : 0)); ?></li>
+                </ul>
+                <p>
+                    <a class="button button-primary" href="<?php echo esc_url($csv_url_all); ?>"><?php _e('CSVダウンロード（全件）', 'monthly-booking'); ?></a>
+                    <a class="button" href="<?php echo esc_url($csv_url_campaign); ?>"><?php _e('CSV（キャンペーン）', 'monthly-booking'); ?></a>
+                    <a class="button" href="<?php echo esc_url($csv_url_pricing); ?>"><?php _e('CSV（料金参照）', 'monthly-booking'); ?></a>
+                    <a class="button" href="<?php echo esc_url($csv_url_options); ?>"><?php _e('CSV（オプション）', 'monthly-booking'); ?></a>
+                    <a class="button" href="<?php echo esc_url($csv_url_rates); ?>"><?php _e('CSV（レート）', 'monthly-booking'); ?></a>
+                </p>
+
+                <h2><?php _e('詳細', 'monthly-booking'); ?></h2>
+                <table class="wp-list-table widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <th><?php _e('カテゴリ', 'monthly-booking'); ?></th>
+                            <th><?php _e('箇所', 'monthly-booking'); ?></th>
+                            <th><?php _e('現在値', 'monthly-booking'); ?></th>
+                            <th><?php _e('期待値', 'monthly-booking'); ?></th>
+                            <th><?php _e('重要度', 'monthly-booking'); ?></th>
+                            <th><?php _e('備考', 'monthly-booking'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php if (!empty($all_rows)) : ?>
+                        <?php foreach ($all_rows as $row): ?>
+                        <tr>
+                            <td><?php echo esc_html(isset($row['category']) ? $row['category'] : ''); ?></td>
+                            <td><?php echo esc_html(isset($row['location']) ? $row['location'] : ''); ?></td>
+                            <td><code style="white-space:pre-wrap;display:block;max-width:520px;overflow:auto"><?php echo esc_html(is_string($row['current_value']) ? $row['current_value'] : json_encode($row['current_value'], JSON_UNESCAPED_UNICODE)); ?></code></td>
+                            <td><code style="white-space:pre-wrap;display:block;max-width:520px;overflow:auto"><?php echo esc_html(is_string($row['expected_value']) ? $row['expected_value'] : json_encode($row['expected_value'], JSON_UNESCAPED_UNICODE)); ?></code></td>
+                            <td><?php echo esc_html(isset($row['severity']) ? $row['severity'] : ''); ?></td>
+                            <td><?php echo esc_html(isset($row['note']) ? $row['note'] : ''); ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr><td colspan="6"><?php _e('検出された不整合はありません。', 'monthly-booking'); ?></td></tr>
+                    <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
         <?php

@@ -1,0 +1,8 @@
+# 不整合一覧（説明行）
+# 使い方: 各行に具体的な不整合を記録。影響度は「高/中/低」。修正方針と担当・期限を付す。
+カテゴリ,箇所,現状,期待値/仕様,根本原因,影響度,修正方針,担当,期限,備考
+テーブル不統一,キャンペーン,booking-logicはmonthly_booking_campaignsを参照,campaign-managerはmonthly_campaignsを参照,テーブル設計の分裂,高,テーブル名/スキーマ統一案を策定し移行,,
+料金参照源,料金計算,default_price(オプション設定)を参照,monthly_rates(SS/S/M/L)に基づく計算,実装と設計の乖離,高,monthly_rates参照への移行・フォールバック定義,,
+カラム不一致,キャンペーン,booking-logicの期待カラムとcampaign-managerの期待カラムが異なる,campaign_name/description等に統一,命名規則不統一,中,命名統一とアクセス層関数の導入,,
+UI-DB表示,オプション,display_orderやis_activeの並び/条件とUI表示の不一致の可能性,DBのdisplay_order順・is_active=1優先で表示,UI整形と条件の差,中,表示ロジックの統一・チェックSQLで担保,,
+データ欠損,レート,一部部屋でSS/S/M/Lが未設定の可能性,全タイプに対する定義の網羅,初期データ不足/運用差分,中,欠損検出SQLと初期化手順の整備,,
