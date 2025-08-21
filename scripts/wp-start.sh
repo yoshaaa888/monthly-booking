@@ -4,6 +4,7 @@ set -x
 
 WP_NOW_VER="6.8.2"
 WP_NOW_DIR="${HOME}/.wp-now/wordpress-versions/${WP_NOW_VER}"
+WP_NOW_PKG_VERSION="${WP_NOW_PKG_VERSION:-latest}"
 
 mkdir -p "${WP_NOW_DIR}"
 
@@ -38,7 +39,6 @@ if [ ! -f "${WP_NOW_DIR}/wp-load.php" ]; then
   mkdir -p "${WP_NOW_DIR}"
 fi
 
-
 if [ -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" ]; then
   mkdir -p ~/.wp-now/mu-plugins ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins
   install -m 0644 "$PWD/test-environment/mu-plugins/mb-test-rest.php" ~/.wp-now/mu-plugins/mb-test-rest.php
@@ -53,7 +53,7 @@ fi
 
 pkill -f '@wp-now/wp-now' 2>/dev/null || true
 : > /tmp/wp-now.log || true
-nohup npx -y @wp-now/wp-now start --port 8888 >/tmp/wp-now.log 2>&1 &
+nohup npx -y @wp-now/wp-now@${WP_NOW_PKG_VERSION} start --port 8888 >/tmp/wp-now.log 2>&1 &
 disown
 
 for i in $(seq 1 40); do
@@ -68,26 +68,10 @@ done
 echo "Server did not become healthy in time"
 tail -n 200 /tmp/wp-now.log || true
 curl -sS http://127.0.0.1:8888/ || true
-exit 1
-
-#!/usr/bin/env bash
-set -euo pipefail
-set -x
-
-if [ -f "$PWD/test-environment/mu-plugins/mb-test-rest.php" ]; then
-  mkdir -p ~/.wp-now/mu-plugins ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins
-  install -m 0644 "$PWD/test-environment/mu-plugins/mb-test-rest.php" ~/.wp-now/mu-plugins/mb-test-rest.php
-  install -m 0644 "$PWD/test-environment/mu-plugins/mb-test-rest.php" ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins/mb-test-rest.php
-fi
-if [ -f "$PWD/test-environment/mu-plugins/mb-qa.php" ]; then
-  mkdir -p ~/.wp-now/mu-plugins ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins
-  install -m 0644 "$PWD/test-environment/mu-plugins/mb-qa.php" ~/.wp-now/mu-plugins/mb-qa.php
-  install -m 0644 "$PWD/test-environment/mu-plugins/mb-qa.php" ~/.wp-now/wordpress-versions/6.8.2/wp-content/mu-plugins/mb-qa.php
-fi
 
 pkill -f '@wp-now/wp-now' 2>/dev/null || true
 : > /tmp/wp-now.log || true
-nohup npx -y @wp-now/wp-now start --port 8888 >/tmp/wp-now.log 2>&1 &
+nohup npx -y @wp-now/wp-now@0.10.0 start --port 8888 >/tmp/wp-now.log 2>&1 &
 disown
 
 for i in $(seq 1 40); do
@@ -99,7 +83,7 @@ for i in $(seq 1 40); do
   sleep 1
 done
 
-echo "Server did not become healthy in time"
+echo "Server did not become healthy in time (after fallback)"
 tail -n 200 /tmp/wp-now.log || true
 curl -sS http://127.0.0.1:8888/ || true
 exit 1
