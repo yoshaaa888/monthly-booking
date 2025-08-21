@@ -3,172 +3,126 @@ name: e2e
 on:
   pull_request:
     branches: [ main ]
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
-    inputs:
-      runCrud:
-        description: 'Run CRUD job'
-        required: false
-        default: 'false'
-      runNightly:
-        description: 'Run nightly-full'
-        required: false
-        default: 'false'
-  schedule:
-    - cron: "22 18 * * *" # JST03:22頃にnightly-full
 
 concurrency:
   group: e2e-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  smoke:
+  e2e-firefox:
     runs-on: ubuntu-latest
-    env:
-      npm_config_legacy_peer_deps: "true"
-      NPX_YES: "1"
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      # Caches (任意だが速くなる)
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
-
-      - name: Cache wp-now WordPress versions
-        uses: actions/cache@v4
-        with:
-          path: ~/.wp-now/wordpress-versions
-          key: wpnow-${{ runner.os }}-wp682
-          restore-keys: |
-            wpnow-${{ runner.os }}-
-
-      # ✅ 先に依存を入れる（ここ重要）
-      - name: Install deps
-        run: npm ci --no-audit --no-fund --legacy-peer-deps || npm i --no-audit --no-fund --legacy-peer-deps
-
-      # ✅ 依存が入った後で Playwright ブラウザを入れる（バージョン整合）
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
-      - name: MU sync
-        run: npm run mu:sync
-
-      - name: Start wp-now + health wait
-        run: bash scripts/wp-start.sh
-
-      - name: Smoke tests
-        run: npm run test:smoke
-
-  crud:
-    needs: smoke
-    runs-on: ubuntu-latest
-    env:
-      npm_config_legacy_peer_deps: "true"
-      NPX_YES: "1"
-    timeout-minutes: 20
-    if: |
-      github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.runCrud == 'true') ||
-      (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ','), 'run-crud'))
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
-
-      - name: Cache wp-now WordPress versions
-        uses: actions/cache@v4
-        with:
-          path: ~/.wp-now/wordpress-versions
-          key: wpnow-${{ runner.os }}-wp682
-          restore-keys: |
-            wpnow-${{ runner.os }}-
-
-      # ✅ 依存 → ブラウザの順
-      - name: Install deps
-        run: npm ci --no-audit --no-fund --legacy-peer-deps || npm i --no-audit --no-fund --legacy-peer-deps
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
-      - name: MU sync
-        run: npm run mu:sync
-
-      - name: Start wp-now + health wait
-        run: bash scripts/wp-start.sh
-
-      # test:crud が無い場合はスキップ（落とさない）
-      - name: CRUD tests
-        run: |
-          if npm run | grep -q "test:crud"; then
-            npm run test:crud
-          else
-            echo "No test:crud script found; skipping CRUD suite on this PR."
-          fi
-
-  nightly-full:
-    needs: smoke
-    runs-on: ubuntu-latest
-    env:
-      npm_config_legacy_peer_deps: "true"
-      NPX_YES: "1"
     timeout-minutes: 30
-    if: |
-      github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.runNightly == 'true')
+    env:
+      MB_BASE_URL: http://127.0.0.1:8080
+      MB_ADMIN_USER: admin
+      MB_ADMIN_PASS: password
+      MB_ADMIN_EMAIL: admin@example.com
+      MB_SITE_TITLE: Monthly Booking CI
+      MB_READY_TOTAL_SEC: 240
+      MB_READY_INTERVAL_SEC: 3
+      npm_config_legacy_peer_deps: "true"
+      NPX_YES: "1"
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
+          cache-dependency-path: tests/e2e/package-lock.json
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
+          key: pw-${{ runner.os }}-${{ hashFiles('tests/e2e/package-lock.json') }}
 
-      - name: Cache wp-now WordPress versions
-        uses: actions/cache@v4
-        with:
-          path: ~/.wp-now/wordpress-versions
-          key: wpnow-${{ runner.os }}-wp682
-          restore-keys: |
-            wpnow-${{ runner.os }}-
-
-      # ✅ 依存 → ブラウザの順
-      - name: Install deps
-        run: npm ci --no-audit --no-fund --legacy-peer-deps || npm i --no-audit --no-fund --legacy-peer-deps
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
-      - name: MU sync
-        run: npm run mu:sync
-
-      - name: Start wp-now + health wait
-        run: bash scripts/wp-start.sh
-
-      - name: Full CRUD suite (skip gracefully if missing)
+      - name: Install E2E deps
+        working-directory: tests/e2e
         run: |
-          if npm run | grep -q "test:crud"; then
-            npm run test:crud
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund --legacy-peer-deps
           else
-            echo "No test:crud script found; skipping nightly CRUD suite."
+            npm i --no-audit --no-fund --legacy-peer-deps
           fi
+
+      - name: Install Playwright browsers (with deps)
+        working-directory: tests/e2e
+        run: npx playwright install --with-deps
+
+      - name: Start Docker WP stack
+        working-directory: tests/e2e
+        run: npm run pretest:e2e
+
+      - name: Health check (WordPress up)
+        working-directory: tests/e2e
+        run: |
+          echo "Waiting for $MB_BASE_URL ..."
+          for i in {1..60}; do
+            code="$(curl -L -sS -o /dev/null -w "%{http_code}" "$MB_BASE_URL" || true)"
+            if [[ "$code" =~ ^[23][0-9][0-9]$ ]]; then echo "WP up ($code)"; break; fi
+            sleep 3
+          done
+
+      - name: Warm-up endpoints (pre-test)
+        working-directory: tests/e2e
+        run: |
+          set -e
+          echo "Warming up $MB_BASE_URL endpoints..."
+          for i in {1..20}; do
+            ok=0
+            for ep in "" "/wp-json/" "/wp-admin/" "/wp-login.php"; do
+              url="${MB_BASE_URL%/}$ep"
+              code="$(curl -L -sS -o /dev/null -w "%{http_code}" "$url" || true)"
+              if [[ "$code" =~ ^[23][0-9][0-9]$ ]]; then ok=1; break; fi
+            done
+            if [ "$ok" -eq 1 ]; then echo "Warm-up OK"; break; fi
+            sleep 3
+          done
+
+      - name: Run Playwright tests (Firefox primary, @smoke)
+        working-directory: tests/e2e
+        run: npx playwright test --project=firefox --grep "@smoke"
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tests/e2e/playwright-report
+          retention-days: 7
+
+      - name: Upload Playwright traces/screenshots/videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            tests/e2e/test-results
+          retention-days: 7
+
+      - name: Collect Docker logs
+        if: always()
+        working-directory: tests/e2e
+        run: |
+          mkdir -p docker-logs
+          docker compose -f ../dev/docker-compose.yml ps || true
+          docker compose -f ../dev/docker-compose.yml logs --tail=500 > docker-logs/compose-all.log || true
+          docker compose -f ../dev/docker-compose.yml logs --tail=500 wordpress > docker-logs/wp.log || true
+          docker compose -f ../dev/docker-compose.yml logs --tail=500 db > docker-logs/db.log || true
+          docker compose -f ../dev/docker-compose.yml logs --tail=500 adminer > docker-logs/adminer.log || true
+
+      - name: Upload Docker logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-logs
+          path: tests/e2e/docker-logs
+          retention-days: 7
+
+      - name: Teardown Docker WP stack
+        if: always()
+        working-directory: tests/e2e
+        run: npm run posttest:e2e

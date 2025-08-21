@@ -109,7 +109,7 @@ class MonthlyBooking_Calendar_Render {
                     <?php if (!$atts['room_id'] && !empty($rooms)): ?>
                     <div class="room-selection">
                         <label for="room-selector"><?php _e('部屋を選択:', 'monthly-booking'); ?></label>
-                        <select id="room-selector" class="room-selector" aria-label="<?php echo esc_attr(__('予約する部屋を選択してください', 'monthly-booking')); ?>">
+                        <select id="room-selector" class="room-selector" data-testid="mb-calendar-room-selector" aria-label="<?php echo esc_attr(__('予約する部屋を選択してください', 'monthly-booking')); ?>">
                             <?php foreach ($rooms as $room): ?>
                                 <option value="<?php echo esc_attr($room->id); ?>" 
                                         <?php selected($room->id, $selected_room_id); ?>>
@@ -121,7 +121,7 @@ class MonthlyBooking_Calendar_Render {
                     <?php endif; ?>
                 </div>
                 
-                <div class="calendar-content" data-room-id="<?php echo esc_attr($selected_room_id); ?>">
+                <div class="calendar-content" data-testid="mb-calendar-content" data-room-id="<?php echo esc_attr($selected_room_id); ?>">
                     <div id="calendar-announcements" aria-live="polite" aria-atomic="true" class="sr-only"></div>
                     <?php echo $this->render_matrix_calendar(MonthlyBooking_Calendar_Utils::get_wp_timezone_date('today')->format('Y-m-d'), 30, $selected_room_id ? array($selected_room_id) : array()); ?>
                 </div>
@@ -150,7 +150,7 @@ class MonthlyBooking_Calendar_Render {
                         <input type="hidden" name="page_id" value="<?php echo isset($_GET['page_id']) ? intval($_GET['page_id']) : 0; ?>">
                         <label for="matrix-days"><?php echo esc_html__('表示日数', 'monthly-booking'); ?></label>
                         <input id="matrix-days" type="number" name="days" value="<?php echo esc_attr(isset($_GET['days']) ? intval($_GET['days']) : 30); ?>" min="7" max="180" style="width:90px;">
-                        <button type="button" class="button" id="render-matrix"><?php echo esc_html__('部屋×日付 マトリクス表示', 'monthly-booking'); ?></button>
+                        <button type="button" class="button" id="render-matrix" data-testid="mb-calendar-render-matrix"><?php echo esc_html__('部屋×日付 マトリクス表示', 'monthly-booking'); ?></button>
                     </form>
                 </div>
 
@@ -321,7 +321,7 @@ class MonthlyBooking_Calendar_Render {
                             $symbol = isset($status['symbol']) ? $status['symbol'] : '';
                             $code = isset($status['code']) ? $status['code'] : 'vac';
                         ?>
-                            <div class="<?php echo esc_attr(implode(' ', $classes)); ?>" role="gridcell" aria-label="<?php echo esc_attr($aria); ?>" data-date="<?php echo esc_attr($d); ?>" data-code="<?php echo esc_attr($code); ?>">
+                            <div class="<?php echo esc_attr(implode(' ', $classes)); ?>" role="gridcell" aria-label="<?php echo esc_attr($aria); ?>" data-date="<?php echo esc_attr($d); ?>" data-code="<?php echo esc_attr($code); ?>" data-testid="mb-calendar-cell">
                                 <span class="mb-cal-symbol mb-cal-<?php echo esc_attr($code); ?>"><?php echo esc_html($symbol); ?></span>
                             </div>
                         <?php endforeach; ?>

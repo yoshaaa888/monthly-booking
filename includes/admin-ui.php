@@ -306,8 +306,8 @@ class MonthlyBooking_Admin_UI {
             ?>
             <div class="tablenav top" style="margin:10px 0;">
                 <div class="alignleft actions bulkactions">
-                    <button type="button" class="button" id="rooms-bulk-assign"><?php echo esc_html(mb_t('rooms.bulk.assign')); ?></button>
-                    <button type="button" class="button" id="rooms-bulk-unassign"><?php echo esc_html(mb_t('rooms.bulk.unassign')); ?></button>
+                    <button type="button" class="button" id="rooms-bulk-assign" data-testid="mb-room-bulk-assign"><?php echo esc_html(mb_t('rooms.bulk.assign')); ?></button>
+                    <button type="button" class="button" id="rooms-bulk-unassign" data-testid="mb-room-bulk-unassign"><?php echo esc_html(mb_t('rooms.bulk.unassign')); ?></button>
                 </div>
             </div>
             <table class="wp-list-table widefat fixed striped" id="rooms-table">
@@ -341,8 +341,8 @@ class MonthlyBooking_Admin_UI {
                         $clean_opt_key = 'mb_room_cleaned_' . (int)$property->room_id;
                         $is_cleaned = get_option($clean_opt_key, '1') === '1';
                         ?>
-                        <tr>
-                            <td><input type="checkbox" class="room-select" value="<?php echo esc_attr($property->room_id); ?>"></td>
+                        <tr data-testid="mb-room-row">
+                            <td><input type="checkbox" class="room-select" data-testid="mb-room-select" value="<?php echo esc_attr($property->room_id); ?>"></td>
                             <td><?php echo esc_html($property->property_id); ?></td>
                             <td><?php echo esc_html($property->room_id); ?></td>
                             <td><?php echo esc_html($property->display_name); ?></td>
@@ -352,20 +352,20 @@ class MonthlyBooking_Admin_UI {
                             <td>
                                 <?php if ($badges): ?>
                                     <?php foreach ($badges as $b): ?>
-                                        <span class="badge" style="display:inline-block;background:#fff3cd;border:1px solid #ffc107;border-radius:3px;padding:2px 6px;margin-right:4px;"><?php echo esc_html($b); ?></span>
+                                        <span class="badge" data-testid="mb-room-campaign-badge" style="display:inline-block;background:#fff3cd;border:1px solid #ffc107;border-radius:3px;padding:2px 6px;margin-right:4px;"><?php echo esc_html($b); ?></span>
                                     <?php endforeach; ?>
                                 <?php else: ?>
                                     —
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <span class="<?php echo $vacant ? 'vacant-yes' : 'vacant-no'; ?>" style="font-weight:bold;<?php echo $vacant ? 'color:#4caf50' : 'color:#f44336'; ?>">
+                                <span class="<?php echo $vacant ? 'vacant-yes' : 'vacant-no'; ?>" data-testid="mb-room-vacancy" style="font-weight:bold;<?php echo $vacant ? 'color:#4caf50' : 'color:#f44336'; ?>">
                                     <?php echo $vacant ? '〇' : '×'; ?>
                                 </span>
                             </td>
                             <td>
                                 <label>
-                                    <input type="checkbox" class="cleaning-toggle" data-room-id="<?php echo esc_attr($property->room_id); ?>" <?php checked($is_cleaned, true); ?>>
+                                    <input type="checkbox" class="cleaning-toggle" data-testid="mb-room-cleaning-toggle" data-room-id="<?php echo esc_attr($property->room_id); ?>" <?php checked($is_cleaned, true); ?>>
                                     <span><?php echo esc_html($is_cleaned ? mb_t('rooms.cleaning.cleaned') : mb_t('rooms.cleaning.not_cleaned')); ?></span>
                                 </label>
                             </td>
@@ -850,11 +850,11 @@ class MonthlyBooking_Admin_UI {
         <div class="wrap">
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
             
-            <div class="monthly-booking-admin-content">
+            <div class="monthly-booking-admin-content" data-testid="mb-calendar-content">
                 <div class="calendar-controls">
                     <div class="room-selector">
                         <label for="room_select"><?php _e('部屋選択', 'monthly-booking'); ?>:</label>
-                        <select id="room_select" name="room_id" onchange="try { var url = '<?php echo admin_url('admin.php?page=monthly-room-booking-calendar&room_id='); ?>' + this.value; window.location.href = url; } catch(e) { alert('<?php _e('Error selecting room: ', 'monthly-booking'); ?>' + e.message); }">
+                        <select id="room_select" name="room_id" data-testid="mb-calendar-room-selector" onchange="try { var url = '<?php echo admin_url('admin.php?page=monthly-room-booking-calendar&room_id='); ?>' + this.value; window.location.href = url; } catch(e) { alert('<?php _e('Error selecting room: ', 'monthly-booking'); ?>' + e.message); }">
                             <option value="0"><?php _e('部屋を選択してください', 'monthly-booking'); ?></option>
                             <?php foreach ($rooms as $room): ?>
                                 <option value="<?php echo esc_attr($room->room_id); ?>" <?php selected($selected_room_id, $room->room_id); ?>>
@@ -1302,7 +1302,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                                 $cell_classes = array('availability-cell', $availability['status']);
                                 if ($is_today) $cell_classes[] = 'today';
                                 
-                                echo '<td class="' . implode(' ', $cell_classes) . '">';
+                                echo '<td class="' . implode(' ', $cell_classes) . '" data-testid="mb-calendar-cell">';
                                 if ($availability['status'] === 'campaign') {
                                     echo '<span class="campaign-symbol" title="' . esc_attr($availability['campaign_name']) . '">';
                                     echo esc_html($availability['symbol']) . ' ' . esc_html($availability['campaign_name']);
@@ -2248,7 +2248,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                 
                 <!-- New Campaign Button -->
                 <div style="margin-bottom: 20px;">
-                    <button type="button" class="button button-primary" onclick="showCampaignModal()"><?php echo esc_html(mb_t('action.create')); ?></button>
+                    <button type="button" class="button button-primary" data-testid="mb-campaign-create" onclick="showCampaignModal()"><?php echo esc_html(mb_t('action.create')); ?></button>
                 </div>
                 
                 <!-- Campaign List Table -->
@@ -2272,7 +2272,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                         }
                     }
                 ?>
-                <table class="monthly-booking-table widefat">
+                <table class="monthly-booking-table widefat" data-testid="mb-campaign-list">
                     <thead>
                         <tr>
                             <th><?php echo esc_html(mb_t('campaigns.list.headers.name')); ?></th>
@@ -2298,7 +2298,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                         </tr>
                         <?php else: ?>
                         <?php foreach ($campaigns as $campaign): ?>
-                        <tr>
+                        <tr data-testid="mb-campaign-row" data-id="<?php echo esc_attr($campaign->id); ?>">
                             <td><strong><?php echo esc_html($campaign->campaign_name); ?></strong></td>
                             <td>
                                 <?php
@@ -2365,11 +2365,11 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                             <td>-</td>
                             <td>-</td>
                             <td>
-                                <a href="#" class="button button-small campaign-edit"
+                                <a href="#" class="button button-small campaign-edit" data-testid="mb-campaign-edit"
                                    onclick="editCampaign(<?php echo esc_attr($campaign->id); ?>);return false;">
                                    <?php echo esc_html(mb_t('campaigns.actions.edit')); ?>
                                 </a>
-                                <a href="#" class="button button-small campaign-duplicate"
+                                <a href="#" class="button button-small campaign-duplicate" data-testid="mb-campaign-duplicate"
                                    data-campaign-id="<?php echo esc_attr($campaign->id); ?>"
                                    data-campaign-name="<?php echo esc_attr($campaign->campaign_name); ?>"
                                    data-discount-type="<?php echo esc_attr($campaign->discount_type); ?>"
@@ -2380,16 +2380,16 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                                    data-is-active="<?php echo esc_attr($campaign->is_active); ?>">
                                    <?php echo esc_html(mb_t('campaigns.actions.duplicate')); ?>
                                 </a>
-                                <a href="#" class="button button-small campaign-assign"
+                                <a href="#" class="button button-small campaign-assign" data-testid="mb-campaign-assign"
                                    data-campaign-id="<?php echo esc_attr($campaign->id); ?>">
                                    <?php echo esc_html(mb_t('campaigns.actions.assign_to_rooms')); ?>
                                 </a>
-                                <a href="#" class="button button-small toggle-campaign-status"
+                                <a href="#" class="button button-small toggle-campaign-status" data-testid="mb-campaign-toggle"
                                    data-campaign-id="<?php echo esc_attr($campaign->id); ?>"
                                    data-is-active="<?php echo esc_attr($campaign->is_active); ?>">
                                    <?php echo $campaign->is_active ? esc_html(mb_t('campaigns.actions.disable')) : esc_html(mb_t('campaigns.actions.enable')); ?>
                                 </a>
-                                <button type="button" class="button button-small button-link-delete campaign-delete"
+                                <button type="button" class="button button-small button-link-delete campaign-delete" data-testid="mb-campaign-delete"
                                     data-campaign-id="<?php echo esc_attr($campaign->id); ?>"
                                     onclick="if(!confirm('<?php echo esc_js(mb_t('campaigns.confirm.delete')); ?>')){return false;}">
                                     <?php echo esc_html(mb_t('campaigns.actions.delete')); ?>
@@ -2417,7 +2417,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                 $campaigns = $wpdb->get_results("SELECT id, campaign_name AS name, discount_type, discount_value, start_date, end_date, is_active FROM $table_campaigns ORDER BY created_at DESC");
                 ?>
 
-                <table class="monthly-booking-table">
+                <table class="monthly-booking-table" data-testid="mb-campaign-list-legacy">
                     <thead>
                         <tr>
                             <th><?php echo esc_html(mb_t('common.name')); ?></th>
@@ -2430,7 +2430,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                     <tbody>
                         <?php if (!empty($campaigns)): ?>
                             <?php foreach ($campaigns as $c): ?>
-                                <tr>
+                                <tr data-testid="mb-campaign-row" data-id="<?php echo esc_attr($c->id); ?>">
                                     <td><?php echo esc_html($c->name); ?></td>
                                     <td>
                                         <?php
@@ -2444,14 +2444,14 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                                     <td><?php echo esc_html($c->start_date . ' — ' . $c->end_date); ?></td>
                                     <td><?php echo $c->is_active ? esc_html(mb_t('status.active')) : esc_html(mb_t('status.inactive')); ?></td>
                                     <td>
-                                        <a href="#" class="button campaign-assign"
+                                        <a href="#" class="button campaign-assign" data-testid="mb-campaign-assign"
                                            data-campaign-id="<?php echo esc_attr($c->id); ?>">
                                            <?php echo esc_html(mb_t('campaigns.actions.assign_to_rooms')); ?>
                                         </a>
-                                        <a href="#" class="button toggle-campaign-status" data-campaign-id="<?php echo esc_attr($c->id); ?>" data-is-active="<?php echo esc_attr($c->is_active); ?>">
+                                        <a href="#" class="button toggle-campaign-status" data-testid="mb-campaign-toggle" data-campaign-id="<?php echo esc_attr($c->id); ?>" data-is-active="<?php echo esc_attr($c->is_active); ?>">
                                            <?php echo $c->is_active ? esc_html(mb_t('action.disable')) : esc_html(mb_t('action.enable')); ?>
                                         </a>
-                                        <a href="#" class="button button-small campaign-duplicate"
+                                        <a href="#" class="button button-small campaign-duplicate" data-testid="mb-campaign-duplicate"
                                            data-campaign-id="<?php echo esc_attr($c->id); ?>"
                                            data-campaign-name="<?php echo esc_attr($c->name); ?>"
                                            data-discount-type="<?php echo esc_attr($c->discount_type); ?>"
@@ -2461,7 +2461,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                                            data-target-plan="">
                                            <?php echo esc_html(mb_t('campaigns.actions.duplicate')); ?>
                                         </a>
-                                        <button type="button" class="button button-small button-link-delete campaign-delete"
+                                        <button type="button" class="button button-small button-link-delete campaign-delete" data-testid="mb-campaign-delete"
                                             data-campaign-id="<?php echo esc_attr($c->id); ?>">
                                             <?php echo esc_html(mb_t('action.delete')); ?>
                                         </button>
@@ -2481,11 +2481,11 @@ add_action('wp_ajax_toggle_campaign_status', function () {
             <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; width: 600px; max-width: 90%; max-height: 90%; overflow-y: auto;">
                 <h3 id="modal-title" style="margin-top: 0; border-bottom: 2px solid #0073aa; padding-bottom: 10px; color: #0073aa;"><?php echo esc_html(mb_t('campaigns.form.title.add')); ?></h3>
                 
-                <form method="post" id="campaign-form">
+                <form method="post" id="campaign-form" data-testid="mb-campaign-form">
                     <input type="hidden" name="action" value="create_campaign" id="form-action">
                     <input type="hidden" name="campaign_id" value="" id="campaign-id">
                     <input type="hidden" name="nonce" value="<?php echo esc_attr( wp_create_nonce('monthly_booking_admin') ); ?>">
-                    <div id="campaign-form-message" class="notice" style="display:none"></div>
+                    <div id="campaign-form-message" class="notice" style="display:none" data-testid="mb-campaign-form-message"></div>
                     
                     <!-- 基本情報セクション -->
                     <div class="campaign-section">
@@ -2493,12 +2493,12 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                         <table class="form-table">
                             <tr>
                                 <th><label for="name"><?php echo esc_html(mb_t('campaigns.form.fields.name')); ?></label></th>
-                                <td><input type="text" name="name" id="name" class="regular-text" required placeholder="<?php echo esc_attr(mb_t('campaigns.form.fields.name_placeholder')); ?>"></td>
+                                <td><input type="text" name="name" id="name" data-testid="mb-campaign-name" class="regular-text" required placeholder="<?php echo esc_attr(mb_t('campaigns.form.fields.name_placeholder')); ?>"></td>
                             </tr>
                             <tr>
                                 <th><label for="campaign_type"><?php _e('キャンペーンタイプ', 'monthly-booking'); ?></label></th>
                                 <td>
-                                    <select name="campaign_type" id="campaign_type" required>
+                                    <select name="campaign_type" id="campaign_type" data-testid="mb-campaign-type" required>
                                         <option value=""><?php _e('選択してください', 'monthly-booking'); ?></option>
                                         <option value="immediate"><?php _e('即入居割（7日以内チェックイン）', 'monthly-booking'); ?></option>
                                         <option value="earlybird"><?php _e('早割（30日以上前予約）', 'monthly-booking'); ?></option>
@@ -2517,7 +2517,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                             <tr>
                                 <th><label for="discount_type"><?php echo esc_html(mb_t('campaigns.form.fields.discount_mode')); ?></label></th>
                                 <td>
-                                    <select name="discount_type" id="discount_type" required>
+                                    <select name="discount_type" id="discount_type" data-testid="mb-campaign-discount-type" required>
                                         <option value=""><?php echo esc_html(mb_t('common.select_placeholder')); ?></option>
                                         <option value="percentage"><?php echo esc_html(mb_t('discount.type.percentage')); ?></option>
                                         <option value="fixed"><?php echo esc_html(mb_t('discount.type.fixed')); ?></option>
@@ -2528,7 +2528,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                             <tr>
                                 <th><label for="discount_value"><?php echo esc_html(mb_t('campaigns.form.fields.discount_value')); ?></label></th>
                                 <td>
-                                    <input type="number" name="discount_value" id="discount_value" class="regular-text" min="0" step="0.01" required>
+                                    <input type="number" name="discount_value" id="discount_value" data-testid="mb-campaign-discount-value" class="regular-text" min="0" step="0.01" required>
                                     <span id="discount-unit" class="description"></span>
                                 </td>
                             </tr>
@@ -2557,19 +2557,19 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                                 <th><label><?php echo esc_html(mb_t('campaigns.form.fields.period_type')); ?></label></th>
                                 <td>
                                     <label style="margin-right:12px;">
-                                        <input type="radio" name="period_type" value="fixed" checked>
+                                        <input type="radio" name="period_type" value="fixed" data-testid="mb-campaign-period-fixed" checked>
                                         <?php echo esc_html(mb_t('period.type.fixed')); ?>
                                     </label>
                                     <label style="margin-right:12px;">
-                                        <input type="radio" name="period_type" value="checkin_relative">
+                                        <input type="radio" name="period_type" value="checkin_relative" data-testid="mb-campaign-period-relative">
                                         <?php echo esc_html(mb_t('period.type.movein')); ?>
                                     </label>
                                     <label style="margin-right:12px;">
-                                        <input type="radio" name="period_type" value="first_month_30d">
+                                        <input type="radio" name="period_type" value="first_month_30d" data-testid="mb-campaign-period-firstmonth">
                                         <?php echo esc_html(mb_t('period.type.first_month_30d')); ?>
                                     </label>
                                     <label>
-                                        <input type="radio" name="period_type" value="unlimited">
+                                        <input type="radio" name="period_type" value="unlimited" data-testid="mb-campaign-period-unlimited">
                                         <?php echo esc_html(mb_t('period.type.unlimited')); ?>
                                     </label>
                                     <p class="description" id="unlimited-warning" style="display:none;color:#d63638;"><?php echo esc_html(mb_t('campaigns.validation.unlimited_warning')); ?></p>
@@ -2578,21 +2578,21 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                             <tr id="relative-days-row" style="display:none;">
                                 <th><label for="relative_days"><?php echo esc_html(mb_t('campaigns.form.fields.relative_days')); ?></label></th>
                                 <td>
-                                    <input type="number" name="relative_days" id="relative_days" class="small-text" min="1" max="30" value="30">
+                                    <input type="number" name="relative_days" id="relative_days" data-testid="mb-campaign-relative-days" class="small-text" min="1" max="30" value="30">
                                     <span class="description"><?php echo esc_html(mb_t('campaigns.form.help.relative_days')); ?></span>
                                 </td>
                             </tr>
                             <tr class="fixed-period-row">
                                 <th><label for="start_date"><?php echo esc_html(mb_t('campaigns.form.fields.start_date')); ?></label></th>
                                 <td>
-                                    <input type="date" name="start_date" id="start_date" class="regular-text" required min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
+                                    <input type="date" name="start_date" id="start_date" data-testid="mb-campaign-start-date" class="regular-text" required min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
 
                                 </td>
                             </tr>
                             <tr class="fixed-period-row">
                                 <th><label for="end_date"><?php echo esc_html(mb_t('campaigns.form.fields.end_date')); ?></label></th>
                                 <td>
-                                    <input type="date" name="end_date" id="end_date" class="regular-text" required max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
+                                    <input type="date" name="end_date" id="end_date" data-testid="mb-campaign-end-date" class="regular-text" required max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
                                 </td>
                             </tr>
                         </table>
@@ -2667,14 +2667,14 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                             <tr>
                                 <th><label for="start_date"><?php _e('開始日', 'monthly-booking'); ?></label></th>
                                 <td>
-                                    <input type="date" name="start_date" id="start_date" class="regular-text" required min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
+                                    <input type="date" name="start_date" id="start_date" data-testid="mb-campaign-start-date" class="regular-text" required min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
                                     <p class="description"><?php _e('本日から180日後まで設定可能です', 'monthly-booking'); ?></p>
                                 </td>
                             </tr>
                             <tr>
                                 <th><label for="end_date"><?php _e('終了日', 'monthly-booking'); ?></label></th>
                                 <td>
-                                    <input type="date" name="end_date" id="end_date" class="regular-text" required max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
+                                    <input type="date" name="end_date" id="end_date" data-testid="mb-campaign-end-date" class="regular-text" required max="<?php echo date('Y-m-d', strtotime('+180 days')); ?>">
                                     <p class="description"><?php _e('最大180日後まで設定可能です', 'monthly-booking'); ?></p>
                                 </td>
                             </tr>
@@ -3020,7 +3020,7 @@ add_action('wp_ajax_toggle_campaign_status', function () {
                 <h2><?php _e('オプション管理', 'monthly-booking'); ?></h2>
                 <p><?php _e('月額予約のオプションセットを管理します。', 'monthly-booking'); ?></p>
                 
-                <table class="monthly-booking-table">
+                <table class="monthly-booking-table" data-testid="mb-campaign-list-legacy">
                     <thead>
                         <tr>
                             <th><?php _e('表示順', 'monthly-booking'); ?></th>
