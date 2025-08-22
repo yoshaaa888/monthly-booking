@@ -94,17 +94,27 @@ WHERE NOT EXISTS (
     AND COLUMN_TYPE LIKE "%'month'%"
 );
 
-SET @sql_trunc := CONCAT(
-  'SET FOREIGN_KEY_CHECKS=0;',
-  'TRUNCATE TABLE `', @BOOKING_OPTIONS_TABLE, '`;',
-  'TRUNCATE TABLE `', @BOOKINGS_TABLE, '`;',
-  'TRUNCATE TABLE `', @CUSTOMERS_TABLE, '`;',
-  'TRUNCATE TABLE `', @CAMPAIGNS_TABLE, '`;',
-  'TRUNCATE TABLE `', @OPTIONS_TABLE, '`;',
-  'TRUNCATE TABLE `', @ROOMS_TABLE, '`;',
-  'SET FOREIGN_KEY_CHECKS=1;'
-);
-PREPARE stmt_trunc FROM @sql_trunc; EXECUTE stmt_trunc; DEALLOCATE PREPARE stmt_trunc;
+SET FOREIGN_KEY_CHECKS=0;
+
+SET @sql_trunc_bo := CONCAT('TRUNCATE TABLE `', @BOOKING_OPTIONS_TABLE, '`');
+PREPARE stmt_trunc_bo FROM @sql_trunc_bo; EXECUTE stmt_trunc_bo; DEALLOCATE PREPARE stmt_trunc_bo;
+
+SET @sql_trunc_b := CONCAT('TRUNCATE TABLE `', @BOOKINGS_TABLE, '`');
+PREPARE stmt_trunc_b FROM @sql_trunc_b; EXECUTE stmt_trunc_b; DEALLOCATE PREPARE stmt_trunc_b;
+
+SET @sql_trunc_cust := CONCAT('TRUNCATE TABLE `', @CUSTOMERS_TABLE, '`');
+PREPARE stmt_trunc_cust FROM @sql_trunc_cust; EXECUTE stmt_trunc_cust; DEALLOCATE PREPARE stmt_trunc_cust;
+
+SET @sql_trunc_cam := CONCAT('TRUNCATE TABLE `', @CAMPAIGNS_TABLE, '`');
+PREPARE stmt_trunc_cam FROM @sql_trunc_cam; EXECUTE stmt_trunc_cam; DEALLOCATE PREPARE stmt_trunc_cam;
+
+SET @sql_trunc_opt := CONCAT('TRUNCATE TABLE `', @OPTIONS_TABLE, '`');
+PREPARE stmt_trunc_opt FROM @sql_trunc_opt; EXECUTE stmt_trunc_opt; DEALLOCATE PREPARE stmt_trunc_opt;
+
+SET @sql_trunc_rooms := CONCAT('TRUNCATE TABLE `', @ROOMS_TABLE, '`');
+PREPARE stmt_trunc_rooms FROM @sql_trunc_rooms; EXECUTE stmt_trunc_rooms; DEALLOCATE PREPARE stmt_trunc_rooms;
+
+SET FOREIGN_KEY_CHECKS=1;
 
 SET @sql_rooms := CONCAT(
   'INSERT INTO `', @ROOMS_TABLE, '` ',
