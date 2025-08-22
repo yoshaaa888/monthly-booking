@@ -25,9 +25,13 @@
 5) エラーが出ないことを確認
 
 補足:
-- 本SQLは enum('日','月') と enum('day','month') のどちらの環境でも自動判定して投入します（情報スキーマ参照、準備済みステートメントで挿入）
-- テーブル接頭辞（wp_）が異なる環境でも、現在のDB内の実テーブル名（%_monthly_rooms など）を自動検出して挿入します
+- 本SQLは v4 で「必要テーブルの自動作成（CREATE TABLE IF NOT EXISTS）」を追加しました。wp_monthly_rooms が未作成でも自動で作成したうえで投入します。
+- enum('日','月') と enum('day','month') のどちらの環境でも自動判定して投入します（information_schema 参照、準備済みステートメントで挿入）
+- テーブル接頭辞（wp_）が異なる環境でも、現在のDB内の実テーブル名（%_monthly_*）を自動検出して投入します
+- MySQL 9.4 対応: PREPARE は「1 文ずつ」のみ実行（マルチステートメント未使用）、TRUNCATE は各テーブル個別に PREPARE/EXECUTE/DEALLOCATE します
 - 何度も流すと重複エラーになる場合があります。必要に応じてテーブルを空にしてから再投入してください
+- CLI 例（docker-compose 環境）:
+  cat seed_data_compatible.sql | docker-compose -f docker-compose.wordpress.yml exec -T db mysql -u USER -pPASS DBNAME
 
 ## 4. 動作確認用ページの作成
 1) 管理画面 → 「固定ページ」 → 「新規追加」

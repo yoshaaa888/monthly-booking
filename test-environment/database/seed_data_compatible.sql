@@ -12,6 +12,15 @@ FROM information_schema.tables
 WHERE table_schema = DATABASE() AND TABLE_NAME LIKE '%_monthly_rooms'
 LIMIT 1;
 
+SELECT @BOOKINGS_TABLE := COALESCE(@BOOKINGS_TABLE, TABLE_NAME)
+FROM information_schema.tables
+WHERE table_schema = DATABASE() AND TABLE_NAME LIKE '%_monthly_bookings'
+LIMIT 1;
+
+SELECT @prefix_guess := SUBSTRING_INDEX(@BOOKINGS_TABLE, 'monthly_bookings', 1);
+
+SELECT @ROOMS_TABLE := COALESCE(@ROOMS_TABLE, CONCAT(@prefix_guess, 'monthly_rooms'));
+
 SELECT @OPTIONS_TABLE := TABLE_NAME
 FROM information_schema.tables
 WHERE table_schema = DATABASE() AND TABLE_NAME LIKE '%_monthly_options'
@@ -26,6 +35,39 @@ SELECT @CUSTOMERS_TABLE := TABLE_NAME
 FROM information_schema.tables
 WHERE table_schema = DATABASE() AND TABLE_NAME LIKE '%_monthly_customers'
 LIMIT 1;
+
+/* Ensure rooms table exists (if plugin activation didn't create it).
+   Derive table name from detected prefix and create minimal schema aligned with plugin. */
+SET @sql_create_rooms := CONCAT(
+  'CREATE TABLE IF NOT EXISTS `', @ROOMS_TABLE, '` (',
+  '  room_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,',
+  '  property_id BIGINT UNSIGNED NOT NULL,',
+  "  mor_g VARCHAR(10) NOT NULL DEFAULT 'M',",
+  '  property_name VARCHAR(255) NOT NULL,',
+  '  display_name VARCHAR(255) NOT NULL,',
+  '  room_name VARCHAR(255) NOT NULL,',
+  '  room_description TEXT,',
+  '  min_stay_days INT NOT NULL DEFAULT 7,',
+  "  min_stay_unit ENUM('日','月','day','month') NOT NULL DEFAULT ''日'',",
+  '  max_occupants INT NOT NULL DEFAULT 2,',
+  '  address VARCHAR(255),',
+  '  layout VARCHAR(255),',
+  '  floor_area DECIMAL(10,2),',
+  '  structure VARCHAR(255),',
+  '  built_year VARCHAR(20),',
+  '  daily_rent DECIMAL(10,2) NOT NULL DEFAULT 0,',
+  '  line1 VARCHAR(255), station1 VARCHAR(255), access1_type VARCHAR(50), access1_time INT,',
+  '  line2 VARCHAR(255), station2 VARCHAR(255), access2_type VARCHAR(50), access2_time INT,',
+  '  line3 VARCHAR(255), station3 VARCHAR(255), access3_type VARCHAR(50), access3_time INT,',
+  '  room_size DECIMAL(10,2),',
+  '  room_amenities TEXT,',
+  '  room_images TEXT,',
+  '  is_active TINYINT(1) NOT NULL DEFAULT 1,',
+  '  PRIMARY KEY (room_id)',
+  ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;'
+);
+PREPARE stmt_create_rooms FROM @sql_create_rooms; EXECUTE stmt_create_rooms; DEALLOCATE PREPARE stmt_create_rooms;
+
 
 SELECT @BOOKINGS_TABLE := TABLE_NAME
 FROM information_schema.tables
