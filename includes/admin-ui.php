@@ -105,6 +105,13 @@ class MonthlyBooking_Admin_UI {
             array($this, 'admin_page_consistency_dashboard')
         );
 
+        add_action('admin_post_mb_fix_campaign_table', array($this, 'handle_fix_campaign_table'));
+        add_action('admin_post_mb_fix_missing_rates', array($this, 'handle_fix_missing_rates'));
+        add_action('admin_post_mb_fix_option_orders', array($this, 'handle_fix_option_orders'));
+        add_action('admin_post_mb_rollback_rates', array($this, 'handle_rollback_rates'));
+        add_action('admin_post_mb_rollback_options', array($this, 'handle_rollback_options'));
+
+
     }
     
     /**
@@ -1329,6 +1336,76 @@ class MonthlyBooking_Admin_UI {
                 </ul>
                 <p>
                     <a class="button button-primary" href="<?php echo esc_url($csv_url_all); ?>"><?php _e('CSVダウンロード（全件）', 'monthly-booking'); ?></a>
+                <div style="margin:16px 0;padding:12px;border:1px solid #dcdcde;background:#fff;border-radius:4px">
+        <div class="notice notice-info" style="margin-top:12px;padding:12px">
+            <h2><?php _e('自動修正', 'monthly-booking'); ?></h2>
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="background:#fff;padding:12px;border:1px solid #dcdcde;border-radius:4px">
+                    <?php wp_nonce_field('mb_fix_actions', 'mb_fix_nonce'); ?>
+                    <input type="hidden" name="action" value="mb_fix_missing_rates">
+                    <label><?php _e('room_id', 'monthly-booking'); ?> <input type="number" name="room_id" min="1" required style="width:100px"></label>
+                    <button type="submit" class="button button-primary"><?php _e('料金プラン補完', 'monthly-booking'); ?></button>
+                </form>
+
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="background:#fff;padding:12px;border:1px solid #dcdcde;border-radius:4px">
+                    <?php wp_nonce_field('mb_fix_actions', 'mb_fix_nonce'); ?>
+                    <input type="hidden" name="action" value="mb_fix_option_orders">
+                    <button type="submit" class="button button-primary"><?php _e('表示順序修正', 'monthly-booking'); ?></button>
+                </form>
+
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="background:#fff;padding:12px;border:1px solid #dcdcde;border-radius:4px">
+                    <?php wp_nonce_field('mb_fix_actions', 'mb_fix_nonce'); ?>
+                    <input type="hidden" name="action" value="mb_rollback_rates">
+                    <label><?php _e('batch_id（省略可: 直近）', 'monthly-booking'); ?> <input type="text" name="batch_id" style="width:200px"></label>
+                    <button type="submit" class="button"><?php _e('料金プラン ロールバック', 'monthly-booking'); ?></button>
+                </form>
+
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="background:#fff;padding:12px;border:1px solid #dcdcde;border-radius:4px">
+                    <?php wp_nonce_field('mb_fix_actions', 'mb_fix_nonce'); ?>
+                    <input type="hidden" name="action" value="mb_rollback_options">
+                    <label><?php _e('batch_id（省略可: 直近）', 'monthly-booking'); ?> <input type="text" name="batch_id" style="width:200px"></label>
+                    <button type="submit" class="button"><?php _e('表示順序 ロールバック', 'monthly-booking'); ?></button>
+                </form>
+            </div>
+        </div>
+
+                    <h3><?php _e('自動修正', 'monthly-booking'); ?></h3>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap">
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                            <?php wp_nonce_field('mb_fix_actions','mb_fix_nonce'); ?>
+                            <input type="hidden" name="action" value="mb_fix_campaign_table">
+                            <button type="submit" class="button button-primary"><?php _e('キャンペーンテーブル統一', 'monthly-booking'); ?></button>
+                        </form>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:flex;gap:8px;align-items:center">
+                            <?php wp_nonce_field('mb_fix_actions','mb_fix_nonce'); ?>
+                            <input type="hidden" name="action" value="mb_fix_missing_rates">
+                            <label><?php _e('room_id', 'monthly-booking'); ?> <input type="number" name="room_id" min="1" style="width:120px" required></label>
+                            <button type="submit" class="button button-primary"><?php _e('料金プラン補完', 'monthly-booking'); ?></button>
+                        </form>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                            <?php wp_nonce_field('mb_fix_actions','mb_fix_nonce'); ?>
+                            <input type="hidden" name="action" value="mb_fix_option_orders">
+                            <button type="submit" class="button button-primary"><?php _e('表示順序修正', 'monthly-booking'); ?></button>
+                        </form>
+                    </div>
+                    <h4 style="margin-top:12px"><?php _e('ロールバック', 'monthly-booking'); ?></h4>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap">
+                        <?php $last_rates = get_option('mb_last_rates_batch'); $last_opts = get_option('mb_last_options_batch'); ?>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:flex;gap:8px;align-items:center">
+                            <?php wp_nonce_field('mb_fix_actions','mb_fix_nonce'); ?>
+                            <input type="hidden" name="action" value="mb_rollback_rates">
+                            <input type="text" name="batch_id" placeholder="<?php echo esc_attr($last_rates ? $last_rates : 'batch_id'); ?>" style="width:260px">
+                            <button type="submit" class="button"><?php _e('料金プラン ロールバック', 'monthly-booking'); ?></button>
+                        </form>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:flex;gap:8px;align-items:center">
+                            <?php wp_nonce_field('mb_fix_actions','mb_fix_nonce'); ?>
+                            <input type="hidden" name="action" value="mb_rollback_options">
+                            <input type="text" name="batch_id" placeholder="<?php echo esc_attr($last_opts ? $last_opts : 'batch_id'); ?>" style="width:260px">
+                            <button type="submit" class="button"><?php _e('表示順序 ロールバック', 'monthly-booking'); ?></button>
+                        </form>
+                    </div>
+                </div>
+
                     <a class="button" href="<?php echo esc_url($csv_url_campaign); ?>"><?php _e('CSV（キャンペーン）', 'monthly-booking'); ?></a>
                     <a class="button" href="<?php echo esc_url($csv_url_pricing); ?>"><?php _e('CSV（料金参照）', 'monthly-booking'); ?></a>
                     <a class="button" href="<?php echo esc_url($csv_url_options); ?>"><?php _e('CSV（オプション）', 'monthly-booking'); ?></a>
@@ -1372,18 +1449,85 @@ class MonthlyBooking_Admin_UI {
         if (!current_user_can('manage_options')) {
             wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }
-        $room_id = isset($_POST['room_id']) ? intval($_POST['room_id']) : 0;
-        $date = isset($_POST['date']) ? sanitize_text_field($_POST['date']) : '';
-        $nonce = isset($_POST['_wpnonce']) ? $_POST['_wpnonce'] : '';
-        if (!$room_id || !$date || !wp_verify_nonce($nonce, 'mb_delete_booking_' . $room_id . '_' . $date)) {
-            wp_die(__('Bad request.', 'monthly-booking'));
+}
+
+    public function handle_fix_campaign_table() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
         }
-        global $wpdb;
-        $table = $wpdb->prefix . 'monthly_bookings';
-        $wpdb->query($wpdb->prepare("DELETE FROM $table WHERE room_id = %d AND %s BETWEEN start_date AND end_date", $room_id, $date));
-        wp_safe_redirect(admin_url('admin.php?page=monthly-room-booking-calendar&room_id=' . $room_id . '&mb_notice=deleted'));
+        check_admin_referer('mb_fix_actions', 'mb_fix_nonce');
+        wp_redirect(admin_url('admin.php?page=monthly-room-booking-campaigns'));
         exit;
     }
+
+    public function handle_fix_missing_rates() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
+        }
+        check_admin_referer('mb_fix_actions', 'mb_fix_nonce');
+        $room_id = isset($_POST['room_id']) ? intval($_POST['room_id']) : 0;
+        require_once dirname(__FILE__) . '/admin/class-mb-consistency-checker.php';
+        $checker = new MB_Consistency_Checker();
+        if ($room_id > 0) {
+            $checker->fix_missing_rate_plans($room_id);
+        }
+        wp_redirect(admin_url('admin.php?page=monthly-room-booking-consistency'));
+        exit;
+    }
+
+    public function handle_fix_option_orders() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
+        }
+        check_admin_referer('mb_fix_actions', 'mb_fix_nonce');
+        require_once dirname(__FILE__) . '/admin/class-mb-consistency-checker.php';
+        $checker = new MB_Consistency_Checker();
+        $checker->fix_duplicate_display_orders();
+        wp_redirect(admin_url('admin.php?page=monthly-room-booking-consistency'));
+        exit;
+    }
+
+    public function handle_rollback_rates() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
+        }
+        check_admin_referer('mb_fix_actions', 'mb_fix_nonce');
+        $batch_id = isset($_POST['batch_id']) ? sanitize_text_field($_POST['batch_id']) : '';
+        require_once dirname(__FILE__) . '/admin/class-mb-consistency-checker.php';
+        $checker = new MB_Consistency_Checker();
+        if ($batch_id) {
+            $checker->rollback_rates($batch_id);
+        } else {
+            $last = get_option('mb_last_rates_batch');
+            if ($last) {
+                $checker->rollback_rates($last);
+            }
+        }
+        wp_redirect(admin_url('admin.php?page=monthly-room-booking-consistency'));
+        exit;
+    }
+
+    public function handle_rollback_options() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'monthly-booking'));
+        }
+        check_admin_referer('mb_fix_actions', 'mb_fix_nonce');
+        $batch_id = isset($_POST['batch_id']) ? sanitize_text_field($_POST['batch_id']) : '';
+        require_once dirname(__FILE__) . '/admin/class-mb-consistency-checker.php';
+        $checker = new MB_Consistency_Checker();
+        if ($batch_id) {
+            $checker->rollback_options($batch_id);
+        } else {
+            $last = get_option('mb_last_options_batch');
+            if ($last) {
+                $checker->rollback_options($last);
+            }
+        }
+        wp_redirect(admin_url('admin.php?page=monthly-room-booking-consistency'));
+        exit;
+    }
+
+
 
     
     /**

@@ -1,4 +1,28 @@
 <?php
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 if (!defined('ABSPATH')) {
     exit;
 }
@@ -273,5 +297,185 @@ class MB_Consistency_Checker {
             $names[] = $c->Field;
         }
         return $names;
+    }
+    private function ensure_audit_table() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'mb_audit_log';
+        $charset_collate = $wpdb->get_charset_collate();
+        $sql = "CREATE TABLE IF NOT EXISTS $table (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            scope VARCHAR(20) NOT NULL,
+            batch_id VARCHAR(64) NOT NULL,
+            payload LONGTEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY scope (scope),
+            KEY batch_id (batch_id)
+        ) $charset_collate;";
+        $wpdb->query($sql);
+    }
+
+    private function write_audit($scope, $batch_id, $payload) {
+        global $wpdb;
+        $this->ensure_audit_table();
+        $table = $wpdb->prefix . 'mb_audit_log';
+        $wpdb->insert(
+            $table,
+            array(
+                'scope' => $scope,
+                'batch_id' => $batch_id,
+                'payload' => wp_json_encode($payload, JSON_UNESCAPED_UNICODE),
+            ),
+            array('%s','%s','%s')
+        );
+    }
+ 
+    public function fix_missing_rate_plans($room_id) {
+        $room_id = intval($room_id);
+        if ($room_id <= 0) {
+            return false;
+        }
+        $rooms_tbl = $this->wpdb->prefix . 'monthly_rooms';
+        $rates_tbl = $this->wpdb->prefix . 'monthly_rates';
+        $room = $this->wpdb->get_row($this->wpdb->prepare("SELECT daily_rent FROM $rooms_tbl WHERE room_id = %d", $room_id));
+        if (!$room) {
+            return false;
+        }
+
+        $batch_id = gmdate('YmdHis') . '-' . (function_exists('wp_generate_uuid4') ? wp_generate_uuid4() : wp_rand(1000,9999));
+        $before_rows = $this->wpdb->get_results($this->wpdb->prepare("SELECT * FROM $rates_tbl WHERE room_id = %d AND rate_type IN ('SS','S','M','L')", $room_id), ARRAY_A);
+        $inserted_ids = array();
+
+        $rate_types = array('SS','S','M','L');
+        foreach ($rate_types as $type) {
+            $exists = intval($this->wpdb->get_var($this->wpdb->prepare("SELECT COUNT(*) FROM $rates_tbl WHERE room_id = %d AND rate_type = %s AND is_active = 1", $room_id, $type)));
+            if ($exists <= 0) {
+                $this->wpdb->insert(
+                    $rates_tbl,
+                    array(
+                        'room_id' => $room_id,
+                        'rate_type' => $type,
+                        'base_price' => floatval($room->daily_rent),
+                        'cleaning_fee' => 0,
+                        'service_fee' => 0,
+                        'valid_from' => gmdate('Y-m-d'),
+                        'valid_to' => null,
+                        'is_active' => 1
+                    ),
+                    array('%d','%s','%f','%f','%f','%s','%s','%d')
+                );
+                $inserted_ids[] = intval($this->wpdb->insert_id);
+            }
+        }
+
+        $this->write_audit('rates', $batch_id, array(
+            'action' => 'fix_missing_rate_plans',
+            'room_id' => $room_id,
+            'before_rows' => $before_rows,
+            'inserted_ids' => $inserted_ids,
+        ));
+        update_option('mb_last_rates_batch', $batch_id);
+
+        return true;
+    }
+
+    public function fix_duplicate_display_orders() {
+        $opt_tbl = $this->wpdb->prefix . 'monthly_options';
+        $duplicates = $this->wpdb->get_results("
+            SELECT display_order, GROUP_CONCAT(id ORDER BY id ASC) AS ids, COUNT(*) AS cnt
+            FROM $opt_tbl
+            WHERE display_order IS NOT NULL
+            GROUP BY display_order
+            HAVING COUNT(*) > 1
+            ORDER BY display_order ASC
+        ");
+        if (empty($duplicates)) {
+            return 0;
+        }
+
+        $batch_id = gmdate('YmdHis') . '-' . (function_exists('wp_generate_uuid4') ? wp_generate_uuid4() : wp_rand(1000,9999));
+        $affected_map = array();
+
+        foreach ($duplicates as $dup) {
+            $ids = explode(',', $dup->ids);
+            foreach ($ids as $id) {
+                $id = intval($id);
+                $old = $this->wpdb->get_row($this->wpdb->prepare("SELECT id, display_order FROM $opt_tbl WHERE id = %d", $id), ARRAY_A);
+                if ($old) {
+                    $affected_map[] = array('id' => intval($old['id']), 'display_order' => intval($old['display_order']));
+                }
+            }
+        }
+
+        $this->write_audit('options', $batch_id, array(
+            'action' => 'fix_duplicate_display_orders',
+            'affected' => $affected_map,
+        ));
+        update_option('mb_last_options_batch', $batch_id);
+
+        $fixed = 0;
+        foreach ($duplicates as $dup) {
+            $ids = explode(',', $dup->ids);
+            for ($i = 1; $i < count($ids); $i++) {
+                $new_order = $this->get_next_available_order();
+                $this->wpdb->update(
+                    $opt_tbl,
+                    array('display_order' => $new_order),
+                    array('id' => intval($ids[$i])),
+                    array('%d'),
+                    array('%d')
+                );
+                $fixed++;
+            }
+        }
+        return $fixed;
+    }
+
+    private function get_next_available_order() {
+        $opt_tbl = $this->wpdb->prefix . 'monthly_options';
+        $max_order = intval($this->wpdb->get_var("SELECT COALESCE(MAX(display_order),0) FROM $opt_tbl"));
+        return $max_order + 1;
+    }
+
+    public function rollback_rates($batch_id) {
+        $batch_id = sanitize_text_field($batch_id);
+        if (!$batch_id) return false;
+        global $wpdb;
+        $table = $wpdb->prefix . 'mb_audit_log';
+        $rates_tbl = $wpdb->prefix . 'monthly_rates';
+        $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE scope = 'rates' AND batch_id = %s ORDER BY id DESC LIMIT 1", $batch_id));
+        if (!$row) return false;
+        $payload = json_decode($row->payload, true);
+        if (!is_array($payload)) return false;
+        $inserted_ids = isset($payload['inserted_ids']) && is_array($payload['inserted_ids']) ? array_map('intval', $payload['inserted_ids']) : array();
+        if (!empty($inserted_ids)) {
+            $placeholders = implode(',', array_fill(0, count($inserted_ids), '%d'));
+            $wpdb->query($wpdb->prepare("DELETE FROM $rates_tbl WHERE id IN ($placeholders)", $inserted_ids));
+        }
+        return true;
+    }
+
+    public function rollback_options($batch_id) {
+        $batch_id = sanitize_text_field($batch_id);
+        if (!$batch_id) return false;
+        global $wpdb;
+        $table = $wpdb->prefix . 'mb_audit_log';
+        $opt_tbl = $wpdb->prefix . 'monthly_options';
+        $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE scope = 'options' AND batch_id = %s ORDER BY id DESC LIMIT 1", $batch_id));
+        if (!$row) return false;
+        $payload = json_decode($row->payload, true);
+        if (!is_array($payload) || !isset($payload['affected']) || !is_array($payload['affected'])) return false;
+        foreach ($payload['affected'] as $it) {
+            $id = intval($it['id']);
+            $display_order = intval($it['display_order']);
+            $wpdb->update(
+                $opt_tbl,
+                array('display_order' => $display_order),
+                array('id' => $id),
+                array('%d'),
+                array('%d')
+            );
+        }
+        return true;
     }
 }
