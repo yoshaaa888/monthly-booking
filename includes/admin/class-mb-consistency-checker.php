@@ -39,34 +39,19 @@ class MB_Consistency_Checker {
         $prefix = $this->wpdb->prefix;
         $rows = array();
 
-        $tbl_booking = $prefix . 'monthly_booking_campaigns';
         $tbl_campaigns = $prefix . 'monthly_campaigns';
 
-        $exists_booking = $this->table_exists($tbl_booking);
         $exists_campaigns = $this->table_exists($tbl_campaigns);
-
-        $cnt_booking = $exists_booking ? $this->get_count($tbl_booking) : null;
         $cnt_campaigns = $exists_campaigns ? $this->get_count($tbl_campaigns) : null;
-
-        $cols_booking = $exists_booking ? $this->get_columns($tbl_booking) : array();
         $cols_campaigns = $exists_campaigns ? $this->get_columns($tbl_campaigns) : array();
-
-        $rows[] = array(
-            'category' => 'campaign_table',
-            'location' => $tbl_booking,
-            'current_value' => json_encode(array('exists' => $exists_booking, 'count' => $cnt_booking, 'columns' => $cols_booking)),
-            'expected_value' => json_encode(array('exists' => true, 'columns_example' => array('name','discount_type','discount_value','start_date','end_date','is_active'))),
-            'severity' => $exists_booking && $exists_campaigns ? '高' : ($exists_campaigns ? '中' : '中'),
-            'note' => 'booking-logic.php はこのテーブルを参照（要統一検討）'
-        );
 
         $rows[] = array(
             'category' => 'campaign_table',
             'location' => $tbl_campaigns,
             'current_value' => json_encode(array('exists' => $exists_campaigns, 'count' => $cnt_campaigns, 'columns' => $cols_campaigns)),
-            'expected_value' => json_encode(array('exists' => true, 'columns_example' => array('name','discount_type','discount_value','start_date','end_date','is_active'))),
+            'expected_value' => json_encode(array('exists' => true, 'columns_example' => array('campaign_name','discount_type','discount_value','start_date','end_date','is_active'))),
             'severity' => $exists_campaigns ? '中' : '高',
-            'note' => $exists_campaigns ? 'admin-ui.php / campaign-manager.php はこのテーブルを参照' : '管理画面のキャンペーン機能が動作しない可能性'
+            'note' => $exists_campaigns ? 'キャンペーン参照は monthly_campaigns に統一済み' : 'キャンペーン機能が動作しない可能性'
         );
 
         return $rows;
@@ -335,6 +320,11 @@ class MB_Consistency_Checker {
         if ($room_id <= 0) {
             return false;
         }
+        $pre = $this->pre_fix_validation('fix_missing_rate_plans', array('room_id' => $room_id));
+        if (!$pre['status']) {
+            return false;
+        }
+
         $rooms_tbl = $this->wpdb->prefix . 'monthly_rooms';
         $rates_tbl = $this->wpdb->prefix . 'monthly_rates';
         $room = $this->wpdb->get_row($this->wpdb->prepare("SELECT daily_rent FROM $rooms_tbl WHERE room_id = %d", $room_id));
@@ -374,12 +364,19 @@ class MB_Consistency_Checker {
             'before_rows' => $before_rows,
             'inserted_ids' => $inserted_ids,
         ));
+        $this->write_monthly_audit($this->wpdb->prefix . 'monthly_rates', $room_id, 'fix_missing_rate_plans', $before_rows, array('inserted_ids' => $inserted_ids));
         update_option('mb_last_rates_batch', $batch_id);
 
-        return true;
+        $post = $this->post_fix_validation('fix_missing_rate_plans', array('room_id' => $room_id));
+        return $post['status'];
     }
 
     public function fix_duplicate_display_orders() {
+        $pre = $this->pre_fix_validation('fix_duplicate_display_orders', array());
+        if (!$pre['status']) {
+            return 0;
+        }
+
         $opt_tbl = $this->wpdb->prefix . 'monthly_options';
         $duplicates = $this->wpdb->get_results("
             SELECT display_order, GROUP_CONCAT(id ORDER BY id ASC) AS ids, COUNT(*) AS cnt
@@ -411,6 +408,7 @@ class MB_Consistency_Checker {
             'action' => 'fix_duplicate_display_orders',
             'affected' => $affected_map,
         ));
+        $this->write_monthly_audit($this->wpdb->prefix . 'monthly_options', 0, 'fix_duplicate_display_orders', $affected_map, null);
         update_option('mb_last_options_batch', $batch_id);
 
         $fixed = 0;
@@ -428,7 +426,9 @@ class MB_Consistency_Checker {
                 $fixed++;
             }
         }
-        return $fixed;
+
+        $post = $this->post_fix_validation('fix_duplicate_display_orders', array());
+        return $post['status'] ? $fixed : $fixed;
     }
 
     private function get_next_available_order() {
@@ -472,10 +472,61 @@ class MB_Consistency_Checker {
                 $opt_tbl,
                 array('display_order' => $display_order),
                 array('id' => $id),
-                array('%d'),
                 array('%d')
             );
         }
         return true;
     }
+    public function pre_fix_validation($action, $params = array()) {
+        $prefix = $this->wpdb->prefix;
+        if ($action === 'fix_missing_rate_plans') {
+            $room_id = isset($params['room_id']) ? intval($params['room_id']) : 0;
+            if ($room_id <= 0) return array('status' => false, 'details' => 'invalid_room_id');
+            $room_exists = intval($this->wpdb->get_var($this->wpdb->prepare("SELECT COUNT(*) FROM {$prefix}monthly_rooms WHERE room_id = %d", $room_id)));
+            if ($room_exists <= 0) return array('status' => false, 'details' => 'room_not_found');
+            $counts = $this->wpdb->get_row($this->wpdb->prepare("
+                SELECT 
+                    SUM(CASE WHEN rate_type='SS' AND is_active=1 THEN 1 ELSE 0 END) AS ss,
+                    SUM(CASE WHEN rate_type='S'  AND is_active=1 THEN 1 ELSE 0 END) AS s,
+                    SUM(CASE WHEN rate_type='M'  AND is_active=1 THEN 1 ELSE 0 END) AS m,
+                    SUM(CASE WHEN rate_type='L'  AND is_active=1 THEN 1 ELSE 0 END) AS l
+                FROM {$prefix}monthly_rates WHERE room_id = %d
+            ", $room_id));
+            $missing = array();
+            if (intval($counts->ss) <= 0) $missing[] = 'SS';
+            if (intval($counts->s) <= 0) $missing[] = 'S';
+            if (intval($counts->m) <= 0) $missing[] = 'M';
+            if (intval($counts->l) <= 0) $missing[] = 'L';
+            return array('status' => count($missing) > 0, 'details' => $missing);
+        }
+        if ($action === 'fix_duplicate_display_orders') {
+            $dup = $this->wpdb->get_var("SELECT 1 FROM {$prefix}monthly_options GROUP BY display_order HAVING COUNT(*) > 1 LIMIT 1");
+            return array('status' => !is_null($dup), 'details' => null);
+        }
+        return array('status' => true, 'details' => null);
+    }
+
+    public function post_fix_validation($action, $params = array()) {
+        $prefix = $this->wpdb->prefix;
+        if ($action === 'fix_missing_rate_plans') {
+            $room_id = isset($params['room_id']) ? intval($params['room_id']) : 0;
+            if ($room_id <= 0) return array('status' => false, 'details' => 'invalid_room_id');
+            $counts = $this->wpdb->get_row($this->wpdb->prepare("
+                SELECT 
+                    SUM(CASE WHEN rate_type='SS' AND is_active=1 THEN 1 ELSE 0 END) AS ss,
+                    SUM(CASE WHEN rate_type='S'  AND is_active=1 THEN 1 ELSE 0 END) AS s,
+                    SUM(CASE WHEN rate_type='M'  AND is_active=1 THEN 1 ELSE 0 END) AS m,
+                    SUM(CASE WHEN rate_type='L'  AND is_active=1 THEN 1 ELSE 0 END) AS l
+                FROM {$prefix}monthly_rates WHERE room_id = %d
+            ", $room_id));
+            $ok = intval($counts->ss) > 0 && intval($counts->s) > 0 && intval($counts->m) > 0 && intval($counts->l) > 0;
+            return array('status' => $ok, 'details' => null);
+        }
+        if ($action === 'fix_duplicate_display_orders') {
+            $dup = $this->wpdb->get_var("SELECT 1 FROM {$prefix}monthly_options GROUP BY display_order HAVING COUNT(*) > 1 LIMIT 1");
+            return array('status' => $dup === null, 'details' => null);
+        }
+        return array('status' => true, 'details' => null);
+    }
+
 }
